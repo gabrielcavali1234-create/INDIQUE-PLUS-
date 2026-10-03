@@ -1,0 +1,725 @@
+<title>INDIQUE+</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Layout: app de bolso (460px) para indicador e corretor; painel largo para o admin. Fachada de janelas como motivo. */
+:root{
+  --bg:#F2F5F4; --surface:#FFFFFF; --surface-2:#E8EEEC; --ink:#10272E; --muted:#5A6D71; --line:#D5DEDB;
+  --brand:#0F4C5C; --brand-2:#0B3A47; --brand-ink:#FFFFFF; --gold:#C98A12; --gold-soft:#FBEFD3; --danger:#B4362F; --danger-soft:#FBE4E2;
+  --s0:#8A9799; --s1:#2F6FD6; --s2:#B89300; --s3:#DB7420; --s4:#7E4FC9; --s5:#2E87A8; --s6:#2E9B5F; --s7:#C98A12; --s8:#3B4446;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A1618; --surface:#122326; --surface-2:#1A2F33; --ink:#E5EEEC; --muted:#92A6A8; --line:#25403F;
+  --brand:#3A9DB0; --brand-2:#123A44; --brand-ink:#04161A; --gold:#E7B04A; --gold-soft:#372B12; --danger:#E46A62; --danger-soft:#3A1A18;
+  --s0:#8E9C9E; --s1:#6C9BEB; --s2:#E0C14A; --s3:#EE9550; --s4:#A784E3; --s5:#5DB3D2; --s6:#5BC48A; --s7:#E7B04A; --s8:#9AA4A6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A1618; --surface:#122326; --surface-2:#1A2F33; --ink:#E5EEEC; --muted:#92A6A8; --line:#25403F;
+  --brand:#3A9DB0; --brand-2:#123A44; --brand-ink:#04161A; --gold:#E7B04A; --gold-soft:#372B12; --danger:#E46A62; --danger-soft:#3A1A18;
+  --s0:#8E9C9E; --s1:#6C9BEB; --s2:#E0C14A; --s3:#EE9550; --s4:#A784E3; --s5:#5DB3D2; --s6:#5BC48A; --s7:#E7B04A; --s8:#9AA4A6; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-radius:8px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;text-wrap:balance;letter-spacing:-.01em}
+p{margin:0}
+.ic{flex:none;display:block}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* top */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top-in{max-width:460px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top-in.wide{max-width:1160px}
+.brand{display:flex;align-items:center;gap:8px}
+.mark{width:30px;height:30px;border-radius:9px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center}
+.bn{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.02em}
+.bn b{color:var(--gold)}
+.roles{display:flex;background:var(--surface-2);border-radius:999px;padding:3px}
+.roles button{border:0;background:none;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted)}
+.roles button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.demo{max-width:460px;margin:0 auto;padding:6px 16px 0;font-size:12px;color:var(--muted)}
+.demo.wide{max-width:1160px}
+
+/* shell */
+main{max-width:460px;margin:0 auto;padding:16px 16px calc(100px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}
+main.wide{max-width:1160px;padding-bottom:48px}
+main.pro{padding-bottom:48px}
+
+.hello h1{font-size:34px;font-weight:800;margin-top:4px}
+.hello .sub{color:var(--muted);margin-top:4px}
+.cta{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;text-align:left;border:0;border-radius:var(--r);padding:18px 20px;background:var(--brand);color:var(--brand-ink);position:relative;overflow:hidden}
+.cta .ic{grid-row:span 2;width:44px;height:44px;padding:10px;border-radius:12px;background:var(--gold);color:#1B1305}
+.cta span{font-family:var(--display);font-weight:700;font-size:20px}
+.cta small{opacity:.8;font-size:13px}
+.cta::after{content:"";position:absolute;right:-10px;top:0;bottom:0;width:120px;opacity:.12;
+  background:repeating-linear-gradient(90deg,currentColor 0 10px,transparent 10px 18px),repeating-linear-gradient(0deg,transparent 0 6px,var(--brand) 6px 14px);background-blend-mode:normal}
+
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.tile .v{font-family:var(--display);font-weight:800;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .l{font-size:13px;color:var(--muted)}
+.tile .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+.reward{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);background:var(--gold-soft);border-radius:14px;padding:14px 16px}
+.reward .v{font-family:var(--display);font-weight:800;font-size:26px;font-variant-numeric:tabular-nums}
+.reward .l{font-size:13px;color:var(--muted)}
+
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qbtn{display:flex;align-items:center;gap:10px;min-height:56px;padding:12px 14px;border:1px solid var(--line);background:var(--surface);border-radius:14px;font-weight:600;text-align:left}
+.qbtn .ic{color:var(--brand)}
+
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sec-h h2{font-size:19px}
+.link{border:0;background:none;color:var(--brand);font-weight:600;padding:4px 0}
+
+.principle{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);padding:12px 14px;border-radius:12px;border:1px dashed var(--line)}
+.principle .ic{color:var(--brand);margin-top:1px}
+
+/* list cards */
+.cards{display:flex;flex-direction:column;gap:10px}
+.icard{display:grid;grid-template-columns:1fr auto;gap:4px 10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.icard .id{font-size:12px;color:var(--muted)}
+.icard .who{font-weight:600}
+.icard .where{font-size:13px;color:var(--muted);grid-column:1/-1}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px 3px 8px;border-radius:999px;white-space:nowrap;align-self:start;
+  color:var(--sc);background:color-mix(in srgb,var(--sc) 14%,transparent)}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sc)}
+
+.filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chipbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:600;font-size:13px;white-space:nowrap}
+.chipbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* page header */
+.ph{display:flex;align-items:center;gap:10px}
+.back{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.ph h1{font-size:24px}
+
+/* form */
+form .card,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px}
+.card h2{font-size:17px}
+.card h3{font-size:15px}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+label.f small{font-weight:400;color:var(--muted)}
+.in{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px 12px;font-size:16px}
+textarea.in{min-height:76px;resize:vertical}
+.in:focus{outline:2px solid var(--brand);outline-offset:0;border-color:transparent}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qlabel{font-weight:600;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{position:relative}
+.chips input{position:absolute;opacity:0;inset:0;margin:0}
+.chips span{display:inline-flex;align-items:center;min-height:42px;padding:8px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-weight:500}
+.chips input:checked+span{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.chips input:focus-visible+span{outline:3px solid var(--gold);outline-offset:2px}
+.yn span{min-width:88px;justify-content:center}
+.check{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45;padding:14px;border-radius:12px;background:var(--surface-2)}
+.check input{width:22px;height:22px;margin:1px 0 0;accent-color:var(--brand);flex:none}
+.err{background:var(--danger-soft);color:var(--danger);border-radius:12px;padding:12px 14px;font-weight:600;font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:12px 18px;border-radius:14px;border:0;background:var(--brand);color:var(--brand-ink);font-weight:700;font-size:15px}
+.btn.big{width:100%;min-height:58px;font-size:16px;letter-spacing:.04em;text-transform:uppercase}
+.btn.gold{background:var(--gold);color:#1B1305}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:13px;border-radius:10px}
+.btn.danger{background:var(--danger-soft);color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+
+/* result */
+.result{text-align:center;padding:28px 18px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.result .badge{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;background:var(--s6);color:#fff}
+.result .badge.warn{background:var(--s3)}
+.result h1{font-size:26px}
+.idtag{font-family:var(--mono);font-weight:600;background:var(--surface-2);padding:6px 12px;border-radius:10px}
+
+/* timeline */
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:28px 1fr;gap:12px;position:relative;padding-bottom:18px}
+.tl li::before{content:"";position:absolute;left:13px;top:24px;bottom:-2px;width:2px;background:var(--line)}
+.tl li:last-child::before{display:none}
+.tl li.done::before{background:var(--sc)}
+.tl .n{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;z-index:1}
+.tl li.done .n{background:var(--sc);border-color:var(--sc);color:#fff}
+.tl li.cur .n{box-shadow:0 0 0 5px color-mix(in srgb,var(--sc) 22%,transparent)}
+.tl .t{font-weight:600}
+.tl li.todo .t{color:var(--muted);font-weight:500}
+.tl .d{font-size:12.5px;color:var(--muted)}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere}
+
+/* wallet */
+.wallet{background:var(--brand-2);color:#fff;border-radius:20px;padding:20px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+.wallet::after{content:"";position:absolute;inset:0 0 0 58%;opacity:.09;background:repeating-linear-gradient(90deg,#fff 0 12px,transparent 12px 22px),repeating-linear-gradient(0deg,transparent 0 8px,var(--brand-2) 8px 18px)}
+.wallet .l{font-size:13px;opacity:.8}
+.wallet .v{font-family:var(--display);font-weight:800;font-size:40px;font-variant-numeric:tabular-nums;line-height:1.1}
+.wsplit{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hist{display:flex;flex-direction:column}
+.hist > div{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.hist > div:last-child{border-bottom:0}
+.hist .a{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;letter-spacing:.02em}
+.tag.proc{background:color-mix(in srgb,var(--s1) 15%,transparent);color:var(--s1)}
+.tag.disp{background:color-mix(in srgb,var(--s6) 15%,transparent);color:var(--s6)}
+.tag.resg{background:color-mix(in srgb,var(--s4) 15%,transparent);color:var(--s4)}
+.tag.pago{background:var(--surface-2);color:var(--muted)}
+
+/* qr */
+.qrbox{background:#fff;border-radius:18px;padding:16px;display:grid;place-items:center;width:212px;max-width:100%;margin:0 auto;border:1px solid var(--line)}
+.qrbox img,.qrbox canvas{display:block}
+.code{font-family:var(--mono);font-weight:600;font-size:24px;letter-spacing:.06em}
+.copyrow{display:flex;gap:8px;align-items:center;background:var(--surface-2);border-radius:12px;padding:8px 8px 8px 12px}
+.copyrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:13px}
+
+/* nav */
+nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+nav.bottom .in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:end}
+nav.bottom button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--muted);padding:6px 0}
+nav.bottom button.on{color:var(--brand)}
+nav.bottom .mid .ic{width:48px;height:48px;padding:12px;border-radius:16px;background:var(--gold);color:#1B1305;margin-top:-18px;box-shadow:0 4px 14px rgb(0 0 0/.18)}
+
+/* public page */
+.pub-hero{background:var(--brand);color:var(--brand-ink);border-radius:20px;padding:22px 20px;display:flex;flex-direction:column;gap:8px}
+.pub-hero h1{font-size:28px;font-weight:800}
+.pub-hero p{opacity:.85}
+
+/* admin */
+.atabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none}
+.atabs button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.atabs button.on{color:var(--ink);border-color:var(--gold)}
+.atabs .cnt{font-size:11px;background:var(--danger);color:#fff;border-radius:999px;padding:1px 6px;margin-left:4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;align-items:start}
+.funnel{display:flex;flex-direction:column;gap:8px}
+.frow{display:grid;grid-template-columns:150px 1fr 44px;gap:10px;align-items:center;font-size:14px}
+.fbar{height:26px;border-radius:7px;background:var(--surface-2);overflow:hidden}
+.fbar i{display:block;height:100%;border-radius:7px;background:var(--sc)}
+.frow b{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.rank{display:flex;flex-direction:column}
+.rank > div{display:grid;grid-template-columns:24px 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:center}
+.rank > div:last-child{border-bottom:0}
+.rank .p{font-family:var(--mono);color:var(--muted);font-size:13px}
+.alert{border:1px solid color-mix(in srgb,var(--danger) 35%,transparent);background:var(--danger-soft);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.note{font-size:13px;color:var(--muted)}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:600}
+.toggle input{width:20px;height:20px;accent-color:var(--brand)}
+
+/* modal & toast */
+.modal{position:fixed;inset:0;z-index:50;background:rgb(5 15 18/.55);display:grid;place-items:center;padding:16px}
+.modal .box{background:var(--surface);border-radius:20px;padding:20px;width:min(380px,100%);display:flex;flex-direction:column;gap:14px;text-align:center}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgb(0 0 0/.25)}
+@media (prefers-reduced-motion:no-preference){
+  #toast:not([hidden]){animation:up .25s ease-out}
+  @keyframes up{from{transform:translate(-50%,8px);opacity:.4}}
+}
+@media (max-width:380px){.hello h1{font-size:28px}.frow{grid-template-columns:110px 1fr 36px}}
+</style>
+
+<div id="top"></div>
+<main id="app"></main>
+<div id="nav"></div>
+<div id="modal"></div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+/* ---------- dados ---------- */
+const ST=[
+ {l:'Enviada'},{l:'Em validação'},{l:'Contato realizado'},{l:'Oportunidade qualificada'},
+ {l:'Captação em andamento'},{l:'Em negociação'},{l:'Venda concluída'},{l:'Recompensa liberada'},{l:'Encerrada'}];
+const sc=i=>`--sc:var(--s${i})`;
+const pill=i=>`<span class="pill" style="${sc(i)}">${ST[i].l}</span>`;
+const DAY=864e5, NOW=Date.now();
+
+const S={
+ role:'ind', tab:'home', prev:'home', admTab:'geral', filter:'todas', det:null, lastId:null, me:'u1',
+ cfg:{valor:20, redeAtiva:false, redeJuridico:false, redeValor:10},
+ campanhas:[{nome:'Primavera nos condomínios',bonus:10,ate:'2026-11-30',ativa:true}],
+ condos:[
+  {id:'c1',nome:'Residencial Jardim das Acácias',end:'Rua Domingos de Morais, 1820',bairro:'Vila Mariana',cidade:'São Paulo',reg:'Zona Sul'},
+  {id:'c2',nome:'Condomínio Vila Real',end:'Alameda Rio Negro, 450',bairro:'Alphaville',cidade:'Barueri',reg:'Oeste'},
+  {id:'c3',nome:'Edifício Monte Azul',end:'Rua dos Pinheiros, 905',bairro:'Pinheiros',cidade:'São Paulo',reg:'Zona Oeste'},
+  {id:'c4',nome:'Residencial Bosque Verde',end:'Av. dos Autonomistas, 3100',bairro:'Centro',cidade:'Osasco',reg:'Oeste'}],
+ users:[
+  {id:'u1',nome:'João Batista',funcao:'Porteiro',condo:'c1',code:'JOA-8F72',conv:null,desde:NOW-180*DAY},
+  {id:'u2',nome:'Cláudia Ramos',funcao:'Zeladora',condo:'c2',code:'CLA-3K19',conv:'u1',desde:NOW-90*DAY},
+  {id:'u3',nome:'Severino Alves',funcao:'Síndico',condo:'c3',code:'SEV-7D40',conv:null,desde:NOW-75*DAY},
+  {id:'u4',nome:'Rita Moura',funcao:'Porteira',condo:'c4',code:'RIT-2B85',conv:'u1',desde:NOW-9*DAY}],
+ inds:[], rewards:[], ocorr:[], log:[], seq:126
+};
+const seed=[
+ [109,'u1','c1','Marta Siqueira','11987412233','Apto 82 · Bloco B','Apartamento',3,7,64],
+ [110,'u1','c1','Hélio Nogueira','11991230045','Apto 21 · Bloco A','Apartamento',2,8,58],
+ [111,'u2','c2','Mário Fontes','11971238876','Casa 7','Casa',3,6,55],
+ [113,'u1','c1','Paula Andrade','11976540012','Apto 134 · Bloco A','Apartamento',3,6,47],
+ [115,'u2','c2','Denise Araújo','11990012345','Casa 22','Casa',4,3,40],
+ [117,'u3','c3','Gustavo Pires','11989907766','Apto 51','Apartamento',2,5,33],
+ [118,'u1','c1','Roberto Kenji','11988870231','Apto 41 · Bloco C','Apartamento',2,5,30],
+ [119,'u3','c3','Teresa Lima','11978811223','Apto 72','Apartamento',3,1,25],
+ [121,'u1','c1','Lívia Prates','11994561178','Cobertura 161 · Bloco B','Cobertura',4,4,21],
+ [122,'u1','c1','Otávio Lemos','11981112290','Apto 63 · Bloco A','Apartamento',2,3,12],
+ [123,'u1','c1','Sandra Viegas','11975553321','Apto 12 · Bloco C','Apartamento',1,2,6],
+ [124,'u1','c1','Fábio Torres','11996674410','Apto 93 · Bloco B','Apartamento',3,1,3],
+ [120,'u4','c4','Jorge Almeida','11992223344','Apto 33 · Torre 2','Apartamento',2,0,4],
+ [125,'u1','c1','Celina Rocha','11983349902','Apto 104 · Bloco A','Apartamento',2,0,1]];
+const fmtId=n=>'IND-2026-'+String(n).padStart(6,'0');
+seed.forEach(([n,u,c,o,p,un,t,d,st,ago])=>{
+  const steps=st===8?[0,1,2,8]:Array.from({length:st+1},(_,k)=>k);
+  const t0=NOW-ago*DAY, span=ago*DAY*.85;
+  const hist=steps.map((s,k)=>({s,t:t0+(steps.length>1?span*k/(steps.length-1):0),by:s===0?'Indicador':s<=1?'Equipe INDIQUE+':'Ana Prado (corretora)'}));
+  const ind={id:fmtId(n),user:u,condo:c,owner:o,phone:p,unit:un,tipo:t,dorms:d,status:st,hist,horario:'Tarde',origem:'App do indicador',
+    interesse:'Sim',quando:'Este mês',como:'Conversa direta com o proprietário',obs:'',consent:hist[0].t};
+  if(st===8) ind.motivo='Proprietário desistiu da venda';
+  S.inds.push(ind);
+  if(st>=3&&st!==8) S.rewards.push({ind:ind.id,user:u,v:20,estado:'processamento',t:hist[3].t});
+});
+const setR=(id,e)=>{const r=S.rewards.find(r=>r.ind===fmtId(id)); if(r) r.estado=e};
+[109,113,111].forEach(i=>setR(i,'pago'));[118,121,117].forEach(i=>setR(i,'disponivel'));
+S.ocorr.push({t:NOW-2*DAY,user:'u3',owner:'Gustavo Pires',phone:'11989907766',unit:'Apto 51',condo:'c3',match:fmtId(117),motivo:'Telefone e imóvel já cadastrados',estado:'aberta'});
+S.log.push({t:NOW-2*DAY,who:'Sistema',a:'Duplicidade detectada: tentativa de Severino Alves sobre '+fmtId(117)},
+           {t:NOW-1*DAY,who:'Admin',a:'Recompensa de '+fmtId(118)+' liberada'},
+           {t:NOW-1*DAY+3e6,who:'Sistema',a:'Nova indicação '+fmtId(125)+' recebida de João Batista'});
+
+/* ---------- utilidades ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fdt=t=>{const d=new Date(t);return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})};
+const fd=t=>new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).replace('.','');
+const dig=s=>String(s||'').replace(/\D/g,'');
+const fph=p=>{p=dig(p);return p.length===11?`(${p.slice(0,2)}) ${p.slice(2,7)}-${p.slice(7)}`:p.length===10?`(${p.slice(0,2)}) ${p.slice(2,6)}-${p.slice(6)}`:p};
+const normUnit=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/apto|apartamento|ap|bloco|bl|torre|casa|cobertura|[^a-z0-9]/g,'');
+const user=id=>S.users.find(u=>u.id===id);
+const condo=id=>S.condos.find(c=>c.id===id)||{nome:'Outro endereço',bairro:'',cidade:'',reg:'—'};
+const me=()=>user(S.me);
+const reached=(i,k)=>i.hist.some(h=>h.s===k);
+const last=i=>i.hist[i.hist.length-1].t;
+const log=(who,a)=>S.log.unshift({t:Date.now(),who,a});
+function wallet(uid){const r=S.rewards.filter(r=>r.user===uid&&r.estado!=='cancelada');
+  const sum=e=>r.filter(x=>e.includes(x.estado)).reduce((a,b)=>a+b.v,0);
+  return {disp:sum(['disponivel']),proc:sum(['processamento','resgate']),pago:sum(['pago']),list:r};}
+
+const I={
+ mark:'<path d="M4 11.5 12 5l8 6.5V20H4z"/><path d="M12 10.5v6M9 13.5h6"/>',
+ home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ list:'<path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+ wallet:'<path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V6"/><path d="M17 14h.01"/>',
+ more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+ qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/>',
+ users:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4.2a4 4 0 0 1 0 7.6M22 21a7 7 0 0 0-4.5-6.5"/>',
+ shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+ check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
+ alert:'<path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/>',
+ back:'<path d="M15 6l-6 6 6 6"/>',
+ copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>',
+ building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
+ doc:'<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+ out:'<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h10"/>',
+ phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>'
+};
+const ic=(n,s=20)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+
+/* ---------- regras ---------- */
+function setStatus(ind,to,who){
+  if(ind.status===8||to===ind.status) return;
+  ind.status=to; ind.hist.push({s:to,t:Date.now(),by:who});
+  if(to>=3&&to!==8&&!S.rewards.find(r=>r.ind===ind.id)){
+    const camp=S.campanhas.filter(c=>c.ativa&&new Date(c.ate+'T23:59')>Date.now()).reduce((a,c)=>a+Number(c.bonus||0),0);
+    S.rewards.push({ind:ind.id,user:ind.user,v:S.cfg.valor+camp,estado:'processamento',t:Date.now()});
+    log('Sistema',`Recompensa de ${money(S.cfg.valor+camp)} gerada para ${ind.id} (indicação qualificada)`);
+  }
+  if(to===8){const r=S.rewards.find(r=>r.ind===ind.id&&r.estado==='processamento'); if(r) r.estado='cancelada';}
+  log(who,`${ind.id} → ${ST[to].l}`);
+}
+function findDup(phone,cid,unit){
+  const p=dig(phone), u=normUnit(unit);
+  return S.inds.find(i=>i.status!==8&&(dig(i.phone)===p||(i.condo===cid&&u&&normUnit(i.unit)===u)));
+}
+function createInd(d,origem){
+  const dup=findDup(d.phone,d.condo,d.unit);
+  if(dup){
+    S.ocorr.unshift({t:Date.now(),user:d.user,owner:d.owner,phone:d.phone,unit:d.unit,condo:d.condo,match:dup.id,
+      motivo:dig(dup.phone)===dig(d.phone)?'Telefone já cadastrado':'Imóvel já cadastrado',estado:'aberta'});
+    log('Sistema',`Duplicidade detectada: tentativa de ${user(d.user).nome} sobre ${dup.id}`);
+    return null;
+  }
+  const ind={id:fmtId(S.seq++),status:0,hist:[{s:0,t:Date.now(),by:origem==='App do indicador'?'Indicador':'Proprietário via QR Code'}],origem,consent:Date.now(),...d};
+  S.inds.push(ind); log(user(d.user).nome,`Nova indicação ${ind.id} (${origem})`);
+  return ind;
+}
+
+/* ---------- topo e navegação ---------- */
+function vTop(){
+  const w=S.role==='adm'?'wide':'';
+  return `<header class="top"><div class="top-in ${w}">
+   <div class="brand"><span class="mark">${ic('mark',18)}</span><span class="bn">INDIQUE<b>+</b></span></div>
+   <div class="roles" role="tablist" aria-label="Ver como">${[['ind','Indicador'],['pro','Corretor'],['adm','Admin']].map(([k,l])=>
+     `<button role="tab" aria-selected="${S.role===k}" class="${S.role===k?'on':''}" data-a="role" data-v="${k}">${l}</button>`).join('')}</div>
+  </div></header><p class="demo ${w}">Protótipo navegável com dados de exemplo. Troque o perfil no topo.</p>`;
+}
+function vNav(){
+  if(S.role!=='ind'||['publico','login'].includes(S.tab)) return '';
+  const grp={home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab]||'mais';
+  const b=(k,l,n,c='')=>`<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
+  return `<nav class="bottom" aria-label="Navegação"><div class="in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais','Mais','more')}</div></nav>`;
+}
+const ph=(t,back='home')=>`<div class="ph"><button class="back" data-a="go" data-v="${back}" aria-label="Voltar">${ic('back')}</button><h1>${t}</h1></div>`;
+
+/* ---------- indicador ---------- */
+function vHome(){
+  const u=me(), mine=S.inds.filter(i=>i.user===u.id), w=wallet(u.id);
+  const n={tot:mine.length,at:mine.filter(i=>i.status<=2).length,q:mine.filter(i=>i.status>=3&&i.status<=5).length,v:mine.filter(i=>i.status===6||i.status===7).length};
+  const recent=[...mine].sort((a,b)=>last(b)-last(a)).slice(0,3);
+  const tile=(v,l,s)=>`<div class="tile"><div class="v">${v}</div><div class="l"><span class="dot" style="background:var(--s${s})"></span>${l}</div></div>`;
+  return `<section class="hello"><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condo).nome)}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
+   <p class="sub">Você conhece. Você indica. A gente cuida do resto.</p></section>
+   <button class="cta" data-a="go" data-v="nova">${ic('plus',24)}<span>Nova indicação</span><small>Leva menos de 2 minutos</small></button>
+   <div class="stats">${tile(n.tot,'Suas indicações',0)}${tile(n.at,'Em atendimento',1)}${tile(n.q,'Oportunidades qualificadas',3)}${tile(n.v,'Vendas concluídas',6)}</div>
+   <button class="reward" data-a="go" data-v="carteira"><div><div class="l">Recompensas acumuladas</div><div class="v">${money(w.disp+w.proc+w.pago)}</div></div>
+    <div style="text-align:right"><div class="l">Disponível</div><b class="num">${money(w.disp)}</b></div></button>
+   <div class="quick">
+    <button class="qbtn" data-a="go" data-v="lista">${ic('list')}Minhas indicações</button>
+    <button class="qbtn" data-a="go" data-v="carteira">${ic('wallet')}Minha carteira</button>
+    <button class="qbtn" data-a="go" data-v="convite">${ic('users')}Convidar profissional</button>
+    <button class="qbtn" data-a="go" data-v="qr">${ic('qr')}Meu QR Code</button></div>
+   <section class="cards"><div class="sec-h"><h2>Últimas atualizações</h2><button class="link" data-a="go" data-v="lista">Ver todas</button></div>
+    ${recent.map(cardInd).join('')}</section>
+   <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p>`;
+}
+const cardInd=i=>`<button class="icard" data-a="det" data-v="${i.id}"><span class="id mono">${i.id}</span>${pill(i.status)}
+  <span class="who">${esc(i.owner)}</span><span class="id">${fd(last(i))}</span><span class="where">${esc(i.unit)} · ${esc(condo(i.condo).nome)}</span></button>`;
+
+function vNova(){
+  const u=me();
+  const ch=(name,opts,def,cls='')=>`<div class="chips ${cls}" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
+  return `${ph('Nova indicação')}
+  <p class="muted" style="margin-top:-6px">Preencha o que você souber. Nossa equipe confirma o resto com o proprietário.</p>
+  <form data-f="nova" novalidate class="cards" style="gap:14px">
+   <div class="card"><h2>Proprietário</h2>
+    <label class="f">Nome<input class="in" id="f-owner" name="owner" autocomplete="off" placeholder="Ex.: Maria da Silva"></label>
+    <label class="f">Telefone<input class="in" id="f-phone" name="phone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <label class="check" style="background:none;padding:0"><input type="checkbox" id="f-samewa" name="samewa" checked> O WhatsApp é o mesmo número</label>
+    <label class="f" id="wa-wrap" hidden>WhatsApp<input class="in" id="f-wa" name="wa" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <div class="f"><span class="qlabel">Melhor horário para contato</span>${ch('horario',['Manhã','Tarde','Noite','Qualquer horário'],'Qualquer horário')}</div>
+    <div class="f"><span class="qlabel">O proprietário autorizou passar o contato dele?</span>${ch('autorizou',['Sim','Não'],'','yn')}</div>
+   </div>
+   <div class="card"><h2>Imóvel</h2>
+    <label class="f">Condomínio<select class="in" id="f-condo" name="condo">${S.condos.map(c=>`<option value="${c.id}" ${c.id===u.condo?'selected':''}>${esc(c.nome)}</option>`).join('')}<option value="outro">Outro endereço</option></select></label>
+    <div id="addr" class="cards" style="gap:14px" hidden>
+     <label class="f">Endereço<input class="in" id="f-end" name="end" placeholder="Rua, avenida…"></label>
+     <div class="row2"><label class="f">Número<input class="in" id="f-numero" name="numero" inputmode="numeric"></label><label class="f">Bairro<input class="in" id="f-bairro" name="bairro"></label></div>
+     <label class="f">Cidade<input class="in" id="f-cidade" name="cidade" value="São Paulo"></label></div>
+    <label class="f">Unidade / complemento<input class="in" id="f-unit" name="unit" placeholder="Ex.: Apto 82 · Bloco B"></label>
+    <div class="f"><span class="qlabel">Tipo de imóvel</span>${ch('tipo',['Apartamento','Casa','Cobertura','Sala comercial','Outro'],'Apartamento')}</div>
+    <div class="f"><span class="qlabel">Dormitórios (aproximado)</span>${ch('dorms',['1','2','3','4+'],'2')}</div>
+   </div>
+   <div class="card"><h2>Oportunidade</h2>
+    <div class="f"><span class="qlabel">O proprietário já disse que quer vender?</span>${ch('interesse',['Sim','Ainda não confirmou'],'Sim')}</div>
+    <div class="f"><span class="qlabel">Quando ele comentou?</span>${ch('quando',['Esta semana','Este mês','Há mais tempo'],'Esta semana')}</div>
+    <div class="f"><span class="qlabel">Como você ficou sabendo?</span>${ch('como',['Ele me contou','Pediu indicação','Vi anúncio ou placa','Outro'],'Ele me contou')}</div>
+    <label class="f">Observações <small>(opcional)</small><textarea class="in" id="f-obs" name="obs" placeholder="Algo que ajude o corretor no primeiro contato"></textarea></label>
+   </div>
+   <label class="check"><input type="checkbox" id="f-consent" name="consent"><span>Confirmo que o proprietário autorizou o compartilhamento de seus dados para que um profissional imobiliário entre em contato sobre seu interesse em vender o imóvel.</span></label>
+   <div id="f-err" class="err" hidden></div>
+   <button class="btn big gold" type="submit">Enviar indicação</button>
+   <p class="note" style="text-align:center">Você não precisa avaliar, negociar nem falar de preço. Isso fica com o profissional habilitado.</p>
+  </form>`;
+}
+function vOk(){const i=S.inds.find(x=>x.id===S.lastId);
+  return `<div class="card result"><div class="badge">${ic('check',36)}</div><h1>Indicação recebida!</h1>
+   <p class="muted">Nossa equipe irá analisar a oportunidade e você poderá acompanhar tudo por aqui.</p>
+   <span class="idtag">${i?i.id:''}</span>
+   <div class="btns" style="justify-content:center"><button class="btn" data-a="det" data-v="${i?.id}">Acompanhar indicação</button><button class="btn ghost" data-a="go" data-v="home">Voltar ao início</button></div></div>`;}
+function vDup(){
+  return `<div class="card result"><div class="badge warn">${ic('alert',36)}</div><h1>Esta oportunidade já foi registrada anteriormente.</h1>
+   <p class="muted">Enviamos o caso para análise da equipe. Você não precisa fazer mais nada.</p>
+   <button class="btn ghost" data-a="go" data-v="home">Voltar ao início</button></div>`;}
+
+function vLista(){
+  const f={todas:()=>true,andamento:i=>i.status<6,concluidas:i=>i.status===6||i.status===7,encerradas:i=>i.status===8};
+  const L=S.inds.filter(i=>i.user===S.me).filter(f[S.filter]).sort((a,b)=>last(b)-last(a));
+  const fb=(k,l)=>`<button class="chipbtn ${S.filter===k?'on':''}" data-a="filter" data-v="${k}">${l}</button>`;
+  return `${ph('Minhas indicações')}<div class="filters">${fb('todas','Todas')}${fb('andamento','Em andamento')}${fb('concluidas','Concluídas')}${fb('encerradas','Encerradas')}</div>
+   <div class="cards">${L.map(cardInd).join('')||'<p class="muted">Nenhuma indicação aqui ainda.</p>'}</div>`;
+}
+function vDet(){
+  const i=S.inds.find(x=>x.id===S.det); if(!i) return vLista();
+  const r=S.rewards.find(x=>x.ind===i.id&&x.estado!=='cancelada');
+  const path=i.status===8?i.hist.map(h=>h.s):[0,1,2,3,4,5,6,7];
+  const tl=path.map(s=>{const h=i.hist.find(x=>x.s===s);const cls=h?(s===i.status?'done cur':'done'):'todo';
+    return `<li class="${cls}" style="${sc(s)}"><span class="n">${h?ic('check',14):''}</span><div><div class="t">${ST[s].l}</div><div class="d">${h?fdt(h.t):'Próxima etapa'}</div></div></li>`}).join('');
+  const tagE={processamento:['proc','Em processamento'],disponivel:['disp','Disponível'],resgate:['resg','Resgate solicitado'],pago:['pago','Pago']};
+  return `${ph(`<span class="mono" style="font-size:18px">${i.id}</span>`,'lista')}
+   <div class="card"><div class="sec-h"><h2>${esc(i.owner)}</h2>${pill(i.status)}</div>
+    <dl class="kv"><dt>Imóvel</dt><dd>${esc(i.tipo)} · ${esc(i.dorms)} dorm.</dd><dt>Unidade</dt><dd>${esc(i.unit)}</dd><dt>Local</dt><dd>${esc(condo(i.condo).nome)}</dd><dt>Enviada</dt><dd>${fdt(i.hist[0].t)}</dd>${i.motivo?`<dt>Motivo</dt><dd>${esc(i.motivo)}</dd>`:''}</dl></div>
+   ${r?`<div class="reward" style="cursor:default"><div><div class="l">Recompensa por indicação qualificada</div><div class="v">${money(r.v)}</div></div><span class="tag ${tagE[r.estado][0]}">${tagE[r.estado][1]}</span></div>`:
+     i.status<3?`<p class="principle">${ic('wallet')}<span>Quando a oportunidade for qualificada pela equipe, você recebe ${money(S.cfg.valor)} na carteira, conforme as regras do programa.</span></p>`:''}
+   <div class="card"><h2>Linha do tempo</h2><ol class="tl">${tl}</ol></div>
+   <p class="principle">${ic('shield')}<span>O atendimento, a avaliação e a negociação são feitos por um profissional imobiliário habilitado.</span></p>`;
+}
+function vCarteira(){
+  const w=wallet(S.me), tagE={processamento:['proc','Em processamento'],disponivel:['disp','Disponível'],resgate:['resg','Resgate solicitado'],pago:['pago','Pago']};
+  return `${ph('Minha carteira')}
+   <div class="wallet"><span class="l">Saldo disponível</span><span class="v">${money(w.disp)}</span><span class="l">Programa de Incentivos INDIQUE+</span></div>
+   <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
+   <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
+   <div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].sort((a,b)=>b.t-a.t).map(r=>{const i=S.inds.find(x=>x.id===r.ind);
+     return `<div><div><div class="mono" style="font-size:13px">${r.ind}</div><div class="note">${esc(i?.owner||'')} · ${fd(r.t)}</div></div><div style="text-align:right"><div class="a">${money(r.v)}</div><span class="tag ${tagE[r.estado][0]}">${tagE[r.estado][1]}</span></div></div>`}).join('')||'<p class="muted">Sem recompensas ainda.</p>'}</div></div>
+   <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.cfg.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate. O valor não depende do preço do imóvel nem do resultado da negociação.</p></div>`;
+}
+function vMais(){
+  const u=me(), it=(v,i,t,d)=>`<button class="qbtn" style="width:100%" data-a="go" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
+  return `<section class="hello"><p class="eyebrow">Código ${u.code}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condo).nome)}</p></section>
+   <div class="cards">${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('login','out','Sair','Encerrar sessão neste aparelho')}</div>`;
+}
+function vQR(){const u=me(),url=`indiqueplus.app/q/${u.code}`;
+  return `${ph('Meu QR Code','mais')}
+   <div class="card" style="text-align:center;align-items:center"><p class="eyebrow">Conhece alguém que quer vender um imóvel?</p>
+    <div class="qrbox" data-qr="https://${url}"></div><span class="code">${u.code}</span>
+    <p class="note">Imprima e deixe na portaria. Quem escanear cai numa página simples, preenche os próprios dados e a indicação fica registrada no seu nome.</p>
+    <div class="copyrow" style="width:100%"><span>${url}</span><button class="btn sm ghost" data-a="copy" data-v="https://${url}">${ic('copy',16)}Copiar</button></div>
+    <button class="btn" style="width:100%" data-a="go" data-v="publico">Ver a página que o proprietário vê</button></div>`;}
+function vConvite(){const u=me(),url=`indiqueplus.app/c/${u.code}`,conv=S.users.filter(x=>x.conv===u.id);
+  const msg=encodeURIComponent(`Oi! Estou no INDIQUE+, um programa para profissionais de condomínio indicarem quem quer vender imóvel. Cadastre-se com meu código ${u.code}: https://${url}`);
+  return `${ph('Convide um profissional','mais')}
+   <div class="card" style="text-align:center;align-items:center"><p class="muted">Porteiros, zeladores, síndicos e funcionários de condomínio podem participar.</p>
+    <span class="eyebrow">Seu código</span><span class="code">${u.code}</span>
+    <div class="copyrow" style="width:100%"><span>${url}</span><button class="btn sm ghost" data-a="copy" data-v="https://${url}">${ic('copy',16)}Copiar</button></div>
+    <a class="btn" style="width:100%;text-decoration:none" href="https://wa.me/?text=${msg}" target="_blank" rel="noopener">Enviar convite pelo WhatsApp</a></div>
+   <div class="card"><h2>Profissionais que você convidou</h2><div class="hist">${conv.map(c=>`<div><div><b>${esc(c.nome)}</b><div class="note">${esc(c.funcao)} · ${esc(condo(c.condo).nome)}</div></div><div class="note" style="text-align:right">desde ${fd(c.desde)}<br>${S.inds.filter(i=>i.user===c.id).length} indicações</div></div>`).join('')||'<p class="muted">Ninguém ainda.</p>'}</div></div>
+   <p class="principle">${ic('users')}<span>A rede tem um único nível: você convida, o profissional convidado faz as próprias indicações. ${S.cfg.redeAtiva?`Bônus atual por convidado ativo: ${money(S.cfg.redeValor)}.`:'Incentivos por convite serão anunciados após validação jurídica.'}</span></p>`;}
+function vPriv(){return `${ph('Privacidade e dados','mais')}
+   <div class="card"><h2>Seus dados</h2><p class="note">Usamos seus dados para identificar suas indicações e pagar recompensas. Os dados do proprietário só são compartilhados com o profissional imobiliário responsável, mediante a autorização registrada no envio.</p>
+    <dl class="kv"><dt>Consentimentos</dt><dd>${S.inds.filter(i=>i.user===S.me).length} registrados com data e hora</dd><dt>Criptografia</dt><dd>Telefones e nomes protegidos</dd></dl>
+    <div class="btns"><button class="btn ghost" data-a="lgpd" data-v="correção">Solicitar correção</button><button class="btn danger" data-a="lgpd" data-v="exclusão">Solicitar exclusão</button></div></div>
+   <div class="card"><h3>Política de privacidade (resumo)</h3><p class="note">Base legal: consentimento (art. 7º, I, LGPD). Retenção pelo prazo necessário ao programa e às obrigações legais. Você pode pedir acesso, correção, portabilidade ou exclusão a qualquer momento. Encarregado de dados: dpo@indiqueplus.app.</p></div>`;}
+function vTermos(){return `${ph('Termos do programa','mais')}
+   <div class="card"><ol class="note" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px">
+    <li>O indicador apenas informa uma oportunidade, com autorização do proprietário. Não realiza intermediação imobiliária.</li>
+    <li>Avaliação, captação, negociação e formalização são feitas exclusivamente por profissionais imobiliários habilitados.</li>
+    <li>O indicador não pode definir preço, apresentar propostas nem prometer condições comerciais.</li>
+    <li>A recompensa é um valor fixo por indicação qualificada (${money(S.cfg.valor)}), sem vínculo com o valor da venda.</li>
+    <li>Indicações duplicadas ou sem autorização não geram recompensa e podem ser auditadas.</li>
+    <li>A rede de convites tem um único nível.</li></ol>
+    <p class="note"><b>Versão preliminar.</b> Regras sujeitas à análise jurídica e às normas do CRECI antes da operação comercial.</p></div>`;}
+function vLogin(){return `<div class="card" style="margin-top:20px"><span class="mark" style="width:48px;height:48px;border-radius:14px">${ic('mark',26)}</span>
+   <h1 style="font-size:28px">Entrar no INDIQUE+</h1><p class="muted">Você conhece a oportunidade. Nós cuidamos do resto.</p>
+   <form data-f="login" class="cards" style="gap:12px" novalidate>
+    ${S.loginStep?`<label class="f">Código enviado para ${esc(S.loginTo)}<input class="in mono" id="l-code" name="code" inputmode="numeric" maxlength="6" placeholder="000000" style="letter-spacing:.4em;font-size:22px;text-align:center"></label>
+      <p class="note">Para testar, use qualquer código de 6 dígitos.</p><button class="btn big" type="submit">Entrar</button>
+      <button type="button" class="link" data-a="resend">Não recebi o código</button>`:
+     `<label class="f">Celular (WhatsApp) ou e-mail<input class="in" id="l-id" name="id" placeholder="(11) 90000-0000" value="(11) 98765-4321"></label>
+      <button class="btn big" type="submit">Receber código</button><p class="note">Enviamos um código de verificação por WhatsApp, SMS ou e-mail.</p>`}
+   </form></div>`;}
+function vPublico(){const u=me(),c=condo(u.condo);
+  return `<div class="pub-hero"><span class="eyebrow" style="color:inherit;opacity:.8">INDIQUE+ · ${esc(c.nome)}</span><h1>Conhece alguém que quer vender um imóvel?</h1>
+   <p>Deixe o contato. Um profissional imobiliário habilitado vai falar com o proprietário, sem compromisso.</p></div>
+   <form data-f="publico" class="card" novalidate>
+    <label class="f">Nome do proprietário<input class="in" id="p-owner" name="owner"></label>
+    <label class="f">WhatsApp<input class="in" id="p-phone" name="phone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <label class="f">Unidade<input class="in" id="p-unit" name="unit" placeholder="Ex.: Apto 54 · Bloco A"></label>
+    <label class="check"><input type="checkbox" id="p-consent" name="consent"><span>Autorizo que um profissional imobiliário entre em contato comigo sobre a venda do meu imóvel.</span></label>
+    <div id="p-err" class="err" hidden></div>
+    <button class="btn big gold" type="submit">Quero ser contatado</button>
+    <p class="note">Indicação feita via QR Code de ${esc(u.nome.split(' ')[0])} (${u.code}).</p></form>
+   <button class="btn ghost" data-a="go" data-v="qr">Voltar ao app</button>`;}
+
+/* ---------- corretor ---------- */
+function vPro(){
+  const L=S.inds.filter(i=>i.status>=1&&i.status<=5).sort((a,b)=>a.status-b.status||last(a)-last(b));
+  return `<section class="hello"><p class="eyebrow">Profissional imobiliário · CRECI-SP (exemplo)</p><h1 style="font-size:28px">Ana Prado</h1>
+   <p class="sub">${L.length} oportunidades em atendimento. Atualize o status a cada etapa: o indicador acompanha em tempo real.</p></section>
+   <div class="cards">${L.map(i=>{const nx=i.status+1;return `<div class="card" style="gap:10px">
+    <div class="sec-h"><span class="mono note">${i.id}</span>${pill(i.status)}</div>
+    <h2>${esc(i.owner)}</h2>
+    <dl class="kv"><dt>Contato</dt><dd class="mono">${fph(i.phone)}</dd><dt>Horário</dt><dd>${esc(i.horario)}</dd><dt>Imóvel</dt><dd>${esc(i.tipo)} · ${esc(i.dorms)} dorm. · ${esc(i.unit)}</dd><dt>Local</dt><dd>${esc(condo(i.condo).nome)}</dd><dt>Indicado por</dt><dd>${esc(user(i.user).nome)}</dd>${i.obs?`<dt>Obs.</dt><dd>${esc(i.obs)}</dd>`:''}</dl>
+    <div class="btns"><button class="btn sm" data-a="adv" data-v="${i.id}" data-who="Ana Prado (corretora)">Avançar: ${ST[nx].l}</button><button class="btn sm danger" data-a="close" data-v="${i.id}" data-who="Ana Prado (corretora)">Encerrar</button></div></div>`}).join('')}</div>
+   <p class="note">Indicações com status “Enviada” aguardam validação do administrador antes de chegar aqui.</p>`;
+}
+
+/* ---------- admin ---------- */
+function vAdm(){
+  const open=S.ocorr.filter(o=>o.estado==='aberta').length;
+  const tabs=[['geral','Visão geral'],['inds','Indicações'],['ocorr','Ocorrências'],['rec','Recompensas'],['condos','Condomínios'],['prog','Programa'],['aud','Auditoria']];
+  const body={geral:aGeral,inds:aInds,ocorr:aOcorr,rec:aRec,condos:aCondos,prog:aProg,aud:aAud}[S.admTab]();
+  return `<div class="sec-h"><h1 style="font-size:28px">Painel administrativo</h1><span class="note">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
+   <div class="atabs">${tabs.map(([k,l])=>`<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${k==='ocorr'&&open?`<span class="cnt">${open}</span>`:''}</button>`).join('')}</div>${body}`;
+}
+const kpi=(v,l,s='0')=>`<div class="tile"><div class="v">${v}</div><div class="l">${s!=='0'?`<span class="dot" style="background:var(--s${s})"></span>`:''}${l}</div></div>`;
+function aGeral(){
+  const I_=S.inds, n=I_.length, ago=d=>I_.filter(i=>i.hist[0].t>NOW-d*DAY).length;
+  const ativos=S.users.filter(u=>I_.some(i=>i.user===u.id&&i.hist[0].t>NOW-30*DAY)).length;
+  const fun=[['Indicações',n,0],['Contatos',I_.filter(i=>reached(i,2)).length,2],['Qualificadas',I_.filter(i=>reached(i,3)).length,3],['Captações',I_.filter(i=>reached(i,4)).length,4],['Negociações',I_.filter(i=>reached(i,5)).length,5],['Vendas',I_.filter(i=>reached(i,6)).length,6]];
+  const R=S.rewards.filter(r=>r.estado!=='cancelada'), sum=f=>R.filter(f).reduce((a,b)=>a+b.v,0);
+  const top=S.users.map(u=>({u,n:I_.filter(i=>i.user===u.id).length,q:I_.filter(i=>i.user===u.id&&reached(i,3)).length})).sort((a,b)=>b.q-a.q||b.n-a.n);
+  const byC=S.condos.map(c=>({c,n:I_.filter(i=>i.condo===c.id).length})).sort((a,b)=>b.n-a.n);
+  const byR={};I_.forEach(i=>{const r=condo(i.condo).reg;byR[r]=(byR[r]||0)+1});
+  return `<h2 style="font-size:17px">Indicadores (profissionais)</h2>
+   <div class="kpis">${kpi(S.users.length,'Total de indicadores')}${kpi(S.users.filter(u=>u.desde>NOW-30*DAY).length,'Novos (30 dias)')}${kpi(ativos,'Ativos (30 dias)')}${kpi(S.ocorr.filter(o=>o.estado==='aberta').length,'Ocorrências abertas')}</div>
+   <h2 style="font-size:17px">Indicações</h2>
+   <div class="kpis">${kpi(n,'Total')}${kpi(ago(1),'Hoje')}${kpi(ago(7),'Semana')}${kpi(ago(30),'Mês')}</div>
+   <div class="grid2">
+    <div class="card"><h2>Funil</h2><div class="funnel">${fun.map(([l,v,s])=>`<div class="frow" style="${sc(s)}"><span>${l}</span><div class="fbar"><i style="width:${n?Math.max(2,v/n*100):0}%"></i></div><b>${v}</b></div>`).join('')}</div>
+     <p class="note">Conversão indicação → venda: ${n?Math.round(fun[5][1]/n*100):0}%</p></div>
+    <div class="card"><h2>Financeiro do programa</h2><div class="kpis" style="grid-template-columns:1fr 1fr">
+     ${kpi(money(sum(()=>true)),'Recompensas geradas')}${kpi(money(sum(r=>['processamento','disponivel','resgate'].includes(r.estado))),'Pendentes')}${kpi(money(sum(r=>r.estado==='pago')),'Pagas')}${kpi(R.length,'Recompensas emitidas')}</div>
+     <p class="note">Valor fixo por indicação qualificada. Nenhuma remuneração percentual sobre a operação imobiliária.</p></div>
+    <div class="card"><h2>Top indicadores</h2><div class="rank">${top.map((t,k)=>`<div><span class="p">${k+1}</span><span><b>${esc(t.u.nome)}</b><span class="note"> · ${esc(t.u.funcao)}</span></span><span class="num note">${t.q} qualif. / ${t.n}</span></div>`).join('')}</div></div>
+    <div class="card"><h2>Por condomínio</h2><div class="rank">${byC.map((t,k)=>`<div><span class="p">${k+1}</span><span>${esc(t.c.nome)}<span class="note"> · ${esc(t.c.bairro)}</span></span><b class="num">${t.n}</b></div>`).join('')}</div>
+     <h3>Por região</h3><div class="rank">${Object.entries(byR).sort((a,b)=>b[1]-a[1]).map(([r,v],k)=>`<div><span class="p">${k+1}</span><span>${esc(r)}</span><b class="num">${v}</b></div>`).join('')}</div></div>
+   </div>`;
+}
+function aInds(){
+  const fs=S.admFilter??'all';
+  const L=S.inds.filter(i=>fs==='all'||String(i.status)===fs).sort((a,b)=>b.hist[0].t-a.hist[0].t);
+  return `<div class="btns" style="align-items:center"><label class="f" style="flex-direction:row;align-items:center;gap:8px">Status
+    <select class="in" id="a-filter" style="min-height:40px;width:auto"><option value="all">Todos</option>${ST.map((s,k)=>`<option value="${k}" ${fs===String(k)?'selected':''}>${s.l}</option>`).join('')}</select></label>
+    <span class="note">${L.length} indicações · ID, data/hora, indicador e condomínio registrados em cada uma</span></div>
+   <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Recebida</th><th>Indicador</th><th>Condomínio</th><th>Proprietário</th><th>Origem</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+   ${L.map(i=>`<tr><td class="mono">${i.id}</td><td class="num">${fdt(i.hist[0].t)}</td><td>${esc(user(i.user).nome)}</td><td>${esc(condo(i.condo).nome)}</td><td>${esc(i.owner)}<br><span class="note mono">${fph(i.phone)}</span></td><td class="note">${esc(i.origem)}</td><td>${pill(i.status)}</td>
+    <td>${i.status<7?`<div class="btns" style="flex-wrap:nowrap"><button class="btn sm" data-a="adv" data-v="${i.id}" data-who="Admin">${i.status===0?'Validar':'Avançar'}</button>${i.status!==8?`<button class="btn sm danger" data-a="close" data-v="${i.id}" data-who="Admin">Encerrar</button>`:''}</div>`:'<span class="note">—</span>'}</td></tr>`).join('')}
+   </tbody></table></div>`;
+}
+function aOcorr(){
+  return `<p class="note">Tentativas bloqueadas por duplicidade (telefone ou imóvel já cadastrado). Nenhuma recompensa é gerada até a análise.</p>
+   <div class="cards">${S.ocorr.map((o,k)=>`<div class="${o.estado==='aberta'?'alert':'card'}">
+    <div class="sec-h"><b>${esc(o.motivo)}</b><span class="note">${fdt(o.t)}</span></div>
+    <dl class="kv"><dt>Tentativa de</dt><dd>${esc(user(o.user).nome)}</dd><dt>Proprietário</dt><dd>${esc(o.owner)} · <span class="mono">${fph(o.phone)}</span></dd><dt>Imóvel</dt><dd>${esc(o.unit)} · ${esc(condo(o.condo).nome)}</dd><dt>Registro original</dt><dd class="mono">${o.match} (${esc(user(S.inds.find(i=>i.id===o.match)?.user)?.nome)})</dd></dl>
+    ${o.estado==='aberta'?`<div class="btns"><button class="btn sm" data-a="ocorr" data-v="${k}" data-e="mantida">Manter registro original</button><button class="btn sm ghost" data-a="ocorr" data-v="${k}" data-e="suspeita">Marcar como suspeita</button></div>`:`<span class="note">Resolvida: ${o.estado==='mantida'?'registro original mantido':'marcada como suspeita'}</span>`}</div>`).join('')||'<p class="muted">Nenhuma ocorrência.</p>'}</div>`;
+}
+function aRec(){
+  const E={processamento:'Em processamento',disponivel:'Disponível',resgate:'Resgate solicitado',pago:'Pago',cancelada:'Cancelada'};
+  const L=[...S.rewards].sort((a,b)=>b.t-a.t);
+  return `<p class="note">Os valores não podem ser editados manualmente. Cada mudança de estado fica registrada na auditoria.</p>
+   <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Gerada em</th><th class="r">Valor</th><th>Estado</th><th>Ação</th></tr></thead><tbody>
+   ${L.map((r,k)=>`<tr><td class="mono">${r.ind}</td><td>${esc(user(r.user).nome)}</td><td class="num">${fdt(r.t)}</td><td class="r num"><b>${money(r.v)}</b></td><td>${E[r.estado]}</td>
+    <td>${r.estado==='processamento'?`<button class="btn sm" data-a="rew" data-v="${r.ind}" data-e="disponivel">Liberar</button>`:['disponivel','resgate'].includes(r.estado)?`<button class="btn sm gold" data-a="rew" data-v="${r.ind}" data-e="pago">Registrar pagamento</button>`:'<span class="note">—</span>'}</td></tr>`).join('')}
+   </tbody></table></div>`;
+}
+function aCondos(){
+  return `<div class="grid2"><div class="tbl-wrap"><table><thead><tr><th>Condomínio</th><th>Bairro / cidade</th><th class="r">Indicadores</th><th class="r">Indicações</th><th>QR</th></tr></thead><tbody>
+   ${S.condos.map(c=>`<tr><td><b>${esc(c.nome)}</b><br><span class="note">${esc(c.end)}</span></td><td>${esc(c.bairro)} · ${esc(c.cidade)}</td><td class="r num">${S.users.filter(u=>u.condo===c.id).length}</td><td class="r num">${S.inds.filter(i=>i.condo===c.id).length}</td><td><button class="btn sm ghost" data-a="cqr" data-v="${c.id}">${ic('qr',16)}Ver</button></td></tr>`).join('')}
+   </tbody></table></div>
+   <form data-f="condo" class="card" novalidate><h2>Cadastrar condomínio</h2>
+    <label class="f">Nome<input class="in" id="c-nome" name="nome" placeholder="Ex.: Residencial Solar das Palmeiras"></label>
+    <label class="f">Endereço<input class="in" id="c-end" name="end"></label>
+    <div class="row2"><label class="f">Bairro<input class="in" id="c-bairro" name="bairro"></label><label class="f">Cidade<input class="in" id="c-cidade" name="cidade" value="São Paulo"></label></div>
+    <label class="f">Região<input class="in" id="c-reg" name="reg" placeholder="Ex.: Zona Norte"></label>
+    <button class="btn" type="submit">Cadastrar e gerar QR Code</button></form></div>`;
+}
+function aProg(){
+  return `<div class="grid2">
+   <form data-f="cfg" class="card" novalidate><h2>Recompensa por indicação qualificada</h2>
+    <label class="f">Valor fixo (R$)<input class="in num" id="g-valor" name="valor" type="number" min="0" step="1" value="${S.cfg.valor}"></label>
+    <p class="note">Vale para novas indicações qualificadas. Recompensas já geradas mantêm o valor original.</p>
+    <button class="btn" type="submit">Salvar valor</button></form>
+   <div class="card"><h2>Campanhas e bônus</h2>
+    <div class="hist">${S.campanhas.map((c,k)=>`<div><div><b>${esc(c.nome)}</b><div class="note">+${money(Number(c.bonus))} por indicação qualificada · até ${new Date(c.ate+'T12:00').toLocaleDateString('pt-BR')}</div></div><label class="toggle"><input type="checkbox" data-camp="${k}" ${c.ativa?'checked':''}>Ativa</label></div>`).join('')}</div>
+    <form data-f="camp" class="cards" style="gap:10px" novalidate><div class="row2"><label class="f">Nome<input class="in" id="k-nome" name="nome"></label><label class="f">Bônus (R$)<input class="in" id="k-bonus" name="bonus" type="number" min="0" value="5"></label></div>
+     <label class="f">Válida até<input class="in" id="k-ate" name="ate" type="date" value="2026-12-31"></label><button class="btn ghost" type="submit">Criar campanha</button></form></div>
+   <form data-f="rede" class="card" novalidate><h2>Rede de indicadores</h2>
+    <p class="note">Um único nível: indicador → profissional convidado → indicações do convidado. Sem ganhos sobre níveis abaixo.</p>
+    <label class="f">Bônus por convidado que fizer a 1ª indicação qualificada (R$)<input class="in num" id="r-valor" name="valor" type="number" min="0" value="${S.cfg.redeValor}"></label>
+    <label class="check"><input type="checkbox" id="r-jur" name="jur" ${S.cfg.redeJuridico?'checked':''}><span>Regra aprovada pela análise jurídica</span></label>
+    <label class="toggle"><input type="checkbox" id="r-ativa" name="ativa" ${S.cfg.redeAtiva?'checked':''}>Ativar incentivo da rede</label>
+    <button class="btn" type="submit">Salvar regra</button></form>
+  </div>`;
+}
+function aAud(){return `<div class="tbl-wrap"><table><thead><tr><th>Data e hora</th><th>Quem</th><th>Ação</th></tr></thead><tbody>${S.log.map(l=>`<tr><td class="num">${fdt(l.t)}</td><td>${esc(l.who)}</td><td>${esc(l.a)}</td></tr>`).join('')}</tbody></table></div>`}
+
+/* ---------- render ---------- */
+function render(){
+  $('#top').innerHTML=vTop();
+  const app=$('#app');
+  app.className=S.role==='adm'?'wide':S.role==='pro'?'pro':'';
+  if(S.role==='adm') app.innerHTML=vAdm();
+  else if(S.role==='pro') app.innerHTML=vPro();
+  else app.innerHTML=({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,login:vLogin,publico:vPublico}[S.tab]||vHome)();
+  $('#nav').innerHTML=vNav();
+  document.querySelectorAll('[data-qr]').forEach(el=>{el.innerHTML='';
+    if(window.QRCode) new QRCode(el,{text:el.dataset.qr,width:180,height:180,colorDark:'#0B3A47',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    else el.textContent=el.dataset.qr;});
+}
+function go(t){S.tab=t;render();window.scrollTo(0,0)}
+
+const act={
+ role:d=>{S.role=d.v;if(d.v==='ind'&&['publico','login'].includes(S.tab))S.tab='home';render();window.scrollTo(0,0)},
+ go:d=>{if(d.v==='login'){S.loginStep=0}go(d.v)},
+ det:d=>{S.det=d.v;go('det')},
+ filter:d=>{S.filter=d.v;render()},
+ atab:d=>{S.admTab=d.v;render()},
+ adv:d=>{const i=S.inds.find(x=>x.id===d.v);setStatus(i,i.status+1,d.who);toast(`${i.id}: ${ST[i.status].l}`);render()},
+ close:d=>{const i=S.inds.find(x=>x.id===d.v);setStatus(i,8,d.who);toast(`${i.id} encerrada`);render()},
+ rew:d=>{const r=S.rewards.find(x=>x.ind===d.v);r.estado=d.e;log('Admin',`Recompensa de ${r.ind} → ${d.e==='pago'?'paga':'liberada'} (${money(r.v)})`);toast(d.e==='pago'?'Pagamento registrado':'Recompensa liberada');render()},
+ ocorr:d=>{const o=S.ocorr[d.v];o.estado=d.e;log('Admin',`Ocorrência sobre ${o.match}: ${d.e==='mantida'?'registro original mantido':'marcada como suspeita'}`);render()},
+ resgatar:()=>{const w=wallet(S.me);S.rewards.filter(r=>r.user===S.me&&r.estado==='disponivel').forEach(r=>r.estado='resgate');log(me().nome,`Resgate solicitado: ${money(w.disp)}`);toast(`Resgate de ${money(w.disp)} solicitado`);render()},
+ copy:d=>{const done=()=>toast('Link copiado');try{navigator.clipboard.writeText(d.v).then(done,()=>toast('Selecione o link e copie manualmente'))}catch(e){toast('Selecione o link e copie manualmente')}},
+ lgpd:d=>{log(me().nome,`Solicitação LGPD: ${d.v} de dados`);toast(`Pedido de ${d.v} registrado. Resposta em até 15 dias.`)},
+ resend:()=>toast('Novo código enviado'),
+ cqr:d=>{const c=condo(d.v);$('#modal').innerHTML=`<div class="modal" data-a="mclose"><div class="box" role="dialog" aria-label="QR do condomínio"><p class="eyebrow">QR Code do condomínio</p><h2>${esc(c.nome).toUpperCase()}</h2><div class="qrbox" data-qr="https://indiqueplus.app/k/${c.id}"></div><p class="note">Indicações feitas por este QR são registradas com origem neste condomínio.</p><button class="btn" data-a="mclose">Fechar</button></div></div>`;
+   const el=$('#modal [data-qr]');if(window.QRCode)new QRCode(el,{text:el.dataset.qr,width:180,height:180,colorDark:'#0B3A47',colorLight:'#ffffff'});else el.textContent=el.dataset.qr;},
+ mclose:(d,el,e)=>{if(e.target===el)$('#modal').innerHTML=''}
+};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(!a)return;act[a.dataset.a]?.(a.dataset,a,e)});
+document.addEventListener('change',e=>{
+  if(e.target.id==='f-samewa') $('#wa-wrap').hidden=e.target.checked;
+  if(e.target.id==='f-condo') $('#addr').hidden=e.target.value!=='outro';
+  if(e.target.id==='a-filter'){S.admFilter=e.target.value;render()}
+  if(e.target.dataset.camp!==undefined){const c=S.campanhas[e.target.dataset.camp];c.ativa=e.target.checked;log('Admin',`Campanha “${c.nome}” ${c.ativa?'ativada':'pausada'}`)}
+});
+document.addEventListener('input',e=>{if(['f-phone','f-wa','p-phone'].includes(e.target.id)){const d=dig(e.target.value).slice(0,11);e.target.value=d.length>2?fph(d)||d:d}});
+
+const forms={
+ nova(fd){
+  const g=k=>(fd.get(k)||'').toString().trim(), err=m=>{const e=$('#f-err');e.textContent=m;e.hidden=false;e.scrollIntoView({block:'center',behavior:'smooth'})};
+  if(!g('owner')) return err('Informe o nome do proprietário.');
+  if(dig(g('phone')).length<10) return err('Informe um telefone com DDD.');
+  if(g('autorizou')!=='Sim') return err(g('autorizou')==='Não'?'Peça a autorização do proprietário antes de enviar. Sem ela, não podemos registrar o contato.':'Responda se o proprietário autorizou passar o contato.');
+  if(!g('unit')) return err('Informe a unidade (ex.: Apto 82 · Bloco B).');
+  if(g('condo')==='outro'&&!g('end')) return err('Informe o endereço do imóvel.');
+  if(!fd.get('consent')) return err('Marque a confirmação de autorização do proprietário.');
+  const ind=createInd({user:S.me,condo:g('condo'),owner:g('owner'),phone:dig(g('phone')),wa:fd.get('samewa')?dig(g('phone')):dig(g('wa')),horario:g('horario'),
+    unit:g('condo')==='outro'?`${g('unit')} · ${g('end')}, ${g('numero')} – ${g('bairro')}, ${g('cidade')}`:g('unit'),tipo:g('tipo'),dorms:g('dorms'),interesse:g('interesse'),quando:g('quando'),como:g('como'),obs:g('obs')},'App do indicador');
+  if(!ind) return go('dup');
+  S.lastId=ind.id; go('ok');
+ },
+ publico(fd){
+  const g=k=>(fd.get(k)||'').toString().trim(), err=m=>{const e=$('#p-err');e.textContent=m;e.hidden=false};
+  if(!g('owner')||dig(g('phone')).length<10||!g('unit')) return err('Preencha nome, WhatsApp com DDD e unidade.');
+  if(!fd.get('consent')) return err('Marque a autorização de contato para continuar.');
+  const ind=createInd({user:S.me,condo:me().condo,owner:g('owner'),phone:dig(g('phone')),horario:'Qualquer horário',unit:g('unit'),tipo:'Apartamento',dorms:'—',interesse:'Sim',quando:'Esta semana',como:'O próprio proprietário',obs:''},`QR Code pessoal ${me().code}`);
+  if(!ind){$('#app').innerHTML=`<div class="card result"><h1>Já temos o seu contato.</h1><p class="muted">Um profissional vai falar com você em breve.</p><button class="btn ghost" data-a="go" data-v="qr">Voltar ao app</button></div>`;return}
+  $('#app').innerHTML=`<div class="card result"><div class="badge">${ic('check',36)}</div><h1>Recebemos seu contato!</h1><p class="muted">Um profissional imobiliário habilitado vai falar com você pelo WhatsApp.</p><span class="idtag">${ind.id}</span><button class="btn ghost" data-a="go" data-v="home">Voltar ao app do indicador</button></div>`;
+ },
+ login(fd){
+  if(!S.loginStep){const v=(fd.get('id')||'').toString().trim();if(!v)return toast('Informe celular ou e-mail');S.loginTo=v;S.loginStep=1;render();return}
+  if(dig(fd.get('code')).length!==6) return toast('O código tem 6 dígitos');
+  log(me().nome,'Login com código de verificação');S.loginStep=0;go('home');toast('Bem-vindo de volta!');
+ },
+ condo(fd){const g=k=>(fd.get(k)||'').toString().trim();if(!g('nome'))return toast('Informe o nome do condomínio');
+  const c={id:'c'+(S.condos.length+1)+Date.now()%1000,nome:g('nome'),end:g('end'),bairro:g('bairro'),cidade:g('cidade'),reg:g('reg')||'—'};S.condos.push(c);log('Admin',`Condomínio cadastrado: ${c.nome}`);render();act.cqr({v:c.id})},
+ cfg(fd){const v=Math.max(0,Math.round(Number(fd.get('valor'))||0));log('Admin',`Valor da recompensa: ${money(S.cfg.valor)} → ${money(v)}`);S.cfg.valor=v;toast('Valor salvo');render()},
+ camp(fd){const g=k=>(fd.get(k)||'').toString().trim();if(!g('nome'))return toast('Dê um nome à campanha');S.campanhas.push({nome:g('nome'),bonus:Number(g('bonus'))||0,ate:g('ate'),ativa:true});log('Admin',`Campanha criada: ${g('nome')}`);render()},
+ rede(fd){const jur=!!fd.get('jur'),at=!!fd.get('ativa');if(at&&!jur)return toast('Ative só depois da aprovação jurídica');
+  S.cfg.redeJuridico=jur;S.cfg.redeAtiva=at;S.cfg.redeValor=Number(fd.get('valor'))||0;log('Admin',`Regra da rede ${at?'ativada':'desativada'} (${money(S.cfg.redeValor)})`);toast('Regra salva');render()}
+};
+document.addEventListener('submit',e=>{e.preventDefault();forms[e.target.dataset.f]?.(new FormData(e.target),e.target)});
+render();
+</script>
