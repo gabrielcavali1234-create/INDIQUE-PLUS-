@@ -1,28 +1,38 @@
-<title>INDIQUE+</title>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Rendique: você conhece a oportunidade, nós cuidamos do resto.">
+<meta name="theme-color" content="#1D3A5F">
+<title>Rendique</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%2712%27 y=%275%27 width=%2740%27 height=%2754%27 rx=%275%27 fill=%27%231D3A5F%27/%3E%3Crect x=%2719%27 y=%2713%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23fff%27/%3E%3Crect x=%2735%27 y=%2713%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23F5B83D%27/%3E%3Crect x=%2719%27 y=%2728%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23fff%27/%3E%3Crect x=%2735%27 y=%2728%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23fff%27/%3E%3Crect x=%2727%27 y=%2744%27 width=%2710%27 height=%2715%27 rx=%272%27 fill=%27%23fff%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 /* Layout: app de bolso (460px) para indicador e corretor; painel largo para o admin. Fachada de janelas como motivo. */
 :root{
-  --bg:#F2F5F4; --surface:#FFFFFF; --surface-2:#E8EEEC; --ink:#10272E; --muted:#5A6D71; --line:#D5DEDB;
-  --brand:#0F4C5C; --brand-2:#0B3A47; --brand-ink:#FFFFFF; --gold:#C98A12; --gold-soft:#FBEFD3; --danger:#B4362F; --danger-soft:#FBE4E2;
-  --s0:#8A9799; --s1:#2F6FD6; --s2:#B89300; --s3:#DB7420; --s4:#7E4FC9; --s5:#2E87A8; --s6:#2E9B5F; --s7:#C98A12; --s8:#3B4446;
-  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --bg:#F3F5F8; --surface:#FFFFFF; --surface-2:#E7EBF1; --ink:#15233A; --muted:#56637A; --line:#D6DCE5;
+  --brand:#1D3A5F; --brand-2:#132840; --brand-ink:#FFFFFF; --gold:#F5B83D; --gold-soft:#FEF3D9; --danger:#B4362F; --danger-soft:#FBE4E2;
+  --s0:#8A9799; --s1:#2F6FD6; --s2:#B89300; --s3:#DB7420; --s4:#7E4FC9; --s5:#2E87A8; --s6:#2E9B5F; --s7:#C98A12; --s8:#3B4446; --lit:#F5B83D;
+  --display:"Sora", "Segoe UI", system-ui, sans-serif;
   --body:"Figtree", "Segoe UI", system-ui, sans-serif;
   --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --r:16px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0A1618; --surface:#122326; --surface-2:#1A2F33; --ink:#E5EEEC; --muted:#92A6A8; --line:#25403F;
-  --brand:#3A9DB0; --brand-2:#123A44; --brand-ink:#04161A; --gold:#E7B04A; --gold-soft:#372B12; --danger:#E46A62; --danger-soft:#3A1A18;
+  --bg:#0B1220; --surface:#121B2B; --surface-2:#1A2538; --ink:#E6EBF2; --muted:#94A0B4; --line:#243049;
+  --brand:#8DB0E3; --brand-2:#16263D; --brand-ink:#0B1220; --gold:#F5B83D; --gold-soft:#3A2E12; --danger:#E46A62; --danger-soft:#3A1A18;
   --s0:#8E9C9E; --s1:#6C9BEB; --s2:#E0C14A; --s3:#EE9550; --s4:#A784E3; --s5:#5DB3D2; --s6:#5BC48A; --s7:#E7B04A; --s8:#9AA4A6; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0A1618; --surface:#122326; --surface-2:#1A2F33; --ink:#E5EEEC; --muted:#92A6A8; --line:#25403F;
-  --brand:#3A9DB0; --brand-2:#123A44; --brand-ink:#04161A; --gold:#E7B04A; --gold-soft:#372B12; --danger:#E46A62; --danger-soft:#3A1A18;
+  --bg:#0B1220; --surface:#121B2B; --surface-2:#1A2538; --ink:#E6EBF2; --muted:#94A0B4; --line:#243049;
+  --brand:#8DB0E3; --brand-2:#16263D; --brand-ink:#0B1220; --gold:#F5B83D; --gold-soft:#3A2E12; --danger:#E46A62; --danger-soft:#3A1A18;
   --s0:#8E9C9E; --s1:#6C9BEB; --s2:#E0C14A; --s3:#EE9550; --s4:#A784E3; --s5:#5DB3D2; --s6:#5BC48A; --s7:#E7B04A; --s8:#9AA4A6; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -39,16 +49,20 @@ p{margin:0}
 /* top */
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .top-in{max-width:460px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.top-in.wide{max-width:1160px}
+.top-in.wide{max-width:1240px}
+.card .kpis .tile .v{font-size:22px}
 .brand{display:flex;align-items:center;gap:8px}
-.mark{width:30px;height:30px;border-radius:9px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center}
-.bn{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.02em}
-.bn b{color:var(--gold)}
+.logo{display:block;flex:none}
+.bn{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.04em}
+.devsw{display:flex;background:var(--surface-2);border-radius:999px;padding:3px}
+.devsw button{border:0;background:none;width:34px;height:30px;border-radius:999px;display:grid;place-items:center;color:var(--muted)}
+.devsw button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .roles{display:flex;background:var(--surface-2);border-radius:999px;padding:3px}
 .roles button{border:0;background:none;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted)}
 .roles button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.12)}
 .demo{max-width:460px;margin:0 auto;padding:6px 16px 0;font-size:12px;color:var(--muted)}
-.demo.wide{max-width:1160px}
+.demo.wide{max-width:1240px}
 
 /* shell */
 main{max-width:460px;margin:0 auto;padding:16px 16px calc(100px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}
@@ -183,7 +197,7 @@ textarea.in{min-height:76px;resize:vertical}
 
 /* nav */
 nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
-nav.bottom .in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:end}
+nav.bottom .nav-in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:end}
 nav.bottom button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--muted);padding:6px 0}
 nav.bottom button.on{color:var(--brand)}
 nav.bottom .mid .ic{width:48px;height:48px;padding:12px;border-radius:16px;background:var(--gold);color:#1B1305;margin-top:-18px;box-shadow:0 4px 14px rgb(0 0 0/.18)}
@@ -220,6 +234,51 @@ td.r,th.r{text-align:right}
 .toggle{display:flex;align-items:center;gap:10px;font-weight:600}
 .toggle input{width:20px;height:20px;accent-color:var(--brand)}
 
+/* layout helpers */
+.col,.narrow,.hgrid,.split,.fgrid{display:flex;flex-direction:column;gap:16px;min-width:0}
+main.adm{max-width:460px}
+
+/* escolha de dispositivo */
+main.choose{max-width:760px;min-height:100%;justify-content:center;padding-block:40px}
+.choose-in{display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.choose-in h1{font-size:30px;margin-top:12px}
+.brand.big{gap:14px}
+.brand.big .bn{font-size:40px}
+.devgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px;width:100%}
+.devcard{display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;padding:22px;border-radius:20px;border:2px solid var(--line);background:var(--surface)}
+.devcard:hover{border-color:var(--brand)}
+.devcard .di{width:56px;height:56px;border-radius:16px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center}
+.devcard .dt{font-family:var(--display);font-weight:700;font-size:21px;display:flex;flex-direction:column;gap:6px}
+.devcard .dt em{font-family:var(--body);font-style:normal;font-size:12px;font-weight:700;color:#1B1305;background:var(--gold);border-radius:999px;padding:2px 10px;align-self:flex-start}
+.devcard .dd{color:var(--muted);font-size:14.5px}
+
+/* versão computador */
+@media (min-width:761px){
+  [data-device="desk"] main{max-width:1240px;padding:28px 32px 56px}
+  [data-device="desk"] main.wide{max-width:1240px}
+  [data-device="desk"][data-side] main{margin-left:232px;max-width:1140px}
+  [data-device="desk"][data-side] .top-in.wide{max-width:none;margin-left:0;padding-left:24px}
+  [data-device="desk"][data-side] .demo.wide{max-width:none;margin-left:0;padding-left:264px}
+  [data-device="desk"] nav.bottom{top:0;bottom:0;right:auto;width:232px;z-index:15;border-top:0;border-right:1px solid var(--line);padding:96px 12px 16px}
+  [data-device="desk"] nav.bottom .nav-in{display:flex;flex-direction:column;align-items:stretch;gap:4px;max-width:none;margin:0}
+  [data-device="desk"] nav.bottom button{flex-direction:row;justify-content:flex-start;gap:12px;font-size:15px;padding:11px 14px;border-radius:12px;color:var(--ink)}
+  [data-device="desk"] nav.bottom button.on{background:var(--surface-2);color:var(--brand)}
+  [data-device="desk"] nav.bottom .mid{order:-1;background:var(--gold);color:#1B1305;margin-bottom:10px;font-weight:700}
+  [data-device="desk"] nav.bottom .mid.on{background:var(--gold);color:#1B1305}
+  [data-device="desk"] nav.bottom .mid .ic{width:22px;height:22px;padding:0;margin:0;background:none;box-shadow:none;border-radius:0}
+  [data-device="desk"] #toast{bottom:24px}
+  [data-device="desk"] .hello h1{font-size:40px}
+  [data-device="desk"] .stats,[data-device="desk"] .quick{grid-template-columns:repeat(4,minmax(0,1fr))}
+  [data-device="desk"] .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start}
+  [data-device="desk"] .cards.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+  [data-device="desk"] .narrow{max-width:620px;width:100%;margin-inline:auto}
+  [data-device="desk"] .fgrid + .narrow{margin-inline:0}
+}
+@media (min-width:1080px){
+  [data-device="desk"] .hgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:24px;align-items:start}
+  [data-device="desk"] .split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+}
+
 /* modal & toast */
 .modal{position:fixed;inset:0;z-index:50;background:rgb(5 15 18/.55);display:grid;place-items:center;padding:16px}
 .modal .box{background:var(--surface);border-radius:20px;padding:20px;width:min(380px,100%);display:flex;flex-direction:column;gap:14px;text-align:center}
@@ -230,7 +289,8 @@ td.r,th.r{text-align:right}
 }
 @media (max-width:380px){.hello h1{font-size:28px}.frow{grid-template-columns:110px 1fr 36px}}
 </style>
-
+</head>
+<body>
 <div id="top"></div>
 <main id="app"></main>
 <div id="nav"></div>
@@ -281,7 +341,7 @@ const fmtId=n=>'IND-2026-'+String(n).padStart(6,'0');
 seed.forEach(([n,u,c,o,p,un,t,d,st,ago])=>{
   const steps=st===8?[0,1,2,8]:Array.from({length:st+1},(_,k)=>k);
   const t0=NOW-ago*DAY, span=ago*DAY*.85;
-  const hist=steps.map((s,k)=>({s,t:t0+(steps.length>1?span*k/(steps.length-1):0),by:s===0?'Indicador':s<=1?'Equipe INDIQUE+':'Ana Prado (corretora)'}));
+  const hist=steps.map((s,k)=>({s,t:t0+(steps.length>1?span*k/(steps.length-1):0),by:s===0?'Indicador':s<=1?'Equipe Rendique':'Ana Prado (corretora)'}));
   const ind={id:fmtId(n),user:u,condo:c,owner:o,phone:p,unit:un,tipo:t,dorms:d,status:st,hist,horario:'Tarde',origem:'App do indicador',
     interesse:'Sim',quando:'Este mês',como:'Conversa direta com o proprietário',obs:'',consent:hist[0].t};
   if(st===8) ind.motivo='Proprietário desistiu da venda';
@@ -315,7 +375,8 @@ function wallet(uid){const r=S.rewards.filter(r=>r.user===uid&&r.estado!=='cance
   return {disp:sum(['disponivel']),proc:sum(['processamento','resgate']),pago:sum(['pago']),list:r};}
 
 const I={
- mark:'<path d="M4 11.5 12 5l8 6.5V20H4z"/><path d="M12 10.5v6M9 13.5h6"/>',
+ phone2:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+ monitor:'<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8.5 20.5h7M12 16.5v4"/>',
  home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
  list:'<path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
@@ -334,6 +395,7 @@ const I={
  phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>'
 };
 const ic=(n,s=20)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+const logo=(n,dark)=>`<svg class="logo" width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="5" width="40" height="54" rx="5" fill="${dark?'#FFFFFF':'var(--brand)'}"/>${[[19,13],[19,28],[35,28]].map(([x,y])=>`<rect x="${x}" y="${y}" width="10" height="10" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/>`).join('')}<rect x="35" y="13" width="10" height="10" rx="2" fill="var(--lit)"/><rect x="27" y="44" width="10" height="15" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/></svg>`;
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
 
 /* ---------- regras ---------- */
@@ -367,18 +429,21 @@ function createInd(d,origem){
 
 /* ---------- topo e navegação ---------- */
 function vTop(){
-  const w=S.role==='adm'?'wide':'';
+  const w=S.device==='desk'?'wide':'';
   return `<header class="top"><div class="top-in ${w}">
-   <div class="brand"><span class="mark">${ic('mark',18)}</span><span class="bn">INDIQUE<b>+</b></span></div>
+   <div class="brand">${logo(30)}<span class="bn">Rendique</span></div>
+   <div class="tools"><div class="devsw" role="group" aria-label="Formato da tela">
+    <button class="${S.device==='mob'?'on':''}" data-a="device" data-v="mob" aria-pressed="${S.device==='mob'}" aria-label="Versão celular" title="Versão celular">${ic('phone2',18)}</button>
+    <button class="${S.device==='desk'?'on':''}" data-a="device" data-v="desk" aria-pressed="${S.device==='desk'}" aria-label="Versão computador" title="Versão computador">${ic('monitor',18)}</button></div>
    <div class="roles" role="tablist" aria-label="Ver como">${[['ind','Indicador'],['pro','Corretor'],['adm','Admin']].map(([k,l])=>
-     `<button role="tab" aria-selected="${S.role===k}" class="${S.role===k?'on':''}" data-a="role" data-v="${k}">${l}</button>`).join('')}</div>
+     `<button role="tab" aria-selected="${S.role===k}" class="${S.role===k?'on':''}" data-a="role" data-v="${k}">${l}</button>`).join('')}</div></div>
   </div></header><p class="demo ${w}">Protótipo navegável com dados de exemplo. Troque o perfil no topo.</p>`;
 }
 function vNav(){
   if(S.role!=='ind'||['publico','login'].includes(S.tab)) return '';
   const grp={home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab]||'mais';
   const b=(k,l,n,c='')=>`<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
-  return `<nav class="bottom" aria-label="Navegação"><div class="in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais','Mais','more')}</div></nav>`;
+  return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais','Mais','more')}</div></nav>`;
 }
 const ph=(t,back='home')=>`<div class="ph"><button class="back" data-a="go" data-v="${back}" aria-label="Voltar">${ic('back')}</button><h1>${t}</h1></div>`;
 
@@ -388,7 +453,7 @@ function vHome(){
   const n={tot:mine.length,at:mine.filter(i=>i.status<=2).length,q:mine.filter(i=>i.status>=3&&i.status<=5).length,v:mine.filter(i=>i.status===6||i.status===7).length};
   const recent=[...mine].sort((a,b)=>last(b)-last(a)).slice(0,3);
   const tile=(v,l,s)=>`<div class="tile"><div class="v">${v}</div><div class="l"><span class="dot" style="background:var(--s${s})"></span>${l}</div></div>`;
-  return `<section class="hello"><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condo).nome)}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
+  return `<div class="hgrid"><div class="col"><section class="hello"><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condo).nome)}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
    <p class="sub">Você conhece. Você indica. A gente cuida do resto.</p></section>
    <button class="cta" data-a="go" data-v="nova">${ic('plus',24)}<span>Nova indicação</span><small>Leva menos de 2 minutos</small></button>
    <div class="stats">${tile(n.tot,'Suas indicações',0)}${tile(n.at,'Em atendimento',1)}${tile(n.q,'Oportunidades qualificadas',3)}${tile(n.v,'Vendas concluídas',6)}</div>
@@ -398,10 +463,10 @@ function vHome(){
     <button class="qbtn" data-a="go" data-v="lista">${ic('list')}Minhas indicações</button>
     <button class="qbtn" data-a="go" data-v="carteira">${ic('wallet')}Minha carteira</button>
     <button class="qbtn" data-a="go" data-v="convite">${ic('users')}Convidar profissional</button>
-    <button class="qbtn" data-a="go" data-v="qr">${ic('qr')}Meu QR Code</button></div>
-   <section class="cards"><div class="sec-h"><h2>Últimas atualizações</h2><button class="link" data-a="go" data-v="lista">Ver todas</button></div>
+    <button class="qbtn" data-a="go" data-v="qr">${ic('qr')}Meu QR Code</button></div></div>
+   <div class="col"><section class="cards"><div class="sec-h"><h2>Últimas atualizações</h2><button class="link" data-a="go" data-v="lista">Ver todas</button></div>
     ${recent.map(cardInd).join('')}</section>
-   <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p>`;
+   <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p></div></div>`;
 }
 const cardInd=i=>`<button class="icard" data-a="det" data-v="${i.id}"><span class="id mono">${i.id}</span>${pill(i.status)}
   <span class="who">${esc(i.owner)}</span><span class="id">${fd(last(i))}</span><span class="where">${esc(i.unit)} · ${esc(condo(i.condo).nome)}</span></button>`;
@@ -411,7 +476,7 @@ function vNova(){
   const ch=(name,opts,def,cls='')=>`<div class="chips ${cls}" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
   return `${ph('Nova indicação')}
   <p class="muted" style="margin-top:-6px">Preencha o que você souber. Nossa equipe confirma o resto com o proprietário.</p>
-  <form data-f="nova" novalidate class="cards" style="gap:14px">
+  <form data-f="nova" novalidate class="cards" style="gap:14px"><div class="fgrid">
    <div class="card"><h2>Proprietário</h2>
     <label class="f">Nome<input class="in" id="f-owner" name="owner" autocomplete="off" placeholder="Ex.: Maria da Silva"></label>
     <label class="f">Telefone<input class="in" id="f-phone" name="phone" inputmode="tel" placeholder="(11) 90000-0000"></label>
@@ -435,12 +500,12 @@ function vNova(){
     <div class="f"><span class="qlabel">Quando ele comentou?</span>${ch('quando',['Esta semana','Este mês','Há mais tempo'],'Esta semana')}</div>
     <div class="f"><span class="qlabel">Como você ficou sabendo?</span>${ch('como',['Ele me contou','Pediu indicação','Vi anúncio ou placa','Outro'],'Ele me contou')}</div>
     <label class="f">Observações <small>(opcional)</small><textarea class="in" id="f-obs" name="obs" placeholder="Algo que ajude o corretor no primeiro contato"></textarea></label>
-   </div>
+   </div></div><div class="narrow" style="margin-inline:0">
    <label class="check"><input type="checkbox" id="f-consent" name="consent"><span>Confirmo que o proprietário autorizou o compartilhamento de seus dados para que um profissional imobiliário entre em contato sobre seu interesse em vender o imóvel.</span></label>
    <div id="f-err" class="err" hidden></div>
    <button class="btn big gold" type="submit">Enviar indicação</button>
    <p class="note" style="text-align:center">Você não precisa avaliar, negociar nem falar de preço. Isso fica com o profissional habilitado.</p>
-  </form>`;
+  </div></form>`;
 }
 function vOk(){const i=S.inds.find(x=>x.id===S.lastId);
   return `<div class="card result"><div class="badge">${ic('check',36)}</div><h1>Indicação recebida!</h1>
@@ -457,7 +522,7 @@ function vLista(){
   const L=S.inds.filter(i=>i.user===S.me).filter(f[S.filter]).sort((a,b)=>last(b)-last(a));
   const fb=(k,l)=>`<button class="chipbtn ${S.filter===k?'on':''}" data-a="filter" data-v="${k}">${l}</button>`;
   return `${ph('Minhas indicações')}<div class="filters">${fb('todas','Todas')}${fb('andamento','Em andamento')}${fb('concluidas','Concluídas')}${fb('encerradas','Encerradas')}</div>
-   <div class="cards">${L.map(cardInd).join('')||'<p class="muted">Nenhuma indicação aqui ainda.</p>'}</div>`;
+   <div class="cards list">${L.map(cardInd).join('')||'<p class="muted">Nenhuma indicação aqui ainda.</p>'}</div>`;
 }
 function vDet(){
   const i=S.inds.find(x=>x.id===S.det); if(!i) return vLista();
@@ -467,37 +532,37 @@ function vDet(){
     return `<li class="${cls}" style="${sc(s)}"><span class="n">${h?ic('check',14):''}</span><div><div class="t">${ST[s].l}</div><div class="d">${h?fdt(h.t):'Próxima etapa'}</div></div></li>`}).join('');
   const tagE={processamento:['proc','Em processamento'],disponivel:['disp','Disponível'],resgate:['resg','Resgate solicitado'],pago:['pago','Pago']};
   return `${ph(`<span class="mono" style="font-size:18px">${i.id}</span>`,'lista')}
-   <div class="card"><div class="sec-h"><h2>${esc(i.owner)}</h2>${pill(i.status)}</div>
+   <div class="split"><div class="col"><div class="card"><div class="sec-h"><h2>${esc(i.owner)}</h2>${pill(i.status)}</div>
     <dl class="kv"><dt>Imóvel</dt><dd>${esc(i.tipo)} · ${esc(i.dorms)} dorm.</dd><dt>Unidade</dt><dd>${esc(i.unit)}</dd><dt>Local</dt><dd>${esc(condo(i.condo).nome)}</dd><dt>Enviada</dt><dd>${fdt(i.hist[0].t)}</dd>${i.motivo?`<dt>Motivo</dt><dd>${esc(i.motivo)}</dd>`:''}</dl></div>
    ${r?`<div class="reward" style="cursor:default"><div><div class="l">Recompensa por indicação qualificada</div><div class="v">${money(r.v)}</div></div><span class="tag ${tagE[r.estado][0]}">${tagE[r.estado][1]}</span></div>`:
      i.status<3?`<p class="principle">${ic('wallet')}<span>Quando a oportunidade for qualificada pela equipe, você recebe ${money(S.cfg.valor)} na carteira, conforme as regras do programa.</span></p>`:''}
-   <div class="card"><h2>Linha do tempo</h2><ol class="tl">${tl}</ol></div>
-   <p class="principle">${ic('shield')}<span>O atendimento, a avaliação e a negociação são feitos por um profissional imobiliário habilitado.</span></p>`;
+   <p class="principle">${ic('shield')}<span>O atendimento, a avaliação e a negociação são feitos por um profissional imobiliário habilitado.</span></p></div>
+   <div class="col"><div class="card"><h2>Linha do tempo</h2><ol class="tl">${tl}</ol></div></div></div>`;
 }
 function vCarteira(){
   const w=wallet(S.me), tagE={processamento:['proc','Em processamento'],disponivel:['disp','Disponível'],resgate:['resg','Resgate solicitado'],pago:['pago','Pago']};
   return `${ph('Minha carteira')}
-   <div class="wallet"><span class="l">Saldo disponível</span><span class="v">${money(w.disp)}</span><span class="l">Programa de Incentivos INDIQUE+</span></div>
+   <div class="split"><div class="col"><div class="wallet"><span class="l">Saldo disponível</span><span class="v">${money(w.disp)}</span><span class="l">Programa de Incentivos Rendique</span></div>
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
-   <div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].sort((a,b)=>b.t-a.t).map(r=>{const i=S.inds.find(x=>x.id===r.ind);
-     return `<div><div><div class="mono" style="font-size:13px">${r.ind}</div><div class="note">${esc(i?.owner||'')} · ${fd(r.t)}</div></div><div style="text-align:right"><div class="a">${money(r.v)}</div><span class="tag ${tagE[r.estado][0]}">${tagE[r.estado][1]}</span></div></div>`}).join('')||'<p class="muted">Sem recompensas ainda.</p>'}</div></div>
-   <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.cfg.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate. O valor não depende do preço do imóvel nem do resultado da negociação.</p></div>`;
+   <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.cfg.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate. O valor não depende do preço do imóvel nem do resultado da negociação.</p></div></div>
+   <div class="col"><div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].sort((a,b)=>b.t-a.t).map(r=>{const i=S.inds.find(x=>x.id===r.ind);
+     return `<div><div><div class="mono" style="font-size:13px">${r.ind}</div><div class="note">${esc(i?.owner||'')} · ${fd(r.t)}</div></div><div style="text-align:right"><div class="a">${money(r.v)}</div><span class="tag ${tagE[r.estado][0]}">${tagE[r.estado][1]}</span></div></div>`}).join('')||'<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
 }
 function vMais(){
   const u=me(), it=(v,i,t,d)=>`<button class="qbtn" style="width:100%" data-a="go" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
   return `<section class="hello"><p class="eyebrow">Código ${u.code}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condo).nome)}</p></section>
    <div class="cards">${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('login','out','Sair','Encerrar sessão neste aparelho')}</div>`;
 }
-function vQR(){const u=me(),url=`indiqueplus.app/q/${u.code}`;
+function vQR(){const u=me(),url=`rendique.app/q/${u.code}`;
   return `${ph('Meu QR Code','mais')}
    <div class="card" style="text-align:center;align-items:center"><p class="eyebrow">Conhece alguém que quer vender um imóvel?</p>
     <div class="qrbox" data-qr="https://${url}"></div><span class="code">${u.code}</span>
     <p class="note">Imprima e deixe na portaria. Quem escanear cai numa página simples, preenche os próprios dados e a indicação fica registrada no seu nome.</p>
     <div class="copyrow" style="width:100%"><span>${url}</span><button class="btn sm ghost" data-a="copy" data-v="https://${url}">${ic('copy',16)}Copiar</button></div>
     <button class="btn" style="width:100%" data-a="go" data-v="publico">Ver a página que o proprietário vê</button></div>`;}
-function vConvite(){const u=me(),url=`indiqueplus.app/c/${u.code}`,conv=S.users.filter(x=>x.conv===u.id);
-  const msg=encodeURIComponent(`Oi! Estou no INDIQUE+, um programa para profissionais de condomínio indicarem quem quer vender imóvel. Cadastre-se com meu código ${u.code}: https://${url}`);
+function vConvite(){const u=me(),url=`rendique.app/c/${u.code}`,conv=S.users.filter(x=>x.conv===u.id);
+  const msg=encodeURIComponent(`Oi! Estou no Rendique, um programa para profissionais de condomínio indicarem quem quer vender imóvel. Cadastre-se com meu código ${u.code}: https://${url}`);
   return `${ph('Convide um profissional','mais')}
    <div class="card" style="text-align:center;align-items:center"><p class="muted">Porteiros, zeladores, síndicos e funcionários de condomínio podem participar.</p>
     <span class="eyebrow">Seu código</span><span class="code">${u.code}</span>
@@ -509,7 +574,7 @@ function vPriv(){return `${ph('Privacidade e dados','mais')}
    <div class="card"><h2>Seus dados</h2><p class="note">Usamos seus dados para identificar suas indicações e pagar recompensas. Os dados do proprietário só são compartilhados com o profissional imobiliário responsável, mediante a autorização registrada no envio.</p>
     <dl class="kv"><dt>Consentimentos</dt><dd>${S.inds.filter(i=>i.user===S.me).length} registrados com data e hora</dd><dt>Criptografia</dt><dd>Telefones e nomes protegidos</dd></dl>
     <div class="btns"><button class="btn ghost" data-a="lgpd" data-v="correção">Solicitar correção</button><button class="btn danger" data-a="lgpd" data-v="exclusão">Solicitar exclusão</button></div></div>
-   <div class="card"><h3>Política de privacidade (resumo)</h3><p class="note">Base legal: consentimento (art. 7º, I, LGPD). Retenção pelo prazo necessário ao programa e às obrigações legais. Você pode pedir acesso, correção, portabilidade ou exclusão a qualquer momento. Encarregado de dados: dpo@indiqueplus.app.</p></div>`;}
+   <div class="card"><h3>Política de privacidade (resumo)</h3><p class="note">Base legal: consentimento (art. 7º, I, LGPD). Retenção pelo prazo necessário ao programa e às obrigações legais. Você pode pedir acesso, correção, portabilidade ou exclusão a qualquer momento. Encarregado de dados: dpo@rendique.app.</p></div>`;}
 function vTermos(){return `${ph('Termos do programa','mais')}
    <div class="card"><ol class="note" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px">
     <li>O indicador apenas informa uma oportunidade, com autorização do proprietário. Não realiza intermediação imobiliária.</li>
@@ -519,8 +584,8 @@ function vTermos(){return `${ph('Termos do programa','mais')}
     <li>Indicações duplicadas ou sem autorização não geram recompensa e podem ser auditadas.</li>
     <li>A rede de convites tem um único nível.</li></ol>
     <p class="note"><b>Versão preliminar.</b> Regras sujeitas à análise jurídica e às normas do CRECI antes da operação comercial.</p></div>`;}
-function vLogin(){return `<div class="card" style="margin-top:20px"><span class="mark" style="width:48px;height:48px;border-radius:14px">${ic('mark',26)}</span>
-   <h1 style="font-size:28px">Entrar no INDIQUE+</h1><p class="muted">Você conhece a oportunidade. Nós cuidamos do resto.</p>
+function vLogin(){return `<div class="card" style="margin-top:20px">${logo(52)}
+   <h1 style="font-size:28px">Entrar no Rendique</h1><p class="muted">Você conhece a oportunidade. Nós cuidamos do resto.</p>
    <form data-f="login" class="cards" style="gap:12px" novalidate>
     ${S.loginStep?`<label class="f">Código enviado para ${esc(S.loginTo)}<input class="in mono" id="l-code" name="code" inputmode="numeric" maxlength="6" placeholder="000000" style="letter-spacing:.4em;font-size:22px;text-align:center"></label>
       <p class="note">Para testar, use qualquer código de 6 dígitos.</p><button class="btn big" type="submit">Entrar</button>
@@ -529,7 +594,7 @@ function vLogin(){return `<div class="card" style="margin-top:20px"><span class=
       <button class="btn big" type="submit">Receber código</button><p class="note">Enviamos um código de verificação por WhatsApp, SMS ou e-mail.</p>`}
    </form></div>`;}
 function vPublico(){const u=me(),c=condo(u.condo);
-  return `<div class="pub-hero"><span class="eyebrow" style="color:inherit;opacity:.8">INDIQUE+ · ${esc(c.nome)}</span><h1>Conhece alguém que quer vender um imóvel?</h1>
+  return `<div class="pub-hero"><span class="eyebrow" style="color:inherit;opacity:.8">Rendique · ${esc(c.nome)}</span><h1>Conhece alguém que quer vender um imóvel?</h1>
    <p>Deixe o contato. Um profissional imobiliário habilitado vai falar com o proprietário, sem compromisso.</p></div>
    <form data-f="publico" class="card" novalidate>
     <label class="f">Nome do proprietário<input class="in" id="p-owner" name="owner"></label>
@@ -546,7 +611,7 @@ function vPro(){
   const L=S.inds.filter(i=>i.status>=1&&i.status<=5).sort((a,b)=>a.status-b.status||last(a)-last(b));
   return `<section class="hello"><p class="eyebrow">Profissional imobiliário · CRECI-SP (exemplo)</p><h1 style="font-size:28px">Ana Prado</h1>
    <p class="sub">${L.length} oportunidades em atendimento. Atualize o status a cada etapa: o indicador acompanha em tempo real.</p></section>
-   <div class="cards">${L.map(i=>{const nx=i.status+1;return `<div class="card" style="gap:10px">
+   <div class="cards list">${L.map(i=>{const nx=i.status+1;return `<div class="card" style="gap:10px">
     <div class="sec-h"><span class="mono note">${i.id}</span>${pill(i.status)}</div>
     <h2>${esc(i.owner)}</h2>
     <dl class="kv"><dt>Contato</dt><dd class="mono">${fph(i.phone)}</dd><dt>Horário</dt><dd>${esc(i.horario)}</dd><dt>Imóvel</dt><dd>${esc(i.tipo)} · ${esc(i.dorms)} dorm. · ${esc(i.unit)}</dd><dt>Local</dt><dd>${esc(condo(i.condo).nome)}</dd><dt>Indicado por</dt><dd>${esc(user(i.user).nome)}</dd>${i.obs?`<dt>Obs.</dt><dd>${esc(i.obs)}</dd>`:''}</dl>
@@ -646,20 +711,38 @@ function aAud(){return `<div class="tbl-wrap"><table><thead><tr><th>Data e hora<
 
 /* ---------- render ---------- */
 function render(){
+  const root=document.documentElement, app=$('#app');
+  root.dataset.device=S.device||'mob';
+  if(!S.device){$('#top').innerHTML='';$('#nav').innerHTML='';delete root.dataset.side;app.className='choose';app.innerHTML=vDevice();return}
   $('#top').innerHTML=vTop();
-  const app=$('#app');
-  app.className=S.role==='adm'?'wide':S.role==='pro'?'pro':'';
+  const desk=S.device==='desk';
+  app.className=S.role==='adm'?(desk?'wide':'adm'):S.role==='pro'?'pro':'';
   if(S.role==='adm') app.innerHTML=vAdm();
   else if(S.role==='pro') app.innerHTML=vPro();
-  else app.innerHTML=({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,login:vLogin,publico:vPublico}[S.tab]||vHome)();
-  $('#nav').innerHTML=vNav();
+  else {const html=({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,login:vLogin,publico:vPublico}[S.tab]||vHome)();
+    app.innerHTML=['ok','dup','mais','qr','convite','privacidade','termos','login','publico'].includes(S.tab)?`<div class="narrow">${html}</div>`:html;}
+  const nav=vNav(); $('#nav').innerHTML=nav;
+  if(nav) root.dataset.side=''; else delete root.dataset.side;
   document.querySelectorAll('[data-qr]').forEach(el=>{el.innerHTML='';
-    if(window.QRCode) new QRCode(el,{text:el.dataset.qr,width:180,height:180,colorDark:'#0B3A47',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    if(window.QRCode) new QRCode(el,{text:el.dataset.qr,width:180,height:180,colorDark:'#1D3A5F',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
     else el.textContent=el.dataset.qr;});
 }
 function go(t){S.tab=t;render();window.scrollTo(0,0)}
+function vDevice(){
+  const small=window.matchMedia('(max-width: 760px)').matches;
+  const card=(k,i,t,d,rec)=>`<button class="devcard" data-a="device" data-v="${k}"><span class="di">${ic(i,30)}</span><span class="dt">${t}${rec?'<em>Recomendado para esta tela</em>':''}</span><span class="dd">${d}</span></button>`;
+  return `<div class="choose-in">
+   <div class="brand big">${logo(64)}<span class="bn">Rendique</span></div>
+   <p class="muted">Você conhece a oportunidade. Nós cuidamos do resto.</p>
+   <h1>Como você quer usar o Rendique?</h1>
+   <div class="devgrid">${card('mob','phone2','No celular','Telas enxutas, botões grandes e menu embaixo. Ideal para usar na portaria, com uma mão.',small)}${card('desk','monitor','No computador','Mais informação por tela, menu lateral e painéis lado a lado. Ideal para escritório e administração.',!small)}</div>
+   <p class="note">Você pode trocar quando quiser pelos ícones de celular e computador no topo.</p></div>`;
+}
+function saveDevice(v){try{localStorage.setItem('rendique-device',v)}catch(e){}}
+function loadDevice(){try{const v=localStorage.getItem('rendique-device');return v==='mob'||v==='desk'?v:null}catch(e){return null}}
 
 const act={
+ device:d=>{S.device=d.v;saveDevice(d.v);render();window.scrollTo(0,0)},
  role:d=>{S.role=d.v;if(d.v==='ind'&&['publico','login'].includes(S.tab))S.tab='home';render();window.scrollTo(0,0)},
  go:d=>{if(d.v==='login'){S.loginStep=0}go(d.v)},
  det:d=>{S.det=d.v;go('det')},
@@ -673,8 +756,8 @@ const act={
  copy:d=>{const done=()=>toast('Link copiado');try{navigator.clipboard.writeText(d.v).then(done,()=>toast('Selecione o link e copie manualmente'))}catch(e){toast('Selecione o link e copie manualmente')}},
  lgpd:d=>{log(me().nome,`Solicitação LGPD: ${d.v} de dados`);toast(`Pedido de ${d.v} registrado. Resposta em até 15 dias.`)},
  resend:()=>toast('Novo código enviado'),
- cqr:d=>{const c=condo(d.v);$('#modal').innerHTML=`<div class="modal" data-a="mclose"><div class="box" role="dialog" aria-label="QR do condomínio"><p class="eyebrow">QR Code do condomínio</p><h2>${esc(c.nome).toUpperCase()}</h2><div class="qrbox" data-qr="https://indiqueplus.app/k/${c.id}"></div><p class="note">Indicações feitas por este QR são registradas com origem neste condomínio.</p><button class="btn" data-a="mclose">Fechar</button></div></div>`;
-   const el=$('#modal [data-qr]');if(window.QRCode)new QRCode(el,{text:el.dataset.qr,width:180,height:180,colorDark:'#0B3A47',colorLight:'#ffffff'});else el.textContent=el.dataset.qr;},
+ cqr:d=>{const c=condo(d.v);$('#modal').innerHTML=`<div class="modal" data-a="mclose"><div class="box" role="dialog" aria-label="QR do condomínio"><p class="eyebrow">QR Code do condomínio</p><h2>${esc(c.nome).toUpperCase()}</h2><div class="qrbox" data-qr="https://rendique.app/k/${c.id}"></div><p class="note">Indicações feitas por este QR são registradas com origem neste condomínio.</p><button class="btn" data-a="mclose">Fechar</button></div></div>`;
+   const el=$('#modal [data-qr]');if(window.QRCode)new QRCode(el,{text:el.dataset.qr,width:180,height:180,colorDark:'#1D3A5F',colorLight:'#ffffff'});else el.textContent=el.dataset.qr;},
  mclose:(d,el,e)=>{if(e.target===el)$('#modal').innerHTML=''}
 };
 document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(!a)return;act[a.dataset.a]?.(a.dataset,a,e)});
@@ -721,5 +804,8 @@ const forms={
   S.cfg.redeJuridico=jur;S.cfg.redeAtiva=at;S.cfg.redeValor=Number(fd.get('valor'))||0;log('Admin',`Regra da rede ${at?'ativada':'desativada'} (${money(S.cfg.redeValor)})`);toast('Regra salva');render()}
 };
 document.addEventListener('submit',e=>{e.preventDefault();forms[e.target.dataset.f]?.(new FormData(e.target),e.target)});
+S.device=loadDevice();
 render();
 </script>
+</body>
+</html>

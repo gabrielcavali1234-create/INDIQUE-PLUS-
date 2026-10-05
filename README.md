@@ -1,18 +1,35 @@
-# INDIQUE+
+# Rendique
 
 > Você conhece a oportunidade. Nós cuidamos do resto.
 
 Plataforma de indicação de oportunidades imobiliárias para porteiros, zeladores, síndicos e outros profissionais de condomínio. O indicador só informa a oportunidade, com autorização do proprietário. Atendimento, avaliação, captação, negociação e venda ficam exclusivamente com profissionais imobiliários habilitados.
 
+**Acesse:** https://gabrielcavali1234-create.github.io/INDIQUE-PLUS-/
+
+## Identidade visual
+
+- **Logo:** "Janela acesa": um prédio com uma única janela acesa, a oportunidade que o profissional do condomínio enxerga.
+- **Cores:** azul-marinho `#1D3A5F` e amarelo `#F5B83D`.
+- **Tipografia:** Sora (títulos) e Figtree (textos).
+
+## Celular ou computador
+
+Na primeira visita, o usuário escolhe como quer usar:
+
+- **Celular:** telas enxutas, botões grandes e menu embaixo.
+- **Computador:** menu lateral, painéis lado a lado e formulários em colunas.
+
+A escolha fica salva no navegador e pode ser trocada a qualquer momento pelos ícones no topo.
+
 ## Estado atual
 
-Protótipo navegável em um único arquivo (`index.html`), mobile first, com dados de exemplo em memória. Basta abrir no navegador.
+Protótipo navegável em um único arquivo (`index.html`), com dados de exemplo em memória.
 
 Perfis disponíveis (troca no topo da página):
 
-- **Indicador**: dashboard, nova indicação com consentimento LGPD, linha do tempo, carteira, QR Code pessoal, página pública do proprietário, convites, privacidade e termos, login por código.
-- **Corretor**: oportunidades validadas com contato do proprietário e avanço de status.
-- **Admin**: KPIs, funil, financeiro, top indicadores, validação, ocorrências de duplicidade, recompensas, condomínios com QR Code, configuração do programa e auditoria.
+- **Indicador:** painel, nova indicação com consentimento LGPD, linha do tempo, carteira, QR Code pessoal, página pública do proprietário, convites, privacidade e termos, login por código.
+- **Corretor:** oportunidades validadas com contato do proprietário e avanço de status.
+- **Admin:** KPIs, funil, financeiro, top indicadores, validação, ocorrências de duplicidade, recompensas, condomínios com QR Code, configuração do programa e auditoria.
 
 ## Regras implementadas
 
