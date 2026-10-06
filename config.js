@@ -3,6 +3,6 @@
 // Estes dois valores são públicos por natureza (vão dentro do site).
 // NUNCA coloque aqui a service_role key nem a senha do banco.
 window.RENDIQUE_CONFIG = {
-  supabaseUrl: '',
+  supabaseUrl: 'https://sktbupsjzaqbceapgrpl.supabase.co',
   supabaseKey: ''
 };
