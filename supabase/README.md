@@ -14,7 +14,7 @@ Pode rodar de novo no futuro, quando o arquivo for atualizado: ele não apaga da
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL:** `https://gabrielcavali1234-create.github.io/INDIQUE-PLUS-/` (quando o domínio estiver pronto: `https://rendique.com.br/`)
+- **Site URL:** `https://darkslategrey-eland-869418.hostingersite.com/` (quando o domínio estiver pronto: `https://rendique.com.br/`)
 - **Redirect URLs:** clique em **Add URL** e adicione o mesmo endereço.
 
 ## 3. E-mail com código de acesso
