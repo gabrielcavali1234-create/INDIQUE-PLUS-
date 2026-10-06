@@ -18,7 +18,7 @@ const S = {
   device: loadLS('rendique-device'),
   screen: 'loading', tab: 'home', admTab: 'geral', filter: 'todas', admFilter: 'all',
   session: null, perfil: null, det: null, lastId: null,
-  email: '', loginStep: 0, convite: params.get('c') || loadLS('rendique-convite') || '',
+  email: '', authMode: /type=recovery/.test(location.hash) ? 'novaSenha' : 'entrar', convite: params.get('c') || loadLS('rendique-convite') || '',
   pub: (params.get('q') || params.get('k')) ? { q: params.get('q'), k: params.get('k'), info: null, done: null } : null,
   D: { inds: [], rewards: [], condos: [], perfis: [], ocorr: [], notifs: [], audit: [], hist: {}, convidados: null, valor: 20 },
   bell: false, channel: null
@@ -123,17 +123,20 @@ function browserAlert(n){
 async function boot(){
   if (S.pub) { S.screen = 'publico'; render(); if (sb) { try { S.pub.info = await rpc('info_qr', { p_codigo: S.pub.q || null, p_condominio: S.pub.k || null }); } catch(e) {} } render(); return; }
   if (!sb) { S.screen = 'setup'; render(); return; }
-  const { data } = await sb.auth.getSession();
-  await onSession(data.session);
   sb.auth.onAuthStateChange((ev, session) => {
+    if (ev === 'PASSWORD_RECOVERY') { S.session = session; S.authMode = 'novaSenha'; S.screen = 'login'; render(); return; }
+    if (S.authMode === 'novaSenha') { S.session = session; return; }
     if (ev === 'SIGNED_IN' && (!S.session || S.session.user.id !== session?.user?.id)) onSession(session);
     if (ev === 'SIGNED_OUT') onSession(null);
     if (ev === 'TOKEN_REFRESHED') S.session = session;
   });
+  const { data } = await sb.auth.getSession();
+  if (S.authMode === 'novaSenha') { S.session = data.session; S.screen = 'login'; render(); return; }
+  await onSession(data.session);
 }
 async function onSession(session){
   S.session = session; S.bell = false;
-  if (!session) { unsubscribe(); S.perfil = null; S.screen = 'login'; S.loginStep = 0; render(); return; }
+  if (!session) { unsubscribe(); S.perfil = null; S.screen = 'login'; if (S.authMode === 'novaSenha') S.authMode = 'entrar'; render(); return; }
   S.screen = 'loading'; render();
   try {
     await loadPerfil();
@@ -159,23 +162,38 @@ function vErro(){ return `<div class="narrow cards" style="margin-top:40px"><div
 function vInativo(){ return `<div class="narrow cards" style="margin-top:40px"><div class="card"><h2>Acesso suspenso</h2><p class="note">Seu acesso ao Rendique está suspenso. Fale com a equipe responsável.</p><button class="btn ghost" data-a="logout">Sair</button></div></div>`; }
 
 function vLogin(){
+  const m = S.authMode;
+  const email = `<label class="f">E-mail<input class="in" id="l-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(S.email)}"></label>`;
+  const senha = (id, label, ac) => `<label class="f">${label}<span class="pw"><input class="in" id="${id}" name="${id}" type="password" autocomplete="${ac}" minlength="6"><button type="button" class="pw-eye" data-a="eye" data-v="${id}" aria-label="Mostrar senha">mostrar</button></span></label>`;
+  const codigo = `<label class="f">Código que chegou no e-mail<input class="in mono" id="l-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" style="letter-spacing:.35em;font-size:22px;text-align:center"></label>`;
+  const tabs = (m === 'entrar' || m === 'criar') ? `<div class="authtabs" role="tablist"><button type="button" role="tab" aria-selected="${m==='entrar'}" class="${m==='entrar'?'on':''}" data-a="authMode" data-v="entrar">Entrar</button><button type="button" role="tab" aria-selected="${m==='criar'}" class="${m==='criar'?'on':''}" data-a="authMode" data-v="criar">Criar conta</button></div>` : '';
+  const voltar = `<button type="button" class="link" data-a="authMode" data-v="entrar">Voltar para o login</button>`;
+  const body = {
+    entrar: `${email}${senha('l-pass','Senha','current-password')}
+      <button class="btn big" type="submit">Entrar</button>
+      <button type="button" class="link" data-a="authMode" data-v="esqueci">Esqueci minha senha</button>`,
+    criar: `${email}${senha('l-pass','Crie uma senha','new-password')}${senha('l-pass2','Repita a senha','new-password')}
+      <p class="note">Use pelo menos 6 caracteres. Misturar letras e números deixa a senha mais segura.</p>
+      <button class="btn big gold" type="submit">Criar conta</button>`,
+    confirmar: `<h1 style="font-size:24px">Confirme seu e-mail</h1>
+      <p class="note">Enviamos um código para <b>${esc(S.email)}</b>. Digite abaixo para ativar sua conta. Confira também a caixa de spam.</p>${codigo}
+      <button class="btn big" type="submit">Confirmar e entrar</button>
+      <p class="note">Se o e-mail trouxer só um link, toque nele para ativar a conta.</p>
+      <div class="btns" style="justify-content:space-between"><button type="button" class="link" data-a="resendSignup">Enviar outro código</button>${voltar}</div>`,
+    esqueci: `<h1 style="font-size:24px">Esqueci minha senha</h1>
+      <p class="note">Digite seu e-mail. Vamos enviar um código para você criar uma senha nova.</p>${email}
+      <button class="btn big" type="submit">Enviar código</button>${voltar}`,
+    redefinir: `<h1 style="font-size:24px">Crie uma senha nova</h1>
+      <p class="note">Enviamos um código para <b>${esc(S.email)}</b>.</p>${codigo}${senha('l-pass','Senha nova','new-password')}${senha('l-pass2','Repita a senha nova','new-password')}
+      <button class="btn big" type="submit">Salvar senha e entrar</button>
+      <div class="btns" style="justify-content:space-between"><button type="button" class="link" data-a="resendRecovery">Enviar outro código</button>${voltar}</div>`,
+    novaSenha: `<h1 style="font-size:24px">Crie uma senha nova</h1>${senha('l-pass','Senha nova','new-password')}${senha('l-pass2','Repita a senha nova','new-password')}
+      <button class="btn big" type="submit">Salvar senha e entrar</button>`
+  }[m];
   return `<div class="narrow cards" style="gap:18px;margin-top:20px">
    <div class="brand big">${logo(56)}<span class="bn">Rendique</span></div>
    <p class="muted" style="margin-top:-8px">Você conhece a oportunidade. Nós cuidamos do resto.</p>
-   <form data-f="login" class="card" novalidate>
-    ${S.loginStep ? `
-     <h1 style="font-size:24px">Digite o código</h1>
-     <p class="note">Enviamos um código para <b>${esc(S.email)}</b>. Ele chega em alguns segundos; confira também a caixa de spam.</p>
-     <label class="f">Código de acesso<input class="in mono" id="l-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" style="letter-spacing:.35em;font-size:22px;text-align:center"></label>
-     <p class="note">Se o e-mail trouxer um link em vez de código, é só tocar no link.</p>
-     <button class="btn big" type="submit">Entrar</button>
-     <div class="btns" style="justify-content:space-between"><button type="button" class="link" data-a="resend">Enviar outro código</button><button type="button" class="link" data-a="otherEmail">Usar outro e-mail</button></div>` : `
-     <h1 style="font-size:24px">Entrar ou criar conta</h1>
-     <label class="f">Seu e-mail<input class="in" id="l-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(S.email)}"></label>
-     <button class="btn big" type="submit">${ic('mail',20)}Receber código de acesso</button>
-     <p class="note">Sem senha: a cada acesso enviamos um código para o seu e-mail.</p>`}
-    <div id="l-err" class="err" hidden></div>
-   </form>
+   <form data-f="login" class="card" novalidate>${tabs}${body}<div id="l-err" class="err" hidden></div></form>
    <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p>
   </div>`;
 }
@@ -551,8 +569,10 @@ const act = {
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await refresh(); toast('Dados atualizados'); }),
   logout: () => guard(async () => { await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
-  otherEmail: () => { S.loginStep = 0; render(); },
-  resend: () => guard(async () => { await sendCode(S.email); toast('Novo código enviado'); }),
+  authMode: d => { const e = $('#l-email')?.value; if (e) S.email = e.trim().toLowerCase(); S.authMode = d.v; render(); },
+  eye: (d, el) => { const i = document.getElementById(d.v); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.textContent = show ? 'ocultar' : 'mostrar'; },
+  resendSignup: () => guard(async () => { const { error } = await sb.auth.resend({ type: 'signup', email: S.email, options: { emailRedirectTo: SITE } }); if (error) throw error; toast('Novo código enviado'); }),
+  resendRecovery: () => guard(async () => { const { error } = await sb.auth.resetPasswordForEmail(S.email, { redirectTo: SITE }); if (error) throw error; toast('Novo código enviado'); }),
   bell: () => { S.bell = !S.bell; render(); },
   readAll: () => guard(async () => { await q(sb.from('notificacoes').update({ lida: true }).eq('destinatario_id', S.perfil.id).eq('lida', false)); S.D.notifs.forEach(n => n.lida = true); render(); }),
   openNotif: d => guard(async () => {
@@ -598,23 +618,66 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => { if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
 
-async function sendCode(email){
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: SITE } });
-  if (error) throw error;
+const okEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+function authErr(e){
+  const t = String(e?.message || '');
+  if (/invalid login credentials/i.test(t)) return 'E-mail ou senha incorretos.';
+  if (/already registered|already exists/i.test(t)) return 'Este e-mail já tem conta. Use a aba Entrar.';
+  if (/password.*(at least|characters|weak)/i.test(t)) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (/rate|limit|seconds|too many/i.test(t)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
+  if (/expired|invalid.*(otp|token)|otp/i.test(t)) return 'Código inválido ou vencido. Peça um novo código.';
+  return msg(e);
 }
 const forms = {
   login: fd => guard(async () => {
-    if (!S.loginStep) {
-      const email = String(fd.get('email')||'').trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('#l-err', 'Digite um e-mail válido.');
-      try { await sendCode(email); } catch(e) { return showErr('#l-err', /rate|limit|seconds/i.test(e.message) ? 'Muitas tentativas seguidas. Espere um minuto e tente de novo.' : msg(e)); }
-      S.email = email; S.loginStep = 1; render(); setTimeout(() => $('#l-code')?.focus(), 50); return;
+    const m = S.authMode, g = k => String(fd.get(k)||'');
+    const email = g('email').trim().toLowerCase(), pass = g('l-pass'), pass2 = g('l-pass2');
+    if (['entrar','criar','esqueci'].includes(m)) { if (!okEmail(email)) return showErr('#l-err', 'Digite um e-mail válido.'); S.email = email; }
+    if (['criar','redefinir','novaSenha'].includes(m)) {
+      if (pass.length < 6) return showErr('#l-err', 'A senha precisa ter pelo menos 6 caracteres.');
+      if (pass !== pass2) return showErr('#l-err', 'As duas senhas não são iguais.');
     }
-    const token = dig(fd.get('code'));
-    if (token.length < 6) return showErr('#l-err', 'Digite o código que chegou no seu e-mail.');
-    const { data, error } = await sb.auth.verifyOtp({ email: S.email, token, type: 'email' });
-    if (error) return showErr('#l-err', 'Código inválido ou vencido. Peça um novo código.');
-    await onSession(data.session);
+    if (m === 'entrar') {
+      if (!pass) return showErr('#l-err', 'Digite sua senha.');
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) {
+        if (/not confirmed/i.test(error.message)) { await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: SITE } }); S.authMode = 'confirmar'; render(); return; }
+        return showErr('#l-err', authErr(error));
+      }
+      return onSession(data.session);
+    }
+    if (m === 'criar') {
+      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { emailRedirectTo: SITE } });
+      if (error) return showErr('#l-err', authErr(error));
+      if (data.session) return onSession(data.session);
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return showErr('#l-err', 'Este e-mail já tem conta. Use a aba Entrar.');
+      S.authMode = 'confirmar'; render(); setTimeout(() => $('#l-code')?.focus(), 50); return;
+    }
+    if (m === 'confirmar') {
+      const token = dig(fd.get('code')); if (token.length < 6) return showErr('#l-err', 'Digite o código que chegou no seu e-mail.');
+      const { data, error } = await sb.auth.verifyOtp({ email: S.email, token, type: 'signup' });
+      if (error) return showErr('#l-err', authErr(error));
+      return onSession(data.session);
+    }
+    if (m === 'esqueci') {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: SITE });
+      if (error) return showErr('#l-err', authErr(error));
+      S.authMode = 'redefinir'; render(); setTimeout(() => $('#l-code')?.focus(), 50); return;
+    }
+    if (m === 'redefinir') {
+      const token = dig(fd.get('code')); if (token.length < 6) return showErr('#l-err', 'Digite o código que chegou no seu e-mail.');
+      const v = await sb.auth.verifyOtp({ email: S.email, token, type: 'recovery' });
+      if (v.error) return showErr('#l-err', authErr(v.error));
+      const u = await sb.auth.updateUser({ password: pass });
+      if (u.error) return showErr('#l-err', authErr(u.error));
+      S.authMode = 'entrar'; toast('Senha nova salva'); return onSession(v.data.session);
+    }
+    if (m === 'novaSenha') {
+      const u = await sb.auth.updateUser({ password: pass });
+      if (u.error) return showErr('#l-err', authErr(u.error));
+      S.authMode = 'entrar'; history.replaceState(null, '', location.pathname); toast('Senha nova salva');
+      const { data } = await sb.auth.getSession(); return onSession(data.session);
+    }
   }),
   cadastro: fd => guard(async () => {
     const g = k => String(fd.get(k)||'').trim();
