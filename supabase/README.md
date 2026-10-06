@@ -14,38 +14,56 @@ Pode rodar de novo no futuro, quando o arquivo for atualizado: ele não apaga da
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL:** `https://gabrielcavali1234-create.github.io/INDIQUE-PLUS-/`
+- **Site URL:** `https://darkslategrey-eland-869418.hostingersite.com/` (quando o domínio estiver pronto: `https://rendique.com.br/`)
 - **Redirect URLs:** clique em **Add URL** e adicione o mesmo endereço.
 
-## 3. E-mail com código de acesso
+## 3. E-mails em português, com código (recomendado)
 
-O login é sem senha: a pessoa digita o e-mail e recebe um código de 6 dígitos.
+O login é com **e-mail e senha**. O Supabase só manda e-mail em dois momentos: para **confirmar a conta** no cadastro e quando a pessoa clica em **Esqueci minha senha**. Os modelos de fábrica vêm em inglês e só com um link; trocando, eles passam a vir em português e com um código de 6 dígitos que a pessoa digita no site.
 
-Em **Authentication → Emails** (ou **Email Templates**), abra o modelo **Magic Link** e troque por:
+Em **Authentication → Emails** (ou **Email Templates**):
 
-**Assunto:**
+**Modelo "Confirm signup"**
+
+Assunto:
 
 ```
-Seu código de acesso ao Rendique
+Confirme seu cadastro no Rendique
 ```
 
-**Corpo (Message body):**
+Corpo:
 
 ```html
-<h2>Seu código de acesso</h2>
-<p>Digite este código no Rendique para entrar:</p>
+<h2>Bem-vindo ao Rendique!</h2>
+<p>Digite este código no site para ativar sua conta:</p>
 <p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
-<p>Ou toque no link: <a href="{{ .ConfirmationURL }}">entrar no Rendique</a></p>
-<p>Se você não pediu este código, ignore este e-mail.</p>
+<p>Ou toque no link: <a href="{{ .ConfirmationURL }}">ativar minha conta</a></p>
+<p>Se você não se cadastrou, ignore este e-mail.</p>
 ```
 
-Faça o mesmo no modelo **Confirm signup**, que é o enviado no primeiro acesso de cada pessoa.
+**Modelo "Reset Password"**
 
-> O envio de e-mails padrão do Supabase permite poucos e-mails por hora. Serve para testes. Antes de abrir para muitos porteiros, configure um SMTP próprio (por exemplo Resend) em **Authentication → SMTP Settings**.
+Assunto:
+
+```
+Crie uma senha nova no Rendique
+```
+
+Corpo:
+
+```html
+<h2>Senha nova</h2>
+<p>Digite este código no Rendique para criar uma senha nova:</p>
+<p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+<p>Ou toque no link: <a href="{{ .ConfirmationURL }}">criar senha nova</a></p>
+<p>Se você não pediu isso, ignore este e-mail. Sua senha continua a mesma.</p>
+```
+
+> O envio de e-mails padrão do Supabase permite poucos e-mails por hora. Serve para começar. Com muitos cadastros por dia, configure um SMTP próprio (por exemplo Resend) em **Authentication → SMTP Settings**.
 
 ## 4. Primeiro acesso
 
-Abra o site e entre com o **seu** e-mail. A primeira pessoa que completa o cadastro vira **gestor** automaticamente. As próximas entram como indicadores. Para transformar alguém em corretor ou gestor, use a aba **Usuários** do painel.
+Abra o site, clique em **Criar conta** e use o **seu** e-mail. A primeira pessoa que completa o cadastro vira **gestor** automaticamente. As próximas entram como indicadores. Para transformar alguém em corretor ou gestor, use a aba **Usuários** do painel.
 
 ## O que o banco já faz sozinho
 
