@@ -4,5 +4,5 @@
 // NUNCA coloque aqui a service_role key nem a senha do banco.
 window.RENDIQUE_CONFIG = {
   supabaseUrl: 'https://sktbupsjzaqbceapgrpl.supabase.co',
-  supabaseKey: ''
+  supabaseKey: 'sb_publishable_5gh2PXEM2X9c9fcDQdVBAA_GtiwHEga'
 };
