@@ -4,7 +4,7 @@
 
 Plataforma de indicação de oportunidades imobiliárias para porteiros, zeladores, síndicos e outros profissionais de condomínio. O indicador só informa a oportunidade, com autorização do proprietário. Atendimento, avaliação, captação, negociação e venda ficam exclusivamente com profissionais imobiliários habilitados.
 
-**Acesse:** https://gabrielcavali1234-create.github.io/INDIQUE-PLUS-/
+**Acesse:** https://darkslategrey-eland-869418.hostingersite.com/
 
 ## Identidade visual
 
@@ -23,13 +23,17 @@ A escolha fica salva no navegador e pode ser trocada a qualquer momento pelos í
 
 ## Estado atual
 
-Protótipo navegável em um único arquivo (`index.html`), com dados de exemplo em memória.
+Sistema com **login (e-mail e senha)** e **banco de dados Supabase**, publicado na Hostinger a partir da branch `main`.
 
-Perfis disponíveis (troca no topo da página):
+- `index.html` + `app.js`: o sistema real. `config.js`: endereço e chave pública do Supabase.
+- `demo.html`: demonstração com dados de exemplo, sem login.
+- `supabase/`: esquema do banco (`schema.sql`) e guia de configuração.
 
-- **Indicador:** painel, nova indicação com consentimento LGPD, linha do tempo, carteira, QR Code pessoal, página pública do proprietário, convites, privacidade e termos, login por código.
+Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
+
+- **Indicador:** painel, nova indicação com consentimento LGPD, linha do tempo, carteira, QR Code pessoal, convites, privacidade e termos.
 - **Corretor:** oportunidades validadas com contato do proprietário e avanço de status.
-- **Admin:** KPIs, funil, financeiro, top indicadores, validação, ocorrências de duplicidade, recompensas, condomínios com QR Code, configuração do programa e auditoria.
+- **Gestor:** visão geral, funil, financeiro, ranking, indicações, ocorrências de duplicidade, recompensas, condomínios com QR Code, usuários e tipos de acesso, programa e auditoria. Sininho com notificações em tempo real.
 
 ## Regras implementadas
 
@@ -40,7 +44,8 @@ Perfis disponíveis (troca no topo da página):
 
 ## Próximos passos
 
-- Backend com banco de dados e autenticação por código (WhatsApp/SMS/e-mail)
+- Aviso ao gestor por e-mail e WhatsApp
+- SMTP próprio para os e-mails de cadastro e senha
 - API para integração com CRM, pagamentos, assinatura digital e BI
 - Criptografia de dados sensíveis e controle de permissões no servidor
 
