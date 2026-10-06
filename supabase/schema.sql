@@ -122,6 +122,8 @@ create table if not exists public.configuracoes (
   valor_recompensa numeric(10,2) not null default 20
 );
 insert into public.configuracoes (id) values (1) on conflict do nothing;
+-- Opcional: trava o papel de gestor num e-mail específico (update configuracoes set email_gestor = '...')
+alter table public.configuracoes add column if not exists email_gestor text;
 
 create table if not exists public.auditoria (
   id        bigserial primary key,
@@ -161,6 +163,16 @@ $$;
 
 -- ---------------------------------------------------------------------
 -- Cadastro do perfil (o primeiro usuário vira administrador)
+-- O usuário logado pode virar gestor? (ainda não existe gestor e, se houver
+-- e-mail travado em configuracoes.email_gestor, é esse e-mail)
+create or replace function public.pode_ser_gestor() returns boolean
+language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null
+     and not exists (select 1 from public.perfis where papel = 'admin')
+     and coalesce((select lower(email_gestor) from public.configuracoes where id = 1),
+                  (select lower(email) from auth.users where id = auth.uid()))
+         = (select lower(email) from auth.users where id = auth.uid())
+$$;
 -- ---------------------------------------------------------------------
 create or replace function public.completar_cadastro(
   p_nome text, p_telefone text, p_funcao text,
@@ -178,8 +190,8 @@ begin
   select * into v_perfil from public.perfis where id = auth.uid();
   if found then return v_perfil; end if;
 
-  if not exists (select 1 from public.perfis where papel = 'admin') then v_papel := 'admin'; end if;
-  if coalesce(trim(p_convite),'') <> '' then
+  if public.pode_ser_gestor() then v_papel := 'admin'; end if;
+  if coalesce(trim(p_convite),'') <> '' and v_papel <> 'admin' then
     select id into v_convidador from public.perfis where codigo = upper(trim(p_convite));
   end if;
   loop
@@ -189,7 +201,10 @@ begin
   end loop;
 
   insert into public.perfis (id, nome, telefone, funcao, papel, condominio_id, condominio_texto, codigo, convidado_por)
-  values (auth.uid(), trim(p_nome), p_telefone, coalesce(p_funcao,'Porteiro'), v_papel, p_condominio_id, nullif(trim(p_condominio_texto),''), v_codigo, v_convidador)
+  values (auth.uid(), trim(p_nome), p_telefone,
+          case when v_papel = 'admin' then 'Gestor' else coalesce(p_funcao,'Porteiro') end, v_papel,
+          case when v_papel = 'admin' then null else p_condominio_id end,
+          case when v_papel = 'admin' then null else nullif(trim(p_condominio_texto),'') end, v_codigo, v_convidador)
   returning * into v_perfil;
 
   perform public.registra('Novo cadastro: ' || v_perfil.nome || ' (' || v_perfil.papel || ')');
@@ -462,7 +477,8 @@ grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.completar_cadastro(text,text,text,uuid,text,text), public.enviar_indicacao(jsonb),
   public.mudar_status(text,int,text), public.mudar_recompensa(text,text), public.solicitar_resgate(),
   public.resolver_ocorrencia(bigint,text), public.definir_papel(uuid,text), public.definir_valor_recompensa(numeric),
-  public.solicitar_lgpd(text), public.meus_convidados(), public.meu_papel(), public.is_admin(), public.is_staff()
+  public.solicitar_lgpd(text), public.meus_convidados(), public.meu_papel(), public.is_admin(), public.is_staff(),
+  public.pode_ser_gestor()
   to authenticated;
 
 -- Permissões de coluna: o usuário só pode marcar notificação como lida

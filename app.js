@@ -140,7 +140,11 @@ async function onSession(session){
   S.screen = 'loading'; render();
   try {
     await loadPerfil();
-    if (!S.perfil) { S.D.condos = await q(sb.from('condominios').select('id,nome').order('nome')); S.screen = 'cadastro'; render(); return; }
+    if (!S.perfil) {
+      try { S.podeGestor = !!(await rpc('pode_ser_gestor', {})); } catch(e) { S.podeGestor = false; }
+      if (!S.podeGestor) S.D.condos = await q(sb.from('condominios').select('id,nome').order('nome'));
+      S.screen = 'cadastro'; render(); return;
+    }
     if (!S.perfil.ativo) { S.screen = 'inativo'; render(); return; }
     await loadData();
     S.screen = 'app'; S.tab = 'home'; subscribe();
@@ -197,7 +201,21 @@ function vLogin(){
    <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p>
   </div>`;
 }
+function vCadastroGestor(){
+  return `<div class="narrow cards" style="gap:16px;margin-top:12px">
+   <div><p class="eyebrow">Configuração inicial</p><h1 style="font-size:28px">Bem-vindo, gestor</h1><p class="muted">${esc(S.session?.user?.email||'')}</p></div>
+   <div class="principle">${ic('shield')}<span>Você é o primeiro acesso do Rendique e será o <b>gestor da plataforma</b>, com acesso a todas as indicações, usuários, recompensas e relatórios. Os próximos cadastros entram como indicadores.</span></div>
+   <form data-f="cadastro" class="card" novalidate>
+    <input type="hidden" name="gestor" value="1">
+    <label class="f">Seu nome<input class="in" id="c-nome" name="nome" autocomplete="name"></label>
+    <label class="f">Celular (WhatsApp)<input class="in" id="c-tel" name="telefone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <div id="c-err" class="err" hidden></div>
+    <button class="btn big gold" type="submit">Entrar no painel do gestor</button>
+   </form>
+   <button class="link" data-a="logout">Sair e usar outro e-mail</button></div>`;
+}
 function vCadastro(){
+  if (S.podeGestor) return vCadastroGestor();
   const ch = (name, opts, def) => `<div class="chips" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
   return `<div class="narrow cards" style="gap:16px;margin-top:12px">
    <div><p class="eyebrow">Primeiro acesso</p><h1 style="font-size:28px">Complete seu cadastro</h1><p class="muted">${esc(S.session?.user?.email||'')}</p></div>
@@ -683,6 +701,12 @@ const forms = {
     const g = k => String(fd.get(k)||'').trim();
     if (!g('nome')) return showErr('#c-err', 'Informe seu nome completo.');
     if (dig(g('telefone')).length < 10) return showErr('#c-err', 'Informe seu celular com DDD.');
+    if (g('gestor')) {
+      try { await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: 'Gestor', p_condominio_id: null, p_condominio_texto: null, p_convite: null }); }
+      catch(e) { return showErr('#c-err', msg(e)); }
+      await onSession(S.session);
+      return toast(papel() === 'admin' ? 'Pronto! Este é o seu painel de gestor.' : 'Cadastro concluído.');
+    }
     if (g('condominio') === 'outro' && !g('condominio_texto')) return showErr('#c-err', 'Informe o nome do condomínio onde trabalha.');
     if (!fd.get('termos')) return showErr('#c-err', 'Para continuar, aceite os termos do programa.');
     try {
