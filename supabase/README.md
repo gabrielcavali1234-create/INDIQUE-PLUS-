@@ -14,7 +14,7 @@ Pode rodar de novo no futuro, quando o arquivo for atualizado: ele não apaga da
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL:** `https://gabrielcavali1234-create.github.io/INDIQUE-PLUS-/`
+- **Site URL:** `https://rendique.com.br/`
 - **Redirect URLs:** clique em **Add URL** e adicione o mesmo endereço.
 
 ## 3. E-mail com código de acesso
