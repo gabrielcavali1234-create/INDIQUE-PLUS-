@@ -453,6 +453,18 @@ create policy configuracoes_ler on public.configuracoes for select to authentica
 drop policy if exists auditoria_ler on public.auditoria;
 create policy auditoria_ler on public.auditoria for select to authenticated using (public.is_admin());
 
+-- Permissões básicas (funciona com ou sem "Expor automaticamente novas tabelas")
+grant usage on schema public to anon, authenticated;
+grant select on public.condominios, public.perfis, public.indicacoes, public.historico, public.recompensas,
+  public.ocorrencias, public.notificacoes, public.configuracoes, public.auditoria to authenticated;
+grant insert, update, delete on public.condominios to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function public.completar_cadastro(text,text,text,uuid,text,text), public.enviar_indicacao(jsonb),
+  public.mudar_status(text,int,text), public.mudar_recompensa(text,text), public.solicitar_resgate(),
+  public.resolver_ocorrencia(bigint,text), public.definir_papel(uuid,text), public.definir_valor_recompensa(numeric),
+  public.solicitar_lgpd(text), public.meus_convidados(), public.meu_papel(), public.is_admin(), public.is_staff()
+  to authenticated;
+
 -- Permissões de coluna: o usuário só pode marcar notificação como lida
 revoke update on public.notificacoes from authenticated;
 grant update (lida) on public.notificacoes to authenticated;
