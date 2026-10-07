@@ -24,6 +24,10 @@ const S = {
   bell: false, channel: null
 };
 if (params.get('c')) saveLS('rendique-convite', params.get('c'));
+if (params.get('g')) saveLS('rendique-convite-acesso', params.get('g'));
+S.convAcesso = loadLS('rendique-convite-acesso'); S.convInfo = null;
+if (S.convAcesso && S.authMode === 'entrar') S.authMode = 'criar';
+const ROTULO = { admin: 'gestor', corretor: 'corretor' };
 
 /* ---------- utilidades ---------- */
 function loadLS(k){ try { return localStorage.getItem(k) || null; } catch(e){ return null; } }
@@ -92,6 +96,7 @@ async function loadData(){
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
   if (p === 'admin') {
     jobs.push(q(sb.from('ocorrencias').select('*').order('criado_em',{ascending:false}).limit(200)).then(r => S.D.ocorr = r));
+    jobs.push(q(sb.from('convites_acesso').select('*').order('criado_em',{ascending:false}).limit(50)).then(r => S.D.convites = r).catch(() => S.D.convites = []));
     jobs.push(q(sb.from('auditoria').select('*').order('criado_em',{ascending:false}).limit(150)).then(r => S.D.audit = r));
   }
   await Promise.all(jobs);
@@ -123,6 +128,7 @@ function browserAlert(n){
 async function boot(){
   if (S.pub) { S.screen = 'publico'; render(); if (sb) { try { S.pub.info = await rpc('info_qr', { p_codigo: S.pub.q || null, p_condominio: S.pub.k || null }); } catch(e) {} } render(); return; }
   if (!sb) { S.screen = 'setup'; render(); return; }
+  if (S.convAcesso) { try { S.convInfo = await rpc('info_convite', { p_token: S.convAcesso }); } catch(e) { S.convInfo = null; } }
   sb.auth.onAuthStateChange((ev, session) => {
     if (ev === 'PASSWORD_RECOVERY') { S.session = session; S.authMode = 'novaSenha'; S.screen = 'login'; render(); return; }
     if (S.authMode === 'novaSenha') { S.session = session; return; }
@@ -140,6 +146,8 @@ async function onSession(session){
   S.screen = 'loading'; render();
   try {
     await loadPerfil();
+    if (!S.perfil && S.convAcesso && S.convInfo?.valido) { S.screen = 'cadastro'; render(); return; }
+    if (S.perfil && S.convAcesso) { saveLS('rendique-convite-acesso', null); S.convAcesso = null; setTimeout(() => toast('Você já tem cadastro. O convite não foi usado.'), 300); }
     if (!S.perfil) {
       S.bancoDesatualizado = false;
       try { S.podeGestor = !!(await rpc('pode_ser_gestor', {})); } catch(e) { S.podeGestor = false; S.bancoDesatualizado = /pode_ser_gestor|function|schema cache|404/i.test(String(e?.message||e?.code||'')) || true; }
@@ -168,6 +176,9 @@ function vInativo(){ return `<div class="narrow cards" style="margin-top:40px"><
 
 function vLogin(){
   const m = S.authMode;
+  const conv = S.convInfo ? (S.convInfo.valido
+    ? `<div class="principle">${ic('users')}<span><b>${esc(S.convInfo.convidado_por || 'O gestor')}</b> convidou você para ser <b>${ROTULO[S.convInfo.papel]}</b> do Rendique. Crie sua conta (ou entre, se já tiver uma) para continuar.</span></div>`
+    : `<div class="alert"><b>Convite inválido ou vencido</b><p class="note">Peça um novo link ao gestor.</p></div>`) : '';
   const email = `<label class="f">E-mail<input class="in" id="l-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(S.email)}"></label>`;
   const senha = (id, label, ac) => `<label class="f">${label}<span class="pw"><input class="in" id="${id}" name="${id}" type="password" autocomplete="${ac}" minlength="6"><button type="button" class="pw-eye" data-a="eye" data-v="${id}" aria-label="Mostrar senha">mostrar</button></span></label>`;
   const codigo = `<label class="f">Código que chegou no e-mail<input class="in mono" id="l-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" style="letter-spacing:.35em;font-size:22px;text-align:center"></label>`;
@@ -198,6 +209,7 @@ function vLogin(){
   return `<div class="narrow cards" style="gap:18px;margin-top:20px">
    <div class="brand big">${logo(56)}<span class="bn">Rendique</span></div>
    <p class="muted" style="margin-top:-8px">Você conhece a oportunidade. Nós cuidamos do resto.</p>
+   ${conv}
    <form data-f="login" class="card" novalidate>${tabs}${body}<div id="l-err" class="err" hidden></div></form>
    <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p>
   </div>`;
@@ -215,7 +227,22 @@ function vCadastroGestor(){
    </form>
    <button class="link" data-a="logout">Sair e usar outro e-mail</button></div>`;
 }
+function vCadastroConvite(){
+  const r = ROTULO[S.convInfo.papel];
+  return `<div class="narrow cards" style="gap:16px;margin-top:12px">
+   <div><p class="eyebrow">Convite de ${r}</p><h1 style="font-size:28px">Bem-vindo ao Rendique</h1><p class="muted">${esc(S.session?.user?.email||'')}</p></div>
+   <div class="principle">${ic('shield')}<span>${esc(S.convInfo.convidado_por || 'O gestor')} convidou você como <b>${r}</b>. ${S.convInfo.papel === 'admin' ? 'Você terá acesso a todas as indicações, usuários, recompensas e relatórios.' : 'Você vai receber as oportunidades validadas e atualizar o andamento de cada uma.'}</span></div>
+   <form data-f="cadastro" class="card" novalidate>
+    <input type="hidden" name="convite_acesso" value="${esc(S.convAcesso)}">
+    <label class="f">Seu nome<input class="in" id="c-nome" name="nome" autocomplete="name"></label>
+    <label class="f">Celular (WhatsApp)<input class="in" id="c-tel" name="telefone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <div id="c-err" class="err" hidden></div>
+    <button class="btn big gold" type="submit">Entrar como ${r}</button>
+   </form>
+   <button class="link" data-a="logout">Sair e usar outro e-mail</button></div>`;
+}
 function vCadastro(){
+  if (S.convAcesso && S.convInfo?.valido) return vCadastroConvite();
   if (S.podeGestor) return vCadastroGestor();
   const aviso = S.bancoDesatualizado ? `<div class="alert"><b>Banco de dados desatualizado</b><p class="note">A tela do gestor depende de uma atualização no Supabase que ainda não foi aplicada. Rode o SQL de atualização no SQL Editor e recarregue esta página.</p></div>` : '';
   const ch = (name, opts, def) => `<div class="chips" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
@@ -523,9 +550,18 @@ function aCondos(){
     <label class="f">Região<input class="in" id="k-reg" name="reg" placeholder="Ex.: Zona Sul"></label>
     <button class="btn" type="submit">Cadastrar e gerar QR Code</button></form></div>`;
 }
+function aConvites(){
+  const L = S.D.convites || [], now = Date.now();
+  const st = c => c.usado_por ? `Usado por ${esc(perfil(c.usado_por)?.nome || '—')}` : new Date(c.expira_em) < now ? 'Vencido' : `Aguardando · vence ${fd(c.expira_em)}`;
+  return `<div class="card"><div class="sec-h"><h2>Convidar gestor ou corretor</h2></div>
+    <p class="note">Gere um link e mande para a pessoa. Ela cria a conta pelo link e já entra com o acesso certo, sem passar pelo cadastro de porteiro. Cada link vale para uma pessoa, por 7 dias.</p>
+    <div class="btns"><button class="btn" data-a="novoConvite" data-v="admin">${ic('shield',18)}Gerar link de gestor</button><button class="btn ghost" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button></div>
+    ${L.length ? `<div class="hist">${L.slice(0,10).map(c => { const aberto = !c.usado_por && new Date(c.expira_em) > now; return `<div><div><b>${c.papel === 'admin' ? 'Gestor' : 'Corretor'}</b><div class="note">${st(c)}</div></div><div class="btns" style="justify-content:flex-end">${aberto ? `<button class="btn sm ghost" data-a="copy" data-v="${esc(SITE + '?g=' + c.token)}">${ic('copy',16)}Copiar link</button><button class="btn sm danger" data-a="cancelConvite" data-v="${esc(c.token)}">Cancelar</button>` : ''}</div></div>`; }).join('')}</div>` : ''}
+   </div>`;
+}
 function aUsers(){
   const pend = S.D.perfis.filter(p => !p.condominio_id && p.condominio_texto);
-  return `${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
+  return `${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
    <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Acesso</th></tr></thead><tbody>
    ${S.D.perfis.map(u => `<tr><td><b>${esc(u.nome)}</b><br><span class="note mono">${fph(u.telefone)}</span></td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
     <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${u.id===S.perfil.id?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td></tr>`).join('')}
@@ -615,6 +651,16 @@ const act = {
   resgatar: () => guard(async () => { const v = await rpc('solicitar_resgate', {}); await refresh(); toast(`Resgate de ${money(v)} solicitado`); }),
   lgpd: d => guard(async () => { await rpc('solicitar_lgpd', { p_tipo: d.v }); toast(`Pedido de ${d.v} registrado. Resposta em até 15 dias.`); }),
   copy: d => { try { navigator.clipboard.writeText(d.v).then(() => toast('Link copiado'), () => toast('Selecione o link e copie manualmente')); } catch(e) { toast('Selecione o link e copie manualmente'); } },
+  novoConvite: d => guard(async () => {
+    const tok = await rpc('criar_convite', { p_papel: d.v }); const url = `${SITE}?g=${tok}`, r = ROTULO[d.v];
+    const txt = encodeURIComponent(`Oi! Você foi convidado para ser ${r} do Rendique. Crie sua conta por este link: ${url}`);
+    await refresh();
+    openModal(`<p class="eyebrow">Convite de ${r}</p><h2>Link pronto</h2><p class="note">Mande para a pessoa. O link vale para uma pessoa, por 7 dias.</p>
+      <div class="copyrow"><span>${esc(url)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(url)}">${ic('copy',16)}Copiar</button></div>
+      <a class="btn" style="text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
+      <button class="btn ghost" data-a="mclose">Fechar</button>`);
+  }),
+  cancelConvite: d => guard(async () => { await rpc('cancelar_convite', { p_token: d.v }); await refresh(); toast('Convite cancelado'); }),
   cqr: d => { const c = condo(d.v), url = `${SITE}?k=${c.id}`;
     openModal(`<p class="eyebrow">QR Code do condomínio</p><h2>${esc(c.nome).toUpperCase()}</h2><div class="qrbox" data-qr="${esc(url)}"></div><p class="note">Indicações feitas por este QR são registradas com origem neste condomínio.</p><div class="copyrow"><span>${esc(url)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(url)}">${ic('copy',16)}Copiar</button></div><button class="btn" data-a="mclose">Fechar</button>`); },
   mclose: (d, el, e) => { if (e.target === el) closeModal(); }
@@ -704,6 +750,13 @@ const forms = {
     const g = k => String(fd.get(k)||'').trim();
     if (!g('nome')) return showErr('#c-err', 'Informe seu nome completo.');
     if (dig(g('telefone')).length < 10) return showErr('#c-err', 'Informe seu celular com DDD.');
+    if (g('convite_acesso')) {
+      try { await rpc('cadastro_por_convite', { p_token: g('convite_acesso'), p_nome: g('nome'), p_telefone: dig(g('telefone')) }); }
+      catch(e) { return showErr('#c-err', msg(e)); }
+      saveLS('rendique-convite-acesso', null); S.convAcesso = null; S.convInfo = null;
+      await onSession(S.session);
+      return toast('Cadastro concluído!');
+    }
     if (g('gestor')) {
       try { await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: 'Gestor', p_condominio_id: null, p_condominio_texto: null, p_convite: null }); }
       catch(e) { return showErr('#c-err', msg(e)); }

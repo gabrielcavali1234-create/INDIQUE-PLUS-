@@ -497,6 +497,92 @@ revoke execute on function public.registra(text), public.notifica_admins(text,te
 grant execute on function public.indicacao_publica(text,uuid,jsonb), public.info_qr(text,uuid) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- Convites de gestor e corretor (link de uso único, vale 7 dias)
+-- ---------------------------------------------------------------------
+create table if not exists public.convites_acesso (
+  token      text primary key default replace(gen_random_uuid()::text, '-', ''),
+  papel      text not null check (papel in ('admin','corretor')),
+  criado_por uuid references public.perfis(id) on delete set null,
+  usado_por  uuid references public.perfis(id) on delete set null,
+  usado_em   timestamptz,
+  expira_em  timestamptz not null default now() + interval '7 days',
+  criado_em  timestamptz not null default now()
+);
+alter table public.convites_acesso enable row level security;
+drop policy if exists convites_admin on public.convites_acesso;
+create policy convites_admin on public.convites_acesso for select to authenticated using (public.is_admin());
+revoke insert, update, delete on public.convites_acesso from anon, authenticated;
+grant select on public.convites_acesso to authenticated;
+
+create or replace function public._novo_codigo(p_nome text) returns text
+language plpgsql security definer set search_path = public as $$
+declare v text;
+begin
+  loop
+    v := upper(left(regexp_replace(translate(p_nome,'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç','AAAAEEIOOOUCaaaaeeiooouc'),'[^A-Za-z]','','g') || 'XXX', 3))
+         || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 4));
+    exit when not exists (select 1 from public.perfis where codigo = v);
+  end loop;
+  return v;
+end $$;
+
+create or replace function public.criar_convite(p_papel text) returns text
+language plpgsql security definer set search_path = public as $$
+declare v text;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  if p_papel not in ('admin','corretor') then raise exception 'Tipo de convite inválido.'; end if;
+  insert into public.convites_acesso (papel, criado_por) values (p_papel, auth.uid()) returning token into v;
+  perform public.registra('Convite de ' || case when p_papel = 'admin' then 'gestor' else 'corretor' end || ' criado');
+  return v;
+end $$;
+
+create or replace function public.cancelar_convite(p_token text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  delete from public.convites_acesso where token = p_token and usado_por is null;
+  perform public.registra('Convite cancelado');
+end $$;
+
+create or replace function public.info_convite(p_token text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('papel', c.papel, 'valido', c.usado_por is null and c.expira_em > now(),
+                            'convidado_por', split_part(p.nome, ' ', 1))
+    from public.convites_acesso c left join public.perfis p on p.id = c.criado_por
+   where c.token = p_token
+$$;
+
+create or replace function public.cadastro_por_convite(p_token text, p_nome text, p_telefone text) returns public.perfis
+language plpgsql security definer set search_path = public as $$
+declare v_c public.convites_acesso; v_perfil public.perfis;
+begin
+  if auth.uid() is null then raise exception 'Faça login primeiro.'; end if;
+  if coalesce(trim(p_nome),'') = '' then raise exception 'Informe seu nome.'; end if;
+  select * into v_perfil from public.perfis where id = auth.uid();
+  if found then raise exception 'Este e-mail já tem cadastro no Rendique.'; end if;
+  select * into v_c from public.convites_acesso where token = p_token for update;
+  if not found then raise exception 'Convite não encontrado.'; end if;
+  if v_c.usado_por is not null then raise exception 'Este convite já foi usado. Peça um novo ao gestor.'; end if;
+  if v_c.expira_em < now() then raise exception 'Este convite venceu. Peça um novo ao gestor.'; end if;
+
+  insert into public.perfis (id, nome, telefone, funcao, papel, codigo)
+  values (auth.uid(), trim(p_nome), p_telefone, case when v_c.papel = 'admin' then 'Gestor' else 'Corretor' end, v_c.papel, public._novo_codigo(p_nome))
+  returning * into v_perfil;
+  update public.convites_acesso set usado_por = auth.uid(), usado_em = now() where token = p_token;
+
+  perform public.registra('Cadastro por convite: ' || v_perfil.nome || ' (' || v_perfil.papel || ')');
+  perform public.notifica_admins('cadastro', case when v_c.papel = 'admin' then 'Novo gestor cadastrado' else 'Novo corretor cadastrado' end, v_perfil.nome, null);
+  return v_perfil;
+end $$;
+
+revoke execute on function public._novo_codigo(text), public.criar_convite(text), public.cancelar_convite(text),
+  public.cadastro_por_convite(text,text,text) from public, anon;
+revoke execute on function public._novo_codigo(text) from authenticated;
+grant execute on function public.criar_convite(text), public.cancelar_convite(text), public.cadastro_por_convite(text,text,text) to authenticated;
+grant execute on function public.info_convite(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------
 -- Tempo real: o sininho do gestor acende na hora
 -- ---------------------------------------------------------------------
 do $$ begin
