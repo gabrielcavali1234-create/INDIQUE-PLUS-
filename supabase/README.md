@@ -61,9 +61,11 @@ Corpo:
 
 > O envio de e-mails padrão do Supabase permite poucos e-mails por hora. Serve para começar. Com muitos cadastros por dia, configure um SMTP próprio (por exemplo Resend) em **Authentication → SMTP Settings**.
 
-## 4. Primeiro acesso
+## 4. Primeiro acesso e novos gestores
 
-Abra o site, clique em **Criar conta** e use o **seu** e-mail. A primeira pessoa que completa o cadastro vira **gestor** automaticamente. As próximas entram como indicadores. Para transformar alguém em corretor ou gestor, use a aba **Usuários** do painel.
+- O primeiro cadastro vira **gestor** e vê a tela "Bem-vindo, gestor" (só nome e celular). Para travar isso num e-mail: `update public.configuracoes set email_gestor = 'seu@email' where id = 1;`
+- Novos **gestores** e **corretores**: no painel, aba **Usuários → Convidar gestor ou corretor**. O link vale para uma pessoa, por 7 dias.
+- Quem se cadastra sem convite entra como **indicador**. O gestor pode mudar o acesso na aba Usuários.
 
 ## O que o banco já faz sozinho
 

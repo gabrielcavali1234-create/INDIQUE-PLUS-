@@ -42,21 +42,39 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - Rede de convites com um único nível; incentivo só pode ser ativado após aprovação jurídica.
 - Registro de data, hora, indicador, condomínio e histórico de alterações.
 
+## Onde estamos (06/10/2026)
+
+**Infraestrutura**
+- Código: GitHub `gabrielcavali1234-create/INDIQUE-PLUS-` (branch `main` = produção).
+- Site: Hostinger, implantado a partir da `main` → https://darkslategrey-eland-869418.hostingersite.com/
+- Banco e login: Supabase, projeto `rendique` (São Paulo) → https://sktbupsjzaqbceapgrpl.supabase.co
+- Gestor principal: conta criada; papel de gestor travado no e-mail do dono (`configuracoes.email_gestor`).
+- Confirmação de e-mail do Supabase: **desligada** por enquanto (ver pendências).
+
+**Pronto e funcionando**
+- Login com e-mail e senha, "esqueci minha senha", escolha celular/computador.
+- Primeiro acesso do gestor separado (só nome e celular).
+- Painel do gestor: visão geral, indicações, ocorrências, recompensas, condomínios, usuários, programa, auditoria, sininho em tempo real.
+- Convite por link para **gestor** e **corretor** (aba Usuários; uso único, 7 dias).
+- Painel do indicador e do corretor; QR Code pessoal e por condomínio.
+
+**Como atualizar o banco**: rodar `supabase/schema.sql` inteiro no SQL Editor (não apaga dados).
+
 ## Pendências
 
 - [ ] **Religar a confirmação de e-mail** (Supabase → Authentication → Sign In / Providers → Email → Confirm email). Foi desligada para facilitar o início.
 - [ ] **Configurar SMTP próprio** (ex.: Resend) em Authentication → SMTP Settings, para não esbarrar no limite de e-mails do Supabase. Necessário antes de religar a confirmação.
 - [ ] Trocar os modelos de e-mail para português com código (guia em `supabase/README.md`, item 3).
 - [ ] Ligar a implantação automática na Hostinger (webhook do GitHub).
-- [ ] Apontar o domínio `rendique.com.br` para a Hostinger.
+- [ ] Apontar o domínio `rendique.com.br` para a Hostinger e atualizar Site URL / Redirect URLs no Supabase.
 - [ ] Aviso ao gestor por e-mail e WhatsApp a cada nova indicação.
+- [ ] Testar o fluxo completo: cadastrar condomínio, convidar corretor, porteiro fazer indicação, avançar status, liberar recompensa.
 
-## Próximos passos
+## Próximos passos (depois das pendências)
 
-- Aviso ao gestor por e-mail e WhatsApp
-- SMTP próprio para os e-mails de cadastro e senha
+- Exportar indicações para Excel e filtros por período, condomínio e porteiro
 - API para integração com CRM, pagamentos, assinatura digital e BI
-- Criptografia de dados sensíveis e controle de permissões no servidor
+- Criptografia de dados sensíveis no banco
 
 ## Aviso
 
