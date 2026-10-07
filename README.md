@@ -42,6 +42,15 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - Rede de convites com um único nível; incentivo só pode ser ativado após aprovação jurídica.
 - Registro de data, hora, indicador, condomínio e histórico de alterações.
 
+## Pendências
+
+- [ ] **Religar a confirmação de e-mail** (Supabase → Authentication → Sign In / Providers → Email → Confirm email). Foi desligada para facilitar o início.
+- [ ] **Configurar SMTP próprio** (ex.: Resend) em Authentication → SMTP Settings, para não esbarrar no limite de e-mails do Supabase. Necessário antes de religar a confirmação.
+- [ ] Trocar os modelos de e-mail para português com código (guia em `supabase/README.md`, item 3).
+- [ ] Ligar a implantação automática na Hostinger (webhook do GitHub).
+- [ ] Apontar o domínio `rendique.com.br` para a Hostinger.
+- [ ] Aviso ao gestor por e-mail e WhatsApp a cada nova indicação.
+
 ## Próximos passos
 
 - Aviso ao gestor por e-mail e WhatsApp
