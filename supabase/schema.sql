@@ -196,7 +196,7 @@ begin
   end if;
   loop
     v_codigo := upper(left(regexp_replace(translate(p_nome,'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç','AAAAEEIOOOUCaaaaeeiooouc'),'[^A-Za-z]','','g') || 'XXX', 3))
-                || '-' || upper(substr(encode(gen_random_bytes(3),'hex'), 1, 4));
+                || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 4));
     exit when not exists (select 1 from public.perfis where codigo = v_codigo);
   end loop;
 
