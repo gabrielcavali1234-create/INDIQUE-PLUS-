@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610062105 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -141,7 +141,8 @@ async function onSession(session){
   try {
     await loadPerfil();
     if (!S.perfil) {
-      try { S.podeGestor = !!(await rpc('pode_ser_gestor', {})); } catch(e) { S.podeGestor = false; }
+      S.bancoDesatualizado = false;
+      try { S.podeGestor = !!(await rpc('pode_ser_gestor', {})); } catch(e) { S.podeGestor = false; S.bancoDesatualizado = /pode_ser_gestor|function|schema cache|404/i.test(String(e?.message||e?.code||'')) || true; }
       if (!S.podeGestor) S.D.condos = await q(sb.from('condominios').select('id,nome').order('nome'));
       S.screen = 'cadastro'; render(); return;
     }
@@ -216,9 +217,11 @@ function vCadastroGestor(){
 }
 function vCadastro(){
   if (S.podeGestor) return vCadastroGestor();
+  const aviso = S.bancoDesatualizado ? `<div class="alert"><b>Banco de dados desatualizado</b><p class="note">A tela do gestor depende de uma atualização no Supabase que ainda não foi aplicada. Rode o SQL de atualização no SQL Editor e recarregue esta página.</p></div>` : '';
   const ch = (name, opts, def) => `<div class="chips" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
   return `<div class="narrow cards" style="gap:16px;margin-top:12px">
    <div><p class="eyebrow">Primeiro acesso</p><h1 style="font-size:28px">Complete seu cadastro</h1><p class="muted">${esc(S.session?.user?.email||'')}</p></div>
+   ${aviso}
    <form data-f="cadastro" class="card" novalidate>
     <label class="f">Nome completo<input class="in" id="c-nome" name="nome" autocomplete="name"></label>
     <label class="f">Celular (WhatsApp)<input class="in" id="c-tel" name="telefone" inputmode="tel" placeholder="(11) 90000-0000"></label>
