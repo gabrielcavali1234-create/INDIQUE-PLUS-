@@ -73,6 +73,16 @@ create table if not exists public.indicacoes (
   atualizado_em       timestamptz not null default now()
 );
 create index if not exists indicacoes_tel_idx on public.indicacoes (telefone_norm);
+
+-- Ficha do imóvel: dados levantados pelo gestor/corretor depois da qualificação.
+-- Fica separada da indicação para o indicador não ver valores e documentação.
+create table if not exists public.fichas_imovel (
+  indicacao_id   text primary key references public.indicacoes(id) on delete cascade,
+  dados          jsonb not null default '{}'::jsonb,
+  completa       boolean not null default false,
+  atualizado_em  timestamptz not null default now(),
+  atualizado_por uuid references public.perfis(id) on delete set null
+);
 create index if not exists indicacoes_un_idx on public.indicacoes (condominio_id, unidade_norm);
 create index if not exists indicacoes_ind_idx on public.indicacoes (indicador_id);
 
@@ -308,6 +318,31 @@ $$;
 -- ---------------------------------------------------------------------
 -- Mudança de status (equipe) e recompensa automática
 -- ---------------------------------------------------------------------
+create or replace function public._num(t text) returns numeric
+language sql immutable as $$ select nullif(regexp_replace(coalesce(t,''), '[^0-9.]', '', 'g'), '')::numeric $$;
+
+create or replace function public.ficha_completa(d jsonb) returns boolean
+language sql immutable as $$
+  select coalesce(public._num(d->>'area_util'), 0) > 0
+     and coalesce(d->>'dormitorios', '') <> '' and coalesce(d->>'banheiros', '') <> ''
+     and coalesce(d->>'vagas', '') <> '' and coalesce(public._num(d->>'valor_venda'), 0) > 0
+     and coalesce(d->>'ocupacao', '') <> '' and coalesce(d->>'documentacao', '') <> ''
+$$;
+
+create or replace function public.salvar_ficha(p_id text, p_dados jsonb) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare v_ok boolean;
+begin
+  if not public.is_staff() then raise exception 'Sem permissão.'; end if;
+  if not exists (select 1 from public.indicacoes where id = p_id) then raise exception 'Indicação não encontrada.'; end if;
+  v_ok := public.ficha_completa(p_dados);
+  insert into public.fichas_imovel (indicacao_id, dados, completa, atualizado_em, atualizado_por)
+  values (p_id, p_dados, v_ok, now(), auth.uid())
+  on conflict (indicacao_id) do update set dados = excluded.dados, completa = excluded.completa, atualizado_em = now(), atualizado_por = auth.uid();
+  perform public.registra('Ficha do imóvel de ' || p_id || case when v_ok then ' completa' else ' salva (incompleta)' end);
+  return v_ok;
+end $$;
+
 create or replace function public.mudar_status(p_id text, p_status int, p_motivo text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -323,6 +358,10 @@ begin
   if v_ind.status = 8 then raise exception 'Esta indicação está encerrada.'; end if;
   if p_status < 0 or p_status > 8 or p_status = v_ind.status then raise exception 'Status inválido.'; end if;
   if v_papel = 'corretor' and (v_ind.status = 0 or p_status = 7) then raise exception 'Essa etapa é do administrador.'; end if;
+  if p_status in (4,5,6,7) and v_ind.status < 4
+     and not exists (select 1 from public.fichas_imovel where indicacao_id = p_id and completa) then
+    raise exception 'Complete a ficha do imóvel antes de liberar o anúncio.';
+  end if;
 
   select nome into v_nome from public.perfis where id = auth.uid();
   update public.indicacoes set status = p_status, atualizado_em = now(),
@@ -747,3 +786,14 @@ do $$ begin
     alter publication supabase_realtime add table public.notificacoes;
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------
+-- Ficha do imóvel: segurança
+-- ---------------------------------------------------------------------
+alter table public.fichas_imovel enable row level security;
+drop policy if exists fichas_ler on public.fichas_imovel;
+create policy fichas_ler on public.fichas_imovel for select to authenticated using (public.is_staff());
+revoke all on public.fichas_imovel from anon;
+grant select on public.fichas_imovel to authenticated;
+revoke execute on function public.salvar_ficha(text, jsonb) from public, anon;
+grant execute on function public.salvar_ficha(text, jsonb) to authenticated;

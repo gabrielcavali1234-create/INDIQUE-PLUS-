@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610080115 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610080230 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -102,6 +102,7 @@ async function loadData(){
   ];
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('recompensas').select('*').order('criado_em',{ascending:false})).then(r => S.D.rewards = r));
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
+  if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('fichas_imovel').select('*')).then(r => { S.D.fichas = Object.fromEntries(r.map(x => [x.indicacao_id, x])); }).catch(() => { S.D.fichas = {}; }));
   if (p === 'admin') {
     jobs.push(q(sb.from('ocorrencias').select('*').order('criado_em',{ascending:false}).limit(200)).then(r => S.D.ocorr = r));
     jobs.push(q(sb.from('convites_acesso').select('*').order('criado_em',{ascending:false}).limit(50)).then(r => S.D.convites = r).catch(() => S.D.convites = []));
@@ -576,9 +577,9 @@ function vPro(){
   return `<section class="hello"><p class="eyebrow">Profissional imobiliário</p><h1 style="font-size:28px">${esc(S.perfil.nome)}</h1>
    <p class="sub">${L.length} oportunidade${L.length===1?'':'s'} em atendimento. Atualize o status a cada etapa: o indicador acompanha em tempo real.</p></section>
    <div class="cards list">${L.map(i => { const nx = i.status + 1; return `<div class="card" style="gap:10px">
-    <div class="sec-h"><span class="mono note">${i.id}</span>${pill(i.status)}</div><h2>${esc(i.proprietario_nome)}</h2>
+    <div class="sec-h"><span class="mono note">${i.id}</span><span class="lc-pills">${pill(i.status)}${fichaTag(i)}</span></div><h2>${esc(i.proprietario_nome)}</h2>
     <dl class="kv"><dt>Contato</dt><dd class="mono">${fph(i.telefone)}</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd><dt>Imóvel</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm. · ${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Indicado por</dt><dd>${esc(perfil(i.indicador_id)?.nome || i.origem)}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}</dl>
-    <div class="btns">${nx <= 6 ? `<button class="btn sm" data-a="adv" data-v="${i.id}" data-s="${nx}">Avançar: ${ST[nx]}</button>` : ''}<button class="btn sm danger" data-a="close" data-v="${i.id}">Encerrar</button></div></div>`; }).join('') || '<p class="muted">Nenhuma oportunidade em atendimento agora.</p>'}</div>
+    <div class="btns">${nx <= 6 ? `<button class="btn sm" data-a="adv" data-v="${i.id}" data-s="${nx}">Avançar: ${ST[nx]}</button>` : ''}${i.status >= 2 ? `<button class="btn sm ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',16)}Ficha do imóvel</button>` : ''}<button class="btn sm danger" data-a="close" data-v="${i.id}">Encerrar</button></div></div>`; }).join('') || '<p class="muted">Nenhuma oportunidade em atendimento agora.</p>'}</div>
    <p class="note">Indicações com status “Enviada” aguardam validação do gestor antes de chegar aqui.</p>`;
 }
 
@@ -617,6 +618,74 @@ function aGeral(){
      <h3>Por região</h3><div class="rank">${Object.entries(byR).sort((a,b)=>b[1]-a[1]).map(([r,v],k) => `<div><span class="p">${k+1}</span><span>${esc(r)}</span><b class="num">${v}</b></div>`).join('') || '<p class="muted">—</p>'}</div></div>
    </div>`;
 }
+/* ---------- Ficha do imóvel (gestor e corretor) ---------- */
+const FICHA_OBRIG = [['area_util','Área útil'],['dormitorios','Dormitórios'],['banheiros','Banheiros'],['vagas','Vagas'],['valor_venda','Valor de venda'],['ocupacao','Ocupação'],['documentacao','Documentação']];
+const DIFERENCIAIS = ['Varanda','Varanda gourmet','Piscina','Academia','Churrasqueira','Salão de festas','Playground','Portaria 24h','Mobiliado','Armários planejados','Ar-condicionado','Aceita pet'];
+const numBR = v => { const s = String(v ?? '').trim(); if (!s) return ''; const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isNaN(n) ? '' : String(n); };
+const fmtN = v => v === '' || v == null ? '' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const ficha = id => S.D.fichas?.[id]?.dados || null;
+function fichaFalta(d){ d = d || {}; return FICHA_OBRIG.filter(([k]) => k === 'area_util' || k === 'valor_venda' ? !(Number(d[k]) > 0) : !String(d[k] ?? '').trim()).map(x => x[1]); }
+function fichaTag(i){
+  if (i.status < 2 || i.status === 8) return '';
+  const d = ficha(i.id), falta = fichaFalta(d), ok = !falta.length;
+  if (i.status >= 4 && ok) return '';
+  return `<span class="ftag ${ok ? 'ok' : ''}">${ok ? ic('check',13) + 'Ficha completa' : `Ficha ${FICHA_OBRIG.length - falta.length}/${FICHA_OBRIG.length}`}</span>`;
+}
+function fichaResumo(i){
+  const d = ficha(i.id), falta = fichaFalta(d);
+  if (!d) return `<p class="note">Ainda sem ficha. Depois de falar com o proprietário, preencha metragem, cômodos, valores e situação do imóvel. O anúncio só é liberado com a ficha completa.</p>`;
+  const m2 = Number(d.valor_venda) > 0 && Number(d.area_util) > 0 ? money(d.valor_venda / d.area_util) : '';
+  const row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  return `<dl class="kv">${row('Área', [d.area_util && fmtN(d.area_util) + ' m² úteis', d.area_total && fmtN(d.area_total) + ' m² totais'].filter(Boolean).join(' · '))}
+    ${row('Cômodos', [d.dormitorios && d.dormitorios + ' dorm.', d.suites && d.suites + ' suíte' + (d.suites === '1' ? '' : 's'), d.banheiros && d.banheiros + ' banh.', d.vagas && d.vagas + ' vaga' + (d.vagas === '1' ? '' : 's')].filter(Boolean).join(' · '))}
+    ${row('Venda', d.valor_venda ? `${money(d.valor_venda)}${m2 ? ` · <b>${m2}/m²</b>` : ''}` : '')}
+    ${row('Mensais', [d.condominio && 'Cond. ' + money(d.condominio), d.iptu && 'IPTU ' + money(d.iptu) + '/ano'].filter(Boolean).join(' · '))}
+    ${row('Situação', [d.ocupacao, d.estado, d.documentacao && 'Documentação: ' + d.documentacao.toLowerCase()].filter(Boolean).map(esc).join(' · '))}
+    ${row('Diferenciais', (d.diferenciais || []).map(esc).join(', '))}</dl>
+    ${falta.length ? `<p class="note neg">Falta: ${falta.join(', ').toLowerCase()}.</p>` : ''}`;
+}
+function fichaModal(id, liberar){
+  const i = S.D.inds.find(x => x.id === id); if (!i) return;
+  const d = Object.assign({ tipo: i.tipo, dormitorios: /^\d/.test(i.dormitorios || '') ? String(i.dormitorios).replace('+', '') : '' }, ficha(id) || {});
+  const opt = (name, opts) => `<div class="chips sm" role="radiogroup">${opts.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${String(d[name] ?? '') === o ? 'checked' : ''}><span>${o}</span></label>`).join('')}</div>`;
+  const num = (name, label, ph, suf, req) => `<label class="f"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><span class="insuf"><input class="in" name="${name}" inputmode="decimal" placeholder="${ph}" value="${esc(d[name] ? fmtN(d[name]) : '')}" autocomplete="off">${suf ? `<em>${suf}</em>` : ''}</span></label>`;
+  const cnt = (name, label, opts, req) => `<div class="f"><span class="qlabel">${label}${req ? ' <i class="req">*</i>' : ''}</span>${opt(name, opts)}</div>`;
+  openModal(`<form data-f="ficha" class="fichaf" novalidate><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="liberar" value="">
+    <header class="fh"><div><p class="eyebrow">${esc(i.id)} · ${esc(i.proprietario_nome)}</p><h2>Ficha do imóvel</h2><p class="note">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p></div><button type="button" class="back" data-a="closeX" aria-label="Fechar">${ic('x',20)}</button></header>
+    ${liberar ? `<div class="alert"><b>Complete a ficha para liberar o anúncio.</b><p class="note">Os campos com * são obrigatórios.</p></div>` : ''}
+    <div class="fbody">
+     <section><h3>Medidas</h3><div class="fgrid3">${num('area_util','Área útil','Ex.: 78','m²',1)}${num('area_total','Área total','Ex.: 95','m²')}<div class="f"><span class="qlabel">Valor do m²</span><output class="m2" id="fi-m2">—</output></div></div></section>
+     <section><h3>Cômodos</h3><div class="fgrid2">${cnt('dormitorios','Dormitórios',['1','2','3','4','5+'],1)}${cnt('suites','Suítes',['0','1','2','3+'])}${cnt('banheiros','Banheiros',['1','2','3','4+'],1)}${cnt('vagas','Vagas de garagem',['0','1','2','3+'],1)}</div></section>
+     <section><h3>Valores</h3><div class="fgrid3">${num('valor_venda','Valor pretendido de venda','Ex.: 450.000','R$',1)}${num('condominio','Condomínio','Ex.: 650','R$/mês')}${num('iptu','IPTU','Ex.: 1.200','R$/ano')}</div></section>
+     <section><h3>Prédio e situação</h3><div class="fgrid2">
+      <label class="f">Andar<input class="in" name="andar" value="${esc(d.andar || '')}" placeholder="Ex.: 8º"></label>${cnt('elevador','Elevador',['Sim','Não'])}
+      ${cnt('ocupacao','Ocupação',['Vazio','Proprietário mora','Alugado'],1)}${cnt('estado','Estado de conservação',['Novo','Bom estado','Precisa de reforma'])}
+      ${cnt('documentacao','Documentação (matrícula / escritura)',['Em dia','Com pendência','A verificar'],1)}${cnt('financiamento','Aceita financiamento',['Sim','Não','A confirmar'])}
+      ${cnt('permuta','Aceita permuta',['Sim','Não'])}</div></section>
+     <section><h3>Diferenciais</h3><div class="chips sm">${DIFERENCIAIS.map(x => `<label><input type="checkbox" name="diferenciais" value="${esc(x)}" ${(d.diferenciais || []).includes(x) ? 'checked' : ''}><span>${x}</span></label>`).join('')}</div></section>
+     <section><h3>Para o anúncio</h3><label class="f">Descrição<textarea class="in" name="descricao" maxlength="2000" placeholder="Ex.: apartamento reformado, sol da manhã, vista livre, a 5 minutos do metrô.">${esc(d.descricao || '')}</textarea></label>
+      <label class="f">Link das fotos <small>(opcional)</small><input class="in" name="fotos" value="${esc(d.fotos || '')}" placeholder="Ex.: pasta do Google Drive"></label></section>
+    </div>
+    <footer class="ffoot"><p class="note" id="fi-falta"></p><div id="fi-err" class="err" hidden></div>
+     <div class="btns"><button class="btn ghost" type="submit">Salvar ficha</button>${i.status === 3 ? `<button class="btn gold" type="submit" data-lib="1" id="fi-lib">Salvar e liberar anúncio</button>` : ''}</div></footer>
+   </form>`, 'wide');
+  fichaCalc();
+}
+function fichaLer(f){
+  const fd = new FormData(f), o = {};
+  ['area_util','area_total','valor_venda','condominio','iptu'].forEach(k => o[k] = numBR(fd.get(k)));
+  ['dormitorios','suites','banheiros','vagas','andar','elevador','ocupacao','estado','documentacao','financiamento','permuta','descricao','fotos'].forEach(k => o[k] = String(fd.get(k) || '').trim());
+  o.diferenciais = fd.getAll('diferenciais').map(String);
+  Object.keys(o).forEach(k => { if (o[k] === '' || (Array.isArray(o[k]) && !o[k].length)) delete o[k]; });
+  return o;
+}
+function fichaCalc(){
+  const f = $('form[data-f=ficha]'); if (!f) return;
+  const d = fichaLer(f), falta = fichaFalta(d), m2 = $('#fi-m2'), fl = $('#fi-falta'), lib = $('#fi-lib');
+  if (m2) m2.textContent = Number(d.valor_venda) > 0 && Number(d.area_util) > 0 ? money(d.valor_venda / d.area_util) + '/m²' : '—';
+  if (fl) fl.innerHTML = falta.length ? `Faltam ${falta.length} de ${FICHA_OBRIG.length}: ${falta.join(', ').toLowerCase()}.` : `<b class="okt">${ic('check',14)} Ficha completa.</b> O anúncio pode ser liberado.`;
+  if (lib) lib.disabled = !!falta.length;
+}
 /* ---------- Indicações do gestor: lista, quadro e painel lateral ---------- */
 const GRUPOS = [
   ['novas','Para validar', i => i.status === 0],
@@ -639,7 +708,7 @@ function cardAdm(i, compact){
   return `<article class="lcard ${S.flash===i.id?'flash':''} ${i.status===0?'needs':''}" id="row-${i.id}" data-a="openInd" data-v="${i.id}" tabindex="0">
    <div class="lc-main">
     <div class="lc-top"><span class="mono lc-id">${i.id}</span><span class="lc-ago">${ago(i.criado_em)}</span></div>
-    ${compact ? '' : `<div>${pill(i.status)}</div>`}
+    ${compact ? '' : `<div class="lc-pills">${pill(i.status)}${fichaTag(i)}</div>`}
     <h3>${esc(i.proprietario_nome)}</h3>
     <p class="lc-sub">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p>
     ${compact ? '' : `<p class="lc-sub">Indicado por <b>${esc(ind || 'QR Code')}</b></p>`}
@@ -670,6 +739,7 @@ function vDrawer(){
      <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
     ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
     ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div></section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
+    ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
     <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}</dl></section>
     <section><p class="eyebrow">Linha do tempo</p>${timeline(i)}</section>
@@ -1240,7 +1310,10 @@ const act = {
   openInd: async d => { S.drawer = d.v; render(); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) {} } },
   drawerClose: () => { S.drawer = null; render(); },
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
-  adv: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
+  fichaAbrir: d => fichaModal(d.v, false),
+  closeX: () => closeModal(),
+  adv: d => { const i = S.D.inds.find(x => x.id === d.v); if (Number(d.s) === 4 && i && i.status === 3 && fichaFalta(ficha(d.v)).length) return fichaModal(d.v, true); act.advOk(d); },
+  advOk: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
   close: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
      <div><p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2></div>
      <label class="f">Motivo<select class="in" id="m-motivo">${MOTIVOS.map(m => `<option>${m}</option>`).join('')}</select></label>
@@ -1324,7 +1397,7 @@ const act = {
     openModal(`<p class="eyebrow">QR Code do condomínio</p><h2>${esc(c.nome).toUpperCase()}</h2><div class="qrbox" data-qr="${esc(url)}"></div><p class="note">Indicações feitas por este QR são registradas com origem neste condomínio.</p><div class="copyrow"><span>${esc(url)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(url)}">${ic('copy',16)}Copiar</button></div><button class="btn" data-a="mclose">Fechar</button>`); },
   mclose: (d, el, e) => { if (e.target === el) closeModal(); }
 };
-function openModal(inner){ $('#modal').innerHTML = `<div class="modal" data-a="mclose"><div class="box" role="dialog">${inner}</div></div>`; $('#modal').querySelectorAll('[data-qr]').forEach(drawQR); }
+function openModal(inner, cls=''){ $('#modal').innerHTML = `<div class="modal" data-a="mclose"><div class="box ${cls}" role="dialog">${inner}</div></div>`; $('#modal').querySelectorAll('[data-qr]').forEach(drawQR); }
 function closeModal(){ $('#modal').innerHTML = ''; }
 
 document.addEventListener('click', e => {
@@ -1338,6 +1411,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.ma
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.form?.dataset.f === 'nova') nvSync();
+  if (t.form?.dataset.f === 'ficha') fichaCalc();
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
   if (t.id === 'r-de' || t.id === 'r-ate') { S[t.id === 'r-de' ? 'relDe' : 'relAte'] = t.value; render(); }
@@ -1345,6 +1419,7 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.form?.dataset.f === 'ficha') fichaCalc();
   if (e.target.form?.dataset.f === 'nova') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } nvSync(); }
   if (e.target.id === 'f-busca') { S.finQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#f-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
@@ -1471,6 +1546,16 @@ const forms = {
     const rows = await q(sb.from('condominios').insert({ nome: g('nome'), endereco: g('end'), bairro: g('bairro'), cidade: g('cidade'), regiao: g('reg') || null }).select());
     await refresh(); toast('Condomínio cadastrado'); act.cqr({ v: rows[0].id });
   }),
+  ficha: (fd, f) => guard(async () => {
+    const id = String(fd.get('id')), dados = fichaLer(f), lib = S.fichaLib; S.fichaLib = false;
+    const falta = fichaFalta(dados);
+    if (lib && falta.length) return showErr('#fi-err', `Para liberar o anúncio, falta: ${falta.join(', ').toLowerCase()}.`);
+    let ok;
+    try { ok = await rpc('salvar_ficha', { p_id: id, p_dados: dados }); }
+    catch(e) { return showErr('#fi-err', /salvar_ficha|function|schema cache/i.test(e.message || '') ? 'O banco ainda não tem a ficha do imóvel. Rode o schema.sql atualizado no Supabase.' : msg(e)); }
+    if (lib) { await rpc('mudar_status', { p_id: id, p_status: 4, p_motivo: null }); delete S.D.hist[id]; }
+    closeModal(); await refresh(); toast(lib ? `${id}: anúncio liberado` : ok ? 'Ficha completa salva' : `Ficha salva. Falta: ${falta.join(', ').toLowerCase()}`);
+  }),
   pix: fd => guard(async () => {
     try { await rpc('atualizar_pix', { p_tipo: String(fd.get('tipo')||''), p_chave: String(fd.get('chave')||'') }); } catch(e) { return showErr('#x-err', msg(e)); }
     S.editPix = false; await loadPerfil(); render(); toast('Chave Pix salva');
@@ -1493,6 +1578,6 @@ const forms = {
   }),
   cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round(Number(fd.get('valor')) || 0)) }); await refresh(); toast('Valor salvo'); })
 };
-document.addEventListener('submit', e => { e.preventDefault(); forms[e.target.dataset.f]?.(new FormData(e.target), e.target); });
+document.addEventListener('submit', e => { e.preventDefault(); if (e.target.dataset.f === 'ficha') S.fichaLib = !!e.submitter?.dataset.lib; forms[e.target.dataset.f]?.(new FormData(e.target), e.target); });
 
 boot();
