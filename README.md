@@ -42,7 +42,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - Rede de convites com um único nível; incentivo só pode ser ativado após aprovação jurídica.
 - Registro de data, hora, indicador, condomínio e histórico de alterações.
 
-## Onde estamos (06/10/2026)
+## Onde estamos (08/10/2026)
 
 **Infraestrutura**
 - Código: GitHub `gabrielcavali1234-create/INDIQUE-PLUS-` (branch `main` = produção).
@@ -60,9 +60,17 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - **Mapa ao vivo dos condomínios** (aba Condomínios): pino por condomínio com número de indicações, localização automática pelo endereço (OpenStreetMap) e ajuste manual do pino.
 - Painel do indicador e do corretor; QR Code pessoal e por condomínio.
 
+- **Relatórios** em PDF e Excel (aba Relatórios, só gestor).
+- **Filtros de indicações**: Para validar · Em atendimento · Qualificar · Anúncio ativo · Em negociação · Venda realizada · Encerradas · Todas.
+- **Nova indicação em passos** (indicador): autorização → imóvel (condomínio ou CEP com preenchimento automático, apto e bloco) → proprietário → venda → revisão.
+- **Ficha do imóvel** (gestor e corretor): metragem, cômodos, valores com R$/m², situação, documentação, diferenciais. O anúncio só é liberado com a ficha completa (trava no banco).
+
 **Como atualizar o banco**: rodar `supabase/schema.sql` inteiro no SQL Editor (não apaga dados).
 
 ## Pendências
+
+- [ ] **Rodar o `supabase/schema.sql` atualizado** no SQL Editor (cria a ficha do imóvel, os campos de localização do mapa e atualiza os nomes das etapas). Depois: Implantar na Hostinger + Ctrl+F5.
+- [ ] Conferir no site real: mapa dos condomínios (ajustar o pino do Condomínio Art Home), nova indicação em passos e ficha do imóvel.
 
 - [ ] **Religar a confirmação de e-mail** (Supabase → Authentication → Sign In / Providers → Email → Confirm email). Foi desligada para facilitar o início.
 - [ ] **Configurar SMTP próprio** (ex.: Resend) em Authentication → SMTP Settings, para não esbarrar no limite de e-mails do Supabase. Necessário antes de religar a confirmação.
@@ -77,6 +85,9 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - [ ] Testar o fluxo completo: cadastrar condomínio, convidar corretor, porteiro fazer indicação, avançar status, liberar recompensa.
 
 ## Próximos passos (depois das pendências)
+
+- Incluir a ficha do imóvel nos relatórios e gerar um texto de anúncio pronto a partir dela
+- Upload de fotos do imóvel direto na ficha
 
 - Filtros de relatório por condomínio e por porteiro
 - API para integração com CRM, pagamentos, assinatura digital e BI
