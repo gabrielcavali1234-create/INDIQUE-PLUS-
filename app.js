@@ -26,7 +26,7 @@ const S = {
 if (params.get('c')) saveLS('rendique-convite', params.get('c'));
 if (params.get('g')) saveLS('rendique-convite-acesso', params.get('g'));
 S.convAcesso = loadLS('rendique-convite-acesso'); S.convInfo = null;
-if (S.convAcesso && S.authMode === 'entrar') S.authMode = 'criar';
+if ((S.convAcesso || params.get('c')) && S.authMode === 'entrar') S.authMode = 'criar';
 const ROTULO = { admin: 'gestor', corretor: 'corretor' };
 
 /* ---------- utilidades ---------- */
@@ -73,6 +73,7 @@ const I = {
   columns:'<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="13" rx="1.5"/>',
   chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
   undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
 };
 const ic = (n,s=20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -696,9 +697,9 @@ function aCondos(){
 function aConvites(){
   const L = S.D.convites || [], now = Date.now();
   const st = c => c.usado_por ? `Usado por ${esc(perfil(c.usado_por)?.nome || '—')}` : new Date(c.expira_em) < now ? 'Vencido' : `Aguardando · vence ${fd(c.expira_em)}`;
-  return `<div class="card"><div class="sec-h"><h2>Convidar gestor ou corretor</h2></div>
-    <p class="note">Gere um link e mande para a pessoa. Ela cria a conta pelo link e já entra com o acesso certo, sem passar pelo cadastro de porteiro. Cada link vale para uma pessoa, por 7 dias.</p>
-    <div class="btns"><button class="btn" data-a="novoConvite" data-v="admin">${ic('shield',18)}Gerar link de gestor</button><button class="btn ghost" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button></div>
+  return `<div class="card"><div class="sec-h"><h2>Convidar corretor ou indicador</h2></div>
+    <p class="note"><b>Corretor:</b> link individual, vale para uma pessoa por 7 dias; ela já entra com acesso de corretor. <b>Indicador:</b> link fixo para porteiros, zeladores e síndicos; pode mandar para quantas pessoas quiser, e o cadastro fica registrado como convite seu.</p>
+    <div class="btns"><button class="btn" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button><button class="btn ghost" data-a="linkIndicador">${ic('building',18)}Link de indicador</button></div>
     ${L.length ? `<div class="hist">${L.slice(0,10).map(c => { const aberto = !c.usado_por && new Date(c.expira_em) > now; return `<div><div><b>${c.papel === 'admin' ? 'Gestor' : 'Corretor'}</b><div class="note">${st(c)}</div></div><div class="btns" style="justify-content:flex-end">${aberto ? `<button class="btn sm ghost" data-a="copy" data-v="${esc(SITE + '?g=' + c.token)}">${ic('copy',16)}Copiar link</button><button class="btn sm danger" data-a="cancelConvite" data-v="${esc(c.token)}">Cancelar</button>` : ''}</div></div>`; }).join('')}</div>` : ''}
    </div>`;
 }
@@ -869,6 +870,14 @@ const act = {
       <a class="btn" style="text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
       <button class="btn ghost" data-a="mclose">Fechar</button>`);
   }),
+  linkIndicador: () => {
+    const url = `${SITE}?c=${S.perfil.codigo}`;
+    const txt = encodeURIComponent(`Oi! Você trabalha em condomínio? Com o Rendique você indica quem quer vender o imóvel e ganha recompensa por indicação qualificada. Cadastre-se por este link: ${url}`);
+    openModal(`<p class="eyebrow">Convite de indicador</p><h2>Link para porteiros, zeladores e síndicos</h2><p class="note">Pode mandar para várias pessoas e colocar em grupos. Quem se cadastrar por ele entra como indicador.</p>
+      <div class="copyrow"><span>${esc(url)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(url)}">${ic('copy',16)}Copiar</button></div>
+      <a class="btn" style="text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
+      <button class="btn ghost" data-a="mclose">Fechar</button>`);
+  },
   cancelConvite: d => guard(async () => { await rpc('cancelar_convite', { p_token: d.v }); await refresh(); toast('Convite cancelado'); }),
   cqr: d => { const c = condo(d.v), url = `${SITE}?k=${c.id}`;
     openModal(`<p class="eyebrow">QR Code do condomínio</p><h2>${esc(c.nome).toUpperCase()}</h2><div class="qrbox" data-qr="${esc(url)}"></div><p class="note">Indicações feitas por este QR são registradas com origem neste condomínio.</p><div class="copyrow"><span>${esc(url)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(url)}">${ic('copy',16)}Copiar</button></div><button class="btn" data-a="mclose">Fechar</button>`); },
