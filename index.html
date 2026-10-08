@@ -305,6 +305,49 @@ main.choose{max-width:760px;min-height:100%;justify-content:center;padding-block
 .nitem .nt small{font-size:12px;color:var(--muted)}
 .nitem:not(.new) b{font-weight:600}
 tr.flash td{background:var(--gold-soft)}
+/* indicações do gestor */
+.ind-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.search{position:relative;flex:1 1 320px;display:block}
+.search .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.search .in{padding-left:42px}
+.seg{display:flex;background:var(--surface-2);border-radius:12px;padding:4px}
+.seg button{border:0;background:none;display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.chipbtn .cnum,.kcol .cnum{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 6px;margin-left:8px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.chipbtn.on .cnum{background:rgb(255 255 255/.18);color:inherit}
+.chipbtn.alerta:not(.on) .cnum{background:var(--danger);color:#fff}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:12px}
+.lcard{display:flex;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.lcard:hover{border-color:var(--brand);box-shadow:0 4px 14px rgb(0 0 0/.06)}
+.lcard.needs{border-color:color-mix(in srgb,var(--gold) 70%,var(--line))}
+.lcard.flash{background:var(--gold-soft)}
+.lc-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+.lc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lc-id{font-size:12px;color:var(--muted)}
+.lc-ago{font-size:12px;color:var(--muted);white-space:nowrap}
+.lcard h3{font-size:17px;margin-top:4px}
+.lc-sub{font-size:13.5px;color:var(--muted);overflow-wrap:anywhere}
+.lc-act{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px;flex:none}
+.iconbtn{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none}
+.iconbtn.wa,.btn.wa{color:#fff;background:#1F9D55;border-color:#1F9D55;text-decoration:none}
+.kboard{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}
+.kcol{background:var(--surface-2);border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:120px}
+.kcol header{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;padding:4px 4px 0}
+.kcol .cnum{margin-left:auto;background:var(--surface)}
+.kdot{width:9px;height:9px;border-radius:50%;background:var(--sc)}
+.kcards{display:flex;flex-direction:column;gap:8px}
+.kcol .lcard{flex-direction:column;padding:12px}
+.kcol .lc-act{flex-direction:row;align-items:center;justify-content:space-between}
+.kempty{font-size:13px;color:var(--muted);padding:6px 4px}
+.dwrap{position:fixed;inset:0;z-index:45;background:rgb(5 15 30/.35);display:flex;justify-content:flex-end}
+.drawer{width:min(460px,100%);height:100%;background:var(--surface);display:flex;flex-direction:column;box-shadow:-12px 0 40px rgb(0 0 0/.18)}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.db{overflow:auto;padding:18px 20px 28px;display:flex;flex-direction:column;gap:22px}
+.db h2{font-size:22px;margin-top:4px}
+.nextbox{background:var(--surface-2);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.nextbox .link{color:var(--danger);align-self:center}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slidein .2s ease-out}@keyframes slidein{from{transform:translateX(30px);opacity:.6}}}
+
 .authtabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border-radius:12px;padding:4px}
 .authtabs button{border:0;background:none;min-height:42px;border-radius:9px;font-weight:700;color:var(--muted)}
 .authtabs button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.12)}
@@ -326,6 +369,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610062115"></script>
+<script src="app.js?v=202610072239"></script>
 </body>
 </html>

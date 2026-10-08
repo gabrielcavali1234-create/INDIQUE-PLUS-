@@ -16,7 +16,7 @@ const REW = {processamento:['proc','Em processamento'],disponivel:['disp','Dispo
 const params = new URLSearchParams(location.search);
 const S = {
   device: loadLS('rendique-device'),
-  screen: 'loading', tab: 'home', admTab: 'geral', filter: 'todas', admFilter: 'all',
+  screen: 'loading', tab: 'home', admTab: 'geral', filter: 'todas', admFilter: 'all', admGrupo: 'novas', admView: 'lista', admQ: '', drawer: null,
   session: null, perfil: null, det: null, lastId: null,
   email: '', authMode: /type=recovery/.test(location.hash) ? 'novaSenha' : 'entrar', convite: params.get('c') || loadLS('rendique-convite') || '',
   pub: (params.get('q') || params.get('k')) ? { q: params.get('q'), k: params.get('k'), info: null, done: null } : null,
@@ -68,7 +68,11 @@ const I = {
   mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5 12 13l8.5-6.5"/>',
   phone2:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
   monitor:'<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8.5 20.5h7M12 16.5v4"/>',
-  refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/>'
+  refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  columns:'<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="13" rx="1.5"/>',
+  chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>'
 };
 const ic = (n,s=20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 const logo = (n,dark) => `<svg class="logo" width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="5" width="40" height="54" rx="5" fill="${dark?'#FFFFFF':'var(--brand)'}"/>${[[19,13],[19,28],[35,28]].map(([x,y])=>`<rect x="${x}" y="${y}" width="10" height="10" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/>`).join('')}<rect x="35" y="13" width="10" height="10" rx="2" fill="var(--lit)"/><rect x="27" y="44" width="10" height="15" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/></svg>`;
@@ -515,15 +519,61 @@ function aGeral(){
      <h3>Por região</h3><div class="rank">${Object.entries(byR).sort((a,b)=>b[1]-a[1]).map(([r,v],k) => `<div><span class="p">${k+1}</span><span>${esc(r)}</span><b class="num">${v}</b></div>`).join('') || '<p class="muted">—</p>'}</div></div>
    </div>`;
 }
+/* ---------- Indicações do gestor: lista, quadro e painel lateral ---------- */
+const GRUPOS = [
+  ['novas','Para validar', i => i.status === 0],
+  ['andamento','Em atendimento', i => i.status === 1 || i.status === 2],
+  ['qualif','Qualificadas', i => i.status === 3 || i.status === 4],
+  ['negoc','Em negociação', i => i.status === 5],
+  ['concl','Concluídas', i => i.status === 6 || i.status === 7],
+  ['encerr','Encerradas', i => i.status === 8],
+  ['todas','Todas', () => true]
+];
+const PROX = { 0:'Validar', 1:'Contato feito', 2:'Qualificar', 3:'Iniciar captação', 4:'Iniciar negociação', 5:'Venda concluída', 6:'Liberar recompensa' };
+const waLink = t => `https://wa.me/55${dig(t)}`;
+function filtraInds(){
+  const q = (S.admQ || '').trim().toLowerCase(), qd = dig(q);
+  return S.D.inds.filter(i => !q || [i.id, i.proprietario_nome, i.unidade, condoNome(i.condominio_id), i.endereco, perfil(i.indicador_id)?.nome].some(v => String(v||'').toLowerCase().includes(q)) || (qd.length >= 4 && dig(i.telefone).includes(qd)));
+}
+function cardAdm(i, compact){
+  const nx = PROX[i.status], ind = perfil(i.indicador_id)?.nome;
+  return `<article class="lcard ${S.flash===i.id?'flash':''} ${i.status===0?'needs':''}" id="row-${i.id}" data-a="openInd" data-v="${i.id}" tabindex="0">
+   <div class="lc-main">
+    <div class="lc-top"><span class="mono lc-id">${i.id}</span><span class="lc-ago">${ago(i.criado_em)}</span></div>
+    ${compact ? '' : `<div>${pill(i.status)}</div>`}
+    <h3>${esc(i.proprietario_nome)}</h3>
+    <p class="lc-sub">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p>
+    ${compact ? '' : `<p class="lc-sub">Indicado por <b>${esc(ind || 'QR Code')}</b></p>`}
+   </div>
+   <div class="lc-act">
+    <a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a>
+    ${nx ? `<button class="btn sm ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx}</button>` : ''}
+   </div>
+  </article>`;
+}
 function aInds(){
-  const fs = S.admFilter, L = S.D.inds.filter(i => fs === 'all' || String(i.status) === fs);
-  return `<div class="btns" style="align-items:center"><label class="f" style="flex-direction:row;align-items:center;gap:8px">Status
-    <select class="in" id="a-filter" style="min-height:40px;width:auto"><option value="all">Todos</option>${ST.map((s,k)=>`<option value="${k}" ${fs===String(k)?'selected':''}>${s}</option>`).join('')}</select></label>
-    <span class="note">${L.length} indicações</span></div>
-   <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Recebida</th><th>Indicador</th><th>Condomínio</th><th>Proprietário</th><th>Origem</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-   ${L.map(i => `<tr id="row-${i.id}" class="${S.flash===i.id?'flash':''}"><td class="mono">${i.id}</td><td class="num">${fdt(i.criado_em)}</td><td>${esc(perfil(i.indicador_id)?.nome || '—')}</td><td>${esc(i.endereco || condoNome(i.condominio_id))}</td><td>${esc(i.proprietario_nome)} · ${esc(i.unidade)}<br><span class="note mono">${fph(i.telefone)}</span></td><td class="note">${esc(i.origem)}</td><td>${pill(i.status)}</td>
-    <td>${i.status < 7 ? `<div class="btns" style="flex-wrap:nowrap"><button class="btn sm" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${i.status===0?'Validar':'Avançar'}</button><button class="btn sm danger" data-a="close" data-v="${i.id}">Encerrar</button></div>` : i.status === 6 ? `<button class="btn sm gold" data-a="adv" data-v="${i.id}" data-s="7">Liberar recompensa</button>` : '<span class="note">—</span>'}</td></tr>`).join('') || '<tr><td colspan="8" class="note">Nenhuma indicação ainda.</td></tr>'}
-   </tbody></table></div>`;
+  const base = filtraInds(), g = GRUPOS.find(x => x[0] === S.admGrupo) || GRUPOS[0];
+  const chips = GRUPOS.map(([k,l,f]) => { const n = base.filter(f).length; return `<button class="chipbtn ${g[0]===k?'on':''} ${k==='novas'&&n?'alerta':''}" data-a="admGrupo" data-v="${k}">${l}<span class="cnum">${n}</span></button>`; }).join('');
+  const top = `<div class="ind-bar">
+    <label class="search">${ic('search',18)}<input class="in" id="a-busca" placeholder="Buscar por nome, telefone, ID, condomínio ou indicador" value="${esc(S.admQ||'')}" autocomplete="off"></label>
+   </div>`;
+  const L = base.filter(g[2]);
+  return `${top}<div class="filters">${chips}</div>
+   <div class="lgrid">${L.map(i => cardAdm(i)).join('') || `<div class="card"><p class="note">${S.admQ ? 'Nada encontrado nessa busca.' : 'Nenhuma indicação neste grupo.'}</p></div>`}</div>`;
+}
+function vDrawer(){
+  const i = S.drawer && S.D.inds.find(x => x.id === S.drawer); if (!i) return '';
+  const nx = PROX[i.status], ind = perfil(i.indicador_id), r = S.D.rewards.find(x => x.indicacao_id === i.id && x.estado !== 'cancelada');
+  return `<div class="dwrap" data-a="drawerBg"><aside class="drawer" role="dialog" aria-label="Indicação ${i.id}">
+   <header class="dh"><div><span class="mono lc-id">${i.id}</span><div style="margin-top:6px">${pill(i.status)}</div></div><button class="back" data-a="drawerClose" aria-label="Fechar">${ic('x',20)}</button></header>
+   <div class="db">
+    <section><p class="eyebrow">Proprietário</p><h2>${esc(i.proprietario_nome)}</h2><p class="mono" style="margin-top:4px">${fph(i.telefone)}</p>
+     <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
+    ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></section>` : ''}
+    <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
+    <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}</dl></section>
+    <section><p class="eyebrow">Linha do tempo</p>${timeline(i)}</section>
+   </div></aside></div>`;
 }
 function aOcorr(){
   return `<p class="note">Tentativas bloqueadas por duplicidade (telefone ou imóvel já cadastrado). Nenhuma recompensa é gerada nesses casos.</p>
@@ -603,7 +653,7 @@ function render(){
   app.className = cls; app.innerHTML = html;
   const nav = vNav(); $('#nav').innerHTML = nav;
   if (nav) root.dataset.side = ''; else delete root.dataset.side;
-  $('#bell').innerHTML = vBell();
+  $('#bell').innerHTML = vBell() + (S.screen === 'app' && papel() === 'admin' ? vDrawer() : '');
   document.querySelectorAll('[data-qr]').forEach(drawQR);
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
@@ -636,11 +686,17 @@ const act = {
     const n = S.D.notifs.find(x => String(x.id) === d.v); if (!n) return;
     if (!n.lida) { await q(sb.from('notificacoes').update({ lida: true }).eq('id', n.id)); n.lida = true; }
     S.bell = false;
-    if (papel() === 'admin') { S.admTab = n.tipo === 'duplicidade' ? 'ocorr' : n.tipo === 'cadastro' ? 'users' : n.tipo === 'resgate' ? 'rec' : 'inds'; S.admFilter = 'all'; S.flash = n.indicacao_id; render(); const row = n.indicacao_id && document.getElementById('row-' + n.indicacao_id); if (row) row.scrollIntoView({ block:'center' }); return; }
+    if (papel() === 'admin') { S.admTab = n.tipo === 'duplicidade' ? 'ocorr' : n.tipo === 'cadastro' ? 'users' : n.tipo === 'resgate' ? 'rec' : 'inds'; S.admFilter = 'all'; S.flash = n.indicacao_id; if (S.admTab === 'inds' && n.indicacao_id) { S.admGrupo = 'todas'; S.drawer = n.indicacao_id; loadHist(n.indicacao_id).then(render).catch(()=>{}); } render(); const row = n.indicacao_id && document.getElementById('row-' + n.indicacao_id); if (row) row.scrollIntoView({ block:'center' }); return; }
     if (papel() === 'indicador' && n.indicacao_id) { await act.det({ v: n.indicacao_id }); return; }
     render();
   }),
   askNotif: async () => { try { const p = await Notification.requestPermission(); toast(p === 'granted' ? 'Alertas do navegador ativados' : 'Alertas não autorizados neste navegador'); } catch(e) {} render(); },
+  admGrupo: d => { S.admGrupo = d.v; render(); },
+  admView: d => { S.admView = d.v; render(); },
+  noop: () => {},
+  openInd: async d => { S.drawer = d.v; render(); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) {} } },
+  drawerClose: () => { S.drawer = null; render(); },
+  drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   adv: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
   close: d => openModal(`<p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2>
      <select class="in" id="m-motivo">${MOTIVOS.map(m => `<option>${m}</option>`).join('')}</select>
@@ -674,7 +730,7 @@ document.addEventListener('click', e => {
   if (a.dataset.a === 'mclose' && a.classList.contains('btn')) { closeModal(); return; }
   act[a.dataset.a]?.(a.dataset, a, e);
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('#modal').innerHTML) closeModal(); else if (S.bell) { S.bell = false; render(); } } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches?.('.lcard')) { e.target.click(); } if (e.key === 'Escape') { if (S.drawer) { S.drawer = null; render(); return; } if ($('#modal').innerHTML) closeModal(); else if (S.bell) { S.bell = false; render(); } } });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'f-samewa') $('#wa-wrap').hidden = t.checked;
@@ -683,7 +739,8 @@ document.addEventListener('change', e => {
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
-document.addEventListener('input', e => { if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
+document.addEventListener('input', e => {
+  if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
 
 const okEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 function authErr(e){
