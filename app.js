@@ -554,15 +554,9 @@ function cardAdm(i, compact){
 function aInds(){
   const base = filtraInds(), g = GRUPOS.find(x => x[0] === S.admGrupo) || GRUPOS[0];
   const chips = GRUPOS.map(([k,l,f]) => { const n = base.filter(f).length; return `<button class="chipbtn ${g[0]===k?'on':''} ${k==='novas'&&n?'alerta':''}" data-a="admGrupo" data-v="${k}">${l}<span class="cnum">${n}</span></button>`; }).join('');
-  const view = S.admView || 'lista';
   const top = `<div class="ind-bar">
     <label class="search">${ic('search',18)}<input class="in" id="a-busca" placeholder="Buscar por nome, telefone, ID, condomínio ou indicador" value="${esc(S.admQ||'')}" autocomplete="off"></label>
-    <div class="seg" role="group" aria-label="Visualização"><button class="${view==='lista'?'on':''}" data-a="admView" data-v="lista">${ic('list',16)}Lista</button><button class="${view==='quadro'?'on':''}" data-a="admView" data-v="quadro">${ic('columns',16)}Quadro</button></div>
    </div>`;
-  if (view === 'quadro') {
-    const cols = [0,1,2,3,4,5,6,7].map(st => { const L = base.filter(i => i.status === st); return `<section class="kcol" style="${sc(st)}"><header><span class="kdot"></span>${ST[st]}<span class="cnum">${L.length}</span></header><div class="kcards">${L.map(i => cardAdm(i, true)).join('') || '<p class="kempty">Nada aqui</p>'}</div></section>`; }).join('');
-    return `${top}<div class="kboard">${cols}</div>`;
-  }
   const L = base.filter(g[2]);
   return `${top}<div class="filters">${chips}</div>
    <div class="lgrid">${L.map(i => cardAdm(i)).join('') || `<div class="card"><p class="note">${S.admQ ? 'Nada encontrado nessa busca.' : 'Nenhuma indicação neste grupo.'}</p></div>`}</div>`;
