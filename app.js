@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081900 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081905 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -919,7 +919,6 @@ function aBonus(){
   const rank = {}; F.ativos.forEach(b => { const o = rank[b.indicador_id] ||= { n: 0, vgv: 0, tot: 0, pago: 0, apagar: 0, aguard: 0 }; o.n++; o.vgv += Number(b.valor_venda); o.tot += Number(b.valor); if (b.estado === 'pago') o.pago += Number(b.valor); else if (b.estado === 'disponivel') o.apagar += Number(b.valor); else o.aguard += Number(b.valor); });
   const EST = [['todos','Todos'],['aguardando','Aguardando comissão'],['disponivel','A pagar'],['pago','Pago'],['cancelado','Cancelado']], est = S.bonEst || 'todos';
   const ext = F.B.filter(b => est === 'todos' || b.estado === est).sort((a,b) => String(b.data_venda).localeCompare(String(a.data_venda)));
-  const ex = 450000, exB = cfg.bonus_modo === 'fixo' ? Number(cfg.bonus_fixo) : ex * Number(cfg.bonus_percentual) / 100;
   const itensG = F.ativos.map(b => [dataBon(b,'data_venda'), b.valor, 'g']).concat(F.B.filter(b => b.estado === 'pago').map(b => [dataBon(b,'pago_em'), b.valor, 'p']));
   return `<div class="filters">${PERIODOS.map(([k,l]) => `<button class="chipbtn ${F.k===k?'on':''}" data-a="bonPer" data-v="${k}">${l}</button>`).join('')}</div>
    <div class="ftiles">
@@ -935,8 +934,8 @@ function aBonus(){
     <div class="card"><div class="sec-h"><h2>Regra do bônus</h2><span class="tag ${cfg.bonus_modo==='fixo'?'disp':'proc'}">${cfg.bonus_modo === 'fixo' ? 'Valor fixo' : 'Percentual'}</span></div>
      <form data-f="bonusCfg" class="cards" style="gap:12px" novalidate>
       <div class="chips sm" role="radiogroup"><label><input type="radio" name="modo" value="percentual" ${cfg.bonus_modo!=='fixo'?'checked':''}><span>% do valor da venda</span></label><label><input type="radio" name="modo" value="fixo" ${cfg.bonus_modo==='fixo'?'checked':''}><span>Valor fixo por venda</span></label></div>
-      <div class="row2"><label class="f">Percentual<span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${fmtN(cfg.bonus_percentual)}"><em>%</em></span></label><label class="f">Valor fixo<span class="insuf"><input class="in" name="fixo" inputmode="decimal" value="${fmtN(cfg.bonus_fixo)}"><em>R$</em></span></label></div>
-      <p class="note">Exemplo: venda de ${money(ex)} → bônus de <b>${money(exB)}</b>. Vale para as próximas vendas registradas.</p>
+      <label class="f">Valor fixo <small>(usado só no modo valor fixo)</small><span class="insuf"><input class="in" name="fixo" inputmode="decimal" value="${fmtN(cfg.bonus_fixo)}"><em>R$</em></span></label>
+      <p class="note">${cfg.bonus_modo === 'fixo' ? `Cada venda gera um bônus de <b>${money(cfg.bonus_fixo)}</b>.` : 'No modo percentual, você informa o % de cada venda na hora de registrar a venda.'}</p>
       <button class="btn ghost" type="submit">Salvar regra</button></form>
      <div class="alert lite"><b>Valide com o jurídico.</b><p class="note">Pagamento em percentual sobre a venda a quem não tem CRECI pode ser entendido como corretagem. O valor fixo por venda é a opção mais segura.</p></div></div>
    </div>
@@ -965,7 +964,7 @@ function vendaModal(id){
     <div><p class="eyebrow">${esc(id)} · ${esc(i.proprietario_nome)}</p><h2>Registrar venda</h2><p class="note">Indicado por <b>${esc(perfil(i.indicador_id)?.nome || '—')}</b>.</p></div>
     <label class="f">Valor final da venda<span class="insuf"><input class="in" name="valor" inputmode="decimal" placeholder="Ex.: 450.000" value="${valor ? fmtN(valor) : ''}"><em>R$</em></span></label>
     <label class="f">Data da venda (escritura ou contrato)<input class="in" type="date" name="data" value="${b?.data_venda || hoje}"></label>
-    ${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value="">` : `<label class="f">Percentual do bônus<span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${fmtN(b?.percentual ?? cfg.bonus_percentual)}"><em>%</em></span></label>`}
+    ${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value="">` : `<label class="f">Percentual do bônus<span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${b?.percentual != null ? fmtN(b.percentual) : ''}" placeholder="Ex.: 0,5"><em>%</em></span></label>`}
     <div class="bonusprev"><span class="l">Bônus do indicador</span><b id="vd-bonus">—</b><span class="note" id="vd-det"></span><span class="note">Fica aguardando até você marcar que a comissão foi recebida.</span></div>
     <label class="f">Observação <small>(opcional)</small><input class="in" name="obs" value="${esc(b?.observacao || '')}" placeholder="Ex.: venda financiada, escritura em 15/11"></label>
     <div id="vd-err" class="err" hidden></div>
@@ -1685,8 +1684,9 @@ const forms = {
     await refresh(); toast('Condomínio cadastrado'); act.cqr({ v: rows[0].id });
   }),
   venda: fd => guard(async () => {
-    const id = String(fd.get('id')), v = Number(numBR(fd.get('valor'))), p = String(fd.get('pct') || '') ? Number(numBR(fd.get('pct'))) : null;
+    const id = String(fd.get('id')), v = Number(numBR(fd.get('valor'))), p = String(fd.get('pct') || '').trim() ? Number(numBR(fd.get('pct'))) : null;
     if (!(v > 0)) return showErr('#vd-err', 'Informe o valor final da venda.');
+    if (bonusCfg().bonus_modo !== 'fixo' && p == null) return showErr('#vd-err', 'Informe o percentual do bônus desta venda.');
     if (p != null && (isNaN(p) || p < 0 || p > 10)) return showErr('#vd-err', 'O percentual deve ficar entre 0 e 10%.');
     let bonus;
     try { bonus = await rpc('registrar_venda', { p_id: id, p_valor_venda: v, p_data: String(fd.get('data') || '') || null, p_percentual: p, p_obs: String(fd.get('obs') || '') }); }
@@ -1694,9 +1694,8 @@ const forms = {
     delete S.D.hist[id]; closeModal(); await refresh(); toast(`Venda registrada · bônus de ${money(bonus)} aguardando comissão`);
   }),
   bonusCfg: fd => guard(async () => {
-    const modo = String(fd.get('modo')), pct = Number(numBR(fd.get('pct'))), fixo = Number(numBR(fd.get('fixo')));
-    if (modo === 'percentual' && !(pct >= 0 && pct <= 10)) return toast('O percentual deve ficar entre 0 e 10%.');
-    try { await rpc('definir_bonus', { p_modo: modo, p_percentual: isNaN(pct) ? null : pct, p_fixo: isNaN(fixo) ? null : fixo }); }
+    const modo = String(fd.get('modo')), fixo = Number(numBR(fd.get('fixo')));
+    try { await rpc('definir_bonus', { p_modo: modo, p_percentual: null, p_fixo: isNaN(fixo) ? null : fixo }); }
     catch(e) { return toast(/definir_bonus|function|schema cache/i.test(e.message || '') ? 'Rode o schema.sql atualizado no Supabase.' : msg(e)); }
     await refresh(); toast('Regra do bônus salva');
   }),

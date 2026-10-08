@@ -63,6 +63,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - **Relatórios** em PDF e Excel (aba Relatórios, só gestor).
 - **Filtros de indicações**: Para validar · Em atendimento · Qualificar · Anúncio ativo · Em negociação · Venda realizada · Encerradas · Todas.
 - **Nova indicação em passos** (indicador): autorização → imóvel (condomínio ou CEP com preenchimento automático, apto e bloco) → proprietário → venda → revisão.
+- **Bônus de venda** (aba própria do gestor): registro da venda com valor e % informados na hora, bônus aguardando comissão → a pagar → pago com comprovante Pix; painel com VGV, gráfico, filas, ranking e extrato. ⚠️ Validar o percentual com o jurídico (CRECI).
 - **Ficha do imóvel** (gestor e corretor): metragem, cômodos, valores com R$/m², situação, documentação, diferenciais. O anúncio só é liberado com a ficha completa (trava no banco).
 
 **Como atualizar o banco**: rodar `supabase/schema.sql` inteiro no SQL Editor (não apaga dados).

@@ -835,7 +835,6 @@ language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'Sem permissão.'; end if;
   if p_modo not in ('percentual','fixo') then raise exception 'Modo inválido.'; end if;
-  if coalesce(p_percentual,0) < 0 or coalesce(p_percentual,0) > 10 then raise exception 'Percentual deve ficar entre 0 e 10%%.'; end if;
   update public.configuracoes set bonus_modo = p_modo, bonus_percentual = coalesce(p_percentual, bonus_percentual), bonus_fixo = coalesce(p_fixo, bonus_fixo) where id = 1;
   perform public.registra('Regra de bônus por venda: ' || p_modo || ' (' || coalesce(p_percentual::text,'-') || '% / R$ ' || coalesce(p_fixo::text,'-') || ')');
 end $$;
@@ -854,7 +853,11 @@ begin
   if found and v_b.estado = 'pago' then raise exception 'O bônus desta venda já foi pago.'; end if;
   select * into v_cfg from public.configuracoes where id = 1;
   if v_cfg.bonus_modo = 'fixo' then v_pct := null; v_val := v_cfg.bonus_fixo;
-  else v_pct := coalesce(p_percentual, v_cfg.bonus_percentual); v_val := round(p_valor_venda * v_pct / 100, 2); end if;
+  else
+    if p_percentual is null then raise exception 'Informe o percentual do bônus desta venda.'; end if;
+    if p_percentual < 0 or p_percentual > 10 then raise exception 'O percentual deve ficar entre 0 e 10%%.'; end if;
+    v_pct := p_percentual; v_val := round(p_valor_venda * v_pct / 100, 2);
+  end if;
   insert into public.bonus_venda (indicacao_id, indicador_id, valor_venda, data_venda, modo, percentual, valor, estado, observacao)
   values (p_id, v_ind.indicador_id, p_valor_venda, coalesce(p_data, current_date), v_cfg.bonus_modo, v_pct, v_val, 'aguardando', nullif(trim(p_obs),''))
   on conflict (indicacao_id) do update set valor_venda = excluded.valor_venda, data_venda = excluded.data_venda, modo = excluded.modo,
