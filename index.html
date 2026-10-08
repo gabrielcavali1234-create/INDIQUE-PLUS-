@@ -318,6 +318,18 @@ tr.flash td{background:var(--gold-soft)}
 .ftile .v{font-family:var(--display);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.15}
 .ftile.warn{border-color:color-mix(in srgb,var(--danger) 45%,var(--line));background:color-mix(in srgb,var(--danger-soft) 55%,var(--surface))}
 .neg{color:var(--danger)}
+.relgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:14px;margin-top:16px}
+.relcard{display:flex;flex-direction:column;gap:10px}
+.relcard h2{margin:0;font-size:17px}
+.relcard .note{margin:4px 0 0}
+.relcard .btns{margin-top:auto}
+.relcard.destaque{border-color:color-mix(in srgb,var(--lit) 70%,var(--line));box-shadow:inset 4px 0 0 var(--lit)}
+.relh{display:flex;gap:12px;align-items:flex-start}
+.relic{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--brand) 10%,var(--surface));color:var(--brand)}
+.relcnt{margin:0;font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.relper .row2{max-width:460px}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);line-height:1.45;cursor:pointer;margin-top:6px}
+.chk input{width:18px;height:18px;margin-top:1px;flex:none;accent-color:var(--brand)}
 .fin2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .fchart{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fchart h2{font-size:17px}
@@ -402,6 +414,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610072323"></script>
+<script src="app.js?v=202610072345"></script>
 </body>
 </html>

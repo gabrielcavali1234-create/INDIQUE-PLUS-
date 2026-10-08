@@ -33,7 +33,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 
 - **Indicador:** painel, nova indicação com consentimento LGPD, linha do tempo, carteira, QR Code pessoal, convites, privacidade e termos.
 - **Corretor:** oportunidades validadas com contato do proprietário e avanço de status.
-- **Gestor:** visão geral, funil, financeiro, ranking, indicações, ocorrências de duplicidade, recompensas, condomínios com QR Code, usuários e tipos de acesso, programa e auditoria. Sininho com notificações em tempo real.
+- **Gestor:** visão geral, funil, financeiro, ranking, indicações, ocorrências de duplicidade, recompensas, condomínios com QR Code, usuários e tipos de acesso, programa, auditoria e relatórios em PDF e Excel. Sininho com notificações em tempo real.
 
 ## Regras implementadas
 
@@ -55,7 +55,8 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - Login com e-mail e senha, "esqueci minha senha", escolha celular/computador.
 - Primeiro acesso do gestor separado (só nome e celular).
 - Painel do gestor: visão geral, indicações, ocorrências, recompensas, condomínios, usuários, programa, auditoria, sininho em tempo real.
-- Convite por link para **gestor** e **corretor** (aba Usuários; uso único, 7 dias).
+- Convite por link para **corretor** (uso único, 7 dias) e link fixo de **indicador** (aba Usuários).
+- **Relatórios** (aba Relatórios, só gestor): completo, indicações, financeiro, indicadores, condomínios e auditoria, em PDF ou Excel, por período. Telefones e chaves Pix só entram se o gestor marcar a opção.
 - Painel do indicador e do corretor; QR Code pessoal e por condomínio.
 
 **Como atualizar o banco**: rodar `supabase/schema.sql` inteiro no SQL Editor (não apaga dados).
@@ -76,7 +77,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 
 ## Próximos passos (depois das pendências)
 
-- Exportar indicações para Excel e filtros por período, condomínio e porteiro
+- Filtros de relatório por condomínio e por porteiro
 - API para integração com CRM, pagamentos, assinatura digital e BI
 - Criptografia de dados sensíveis no banco
 

@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610062105 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610072345 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -505,8 +505,8 @@ const kpi = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l
 function vAdm(){
   const open = S.D.ocorr.filter(o => o.estado === 'aberta').length;
   const novas = S.D.inds.filter(i => i.status === 0).length;
-  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria']];
-  const body = { geral:aGeral, inds:aInds, ocorr:aOcorr, rec:aRec, condos:aCondos, users:aUsers, prog:aProg, aud:aAud }[S.admTab]();
+  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
+  const body = ({ geral:aGeral, inds:aInds, ocorr:aOcorr, rec:aRec, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
    <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
 }
@@ -724,6 +724,221 @@ function aProg(){
 }
 function aAud(){ return `<div class="tbl-wrap"><table><thead><tr><th>Data e hora</th><th>Quem</th><th>Ação</th></tr></thead><tbody>${S.D.audit.map(l => `<tr><td class="num">${fdt(l.criado_em)}</td><td>${esc(perfil(l.autor_id)?.nome || 'Sistema')}</td><td>${esc(l.acao)}</td></tr>`).join('') || '<tr><td colspan="3" class="note">Sem registros.</td></tr>'}</tbody></table></div>`; }
 
+/* ---------- Relatórios (somente gestor): PDF e Excel ---------- */
+const LIBS = {
+  pdf: ['https://cdn.jsdelivr.net/npm/jspdf@3.0.3/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.2/dist/jspdf.plugin.autotable.min.js'],
+  xlsx: ['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js']
+};
+const libCache = {};
+function loadScript(src){ return libCache[src] ||= new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => { delete libCache[src]; fail(new Error('Não foi possível carregar o gerador de arquivos. Verifique a internet e tente de novo.')); }; document.head.appendChild(s); }); }
+async function libs(k){ for (const s of LIBS[k]) await loadScript(s); }
+const RELS = [
+  ['completo','Relatório completo','Resumo, indicações, financeiro, indicadores, condomínios e auditoria em um só arquivo.','doc'],
+  ['inds','Indicações','Todas as indicações do período, com etapa, condomínio, indicador e motivo de encerramento.','list'],
+  ['fin','Financeiro','Recompensas geradas e pagas, fila de pagamento, Pix e comprovantes.','wallet'],
+  ['indicadores','Indicadores','Desempenho de cada porteiro, zelador ou síndico: indicações, qualificadas, vendas e valores.','users'],
+  ['condos','Condomínios','Indicações, qualificadas, vendas e conversão por condomínio e região.','building'],
+  ['aud','Auditoria','Registro de cada ação feita no sistema, com data, hora e autor.','shield']
+];
+const isoDia = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function relJanela(){
+  if (S.relPer !== 'pers') return janela(S.relPer || 'mes');
+  const a = S.relDe ? new Date(S.relDe + 'T00:00') : null, b = S.relAte ? new Date(S.relAte + 'T00:00') : null;
+  if (b) b.setDate(b.getDate() + 1);
+  return [a, b];
+}
+function relPeriodoTxt(){
+  const [a, b] = relJanela(), f = d => d.toLocaleDateString('pt-BR');
+  const fim = b ? new Date(b - 1) : new Date();
+  if (!a && !b) return 'Todo o período';
+  if (!a) return `Até ${f(fim)}`;
+  return `${f(a)} a ${f(fim)}`;
+}
+const alcancou = (i, k) => i.status >= k && i.status !== 8;
+function relDados(){
+  const [a, b] = relJanela(), em = d => (!a || d >= a) && (!b || d < b);
+  const inds = S.D.inds.filter(i => em(new Date(i.criado_em)));
+  const R = S.D.rewards, sum = L => L.reduce((x, r) => x + Number(r.valor), 0);
+  const gerados = R.filter(r => r.estado !== 'cancelada' && em(new Date(r.criado_em)));
+  const pagos = R.filter(r => r.estado === 'pago' && em(dataPago(r)));
+  const lanc = R.filter(r => em(new Date(r.criado_em)) || (r.estado === 'pago' && em(dataPago(r))));
+  const aPagar = R.filter(r => r.estado === 'disponivel' || r.estado === 'resgate'), proc = R.filter(r => r.estado === 'processamento');
+  const qualif = inds.filter(i => alcancou(i, 3)).length, vendas = inds.filter(i => alcancou(i, 6)).length, encerr = inds.filter(i => i.status === 8).length;
+  const ids = new Set(S.D.perfis.filter(p => p.papel === 'indicador').map(p => p.id)); inds.forEach(i => i.indicador_id && ids.add(i.indicador_id));
+  const indicadores = [...ids].map(id => {
+    const u = perfil(id), L = inds.filter(i => i.indicador_id === id), RR = R.filter(r => r.indicador_id === id);
+    return { u, n: L.length, q: L.filter(i => alcancou(i,3)).length, v: L.filter(i => alcancou(i,6)).length, e: L.filter(i => i.status === 8).length,
+      rec: sum(RR.filter(r => r.estado === 'pago' && em(dataPago(r)))), apagar: sum(RR.filter(r => r.estado === 'disponivel' || r.estado === 'resgate')), total: sum(RR.filter(r => r.estado === 'pago')) };
+  }).sort((x, y) => y.q - x.q || y.n - x.n || String(x.u?.nome).localeCompare(String(y.u?.nome)));
+  const condos = S.D.condos.map(c => { const L = inds.filter(i => i.condominio_id === c.id); return { c, ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador').length, n: L.length, q: L.filter(i => alcancou(i,3)).length, v: L.filter(i => alcancou(i,6)).length }; });
+  const fora = inds.filter(i => !i.condominio_id); if (fora.length) condos.push({ c: { nome: 'Outro endereço', bairro: '', cidade: '', regiao: '' }, ind: 0, n: fora.length, q: fora.filter(i => alcancou(i,3)).length, v: fora.filter(i => alcancou(i,6)).length });
+  condos.sort((x, y) => y.n - x.n || x.c.nome.localeCompare(y.c.nome));
+  return { a, b, em, inds, gerados, pagos, lanc, aPagar, proc, sum, qualif, vendas, encerr, indicadores, condos,
+    novos: S.D.perfis.filter(p => p.papel === 'indicador' && em(new Date(p.criado_em))).length, ocorr: S.D.ocorr.filter(o => em(new Date(o.criado_em))).length };
+}
+async function relAuditoria(D){
+  let qy = sb.from('auditoria').select('*').order('criado_em', { ascending: false }).limit(5000);
+  if (D.a) qy = qy.gte('criado_em', D.a.toISOString());
+  if (D.b) qy = qy.lt('criado_em', D.b.toISOString());
+  try { return await q(qy); } catch(e) { return S.D.audit.filter(l => D.em(new Date(l.criado_em))); }
+}
+function aRel(){
+  const D = relDados(), per = S.relPer || 'mes';
+  const cont = { completo: `${D.inds.length} indicaç${D.inds.length===1?'ão':'ões'} · ${money(D.sum(D.pagos))} pagos`, inds: `${D.inds.length} indicaç${D.inds.length===1?'ão':'ões'} no período`, fin: `${D.lanc.length} lançamento${D.lanc.length===1?'':'s'} · ${money(D.sum(D.pagos))} pagos`,
+    indicadores: `${D.indicadores.filter(x => x.n).length} com indicações no período`, condos: `${D.condos.filter(x => x.n).length} com indicações no período`, aud: 'Ações registradas no período' };
+  return `<div class="card relper"><h2>Período do relatório</h2>
+    <div class="filters">${PERIODOS.map(([k,l]) => `<button class="chipbtn ${per===k?'on':''}" data-a="relPer" data-v="${k}">${l}</button>`).join('')}<button class="chipbtn ${per==='pers'?'on':''}" data-a="relPer" data-v="pers">Escolher datas</button></div>
+    ${per === 'pers' ? `<div class="row2"><label class="f">De<input class="in" type="date" id="r-de" value="${esc(S.relDe||'')}"></label><label class="f">Até<input class="in" type="date" id="r-ate" value="${esc(S.relAte||'')}"></label></div>` : ''}
+    <p class="note"><b>${relPeriodoTxt()}</b></p>
+    <label class="chk"><input type="checkbox" id="r-pess" ${S.relPess?'checked':''}> Incluir telefones dos proprietários e chaves Pix (dados pessoais, LGPD). Só marque se o arquivo ficar com você.</label>
+   </div>
+   <div class="relgrid">${RELS.map(([k,t,d,icn]) => `<div class="card relcard ${k==='completo'?'destaque':''}"><div class="relh"><span class="relic">${ic(icn,20)}</span><div><h2>${t}</h2><p class="note">${d}</p></div></div>
+     <p class="relcnt">${cont[k]}</p>
+     <div class="btns"><button class="btn sm" data-a="relGerar" data-v="${k}" data-t="pdf">${ic('doc',16)}PDF</button><button class="btn sm ghost" data-a="relGerar" data-v="${k}" data-t="xlsx">${ic('columns',16)}Excel</button></div></div>`).join('')}</div>
+   <p class="note">Os arquivos são gerados no seu navegador, com os dados que você vê no painel. Somente o gestor tem acesso a esta área.</p>`;
+}
+/* monta as tabelas uma vez; PDF e Excel usam a mesma fonte */
+function relTabelas(k, D, audit){
+  const pess = !!S.relPess, dt = t => t ? new Date(t) : null, T = [];
+  const nome = id => perfil(id)?.nome || (id ? '—' : 'QR Code');
+  if (k === 'completo' || k === 'inds') T.push({ id:'inds', titulo:'Indicações', larg:[21,17,22].concat(pess?[17]:[]).concat([14,24,18,19,18,26]),
+    cols:['ID','Recebida em','Proprietário'].concat(pess?['Telefone']:[]).concat(['Unidade','Condomínio / endereço','Indicador','Etapa','Origem','Motivo de encerramento']),
+    tipos:['t','dt','t'].concat(pess?['t']:[]).concat(['t','t','t','t','t','t']),
+    rows: D.inds.map(i => [i.id, dt(i.criado_em), i.proprietario_nome].concat(pess?[fph(i.telefone)]:[]).concat([i.unidade, i.endereco || condoNome(i.condominio_id), nome(i.indicador_id), ST[i.status], i.origem || '', i.motivo_encerramento || ''])) });
+  if (k === 'completo' || k === 'fin') {
+    T.push({ id:'fin', titulo:'Recompensas no período', aba:'Recompensas', larg:[16,22,12,12,18,12,22].concat(pess?[28]:[]),
+      cols:['Indicação','Indicador','Gerada em','Valor','Estado','Pago em','Comprovante Pix'].concat(pess?['Chave Pix']:[]),
+      tipos:['t','t','d','m','t','d','t'].concat(pess?['t']:[]),
+      rows: D.lanc.map(r => { const u = perfil(r.indicador_id); return [r.indicacao_id, nome(r.indicador_id), dt(r.criado_em), Number(r.valor), REW[r.estado][1], r.estado === 'pago' ? dataPago(r) : null, r.comprovante_codigo || (r.comprovante_arquivo ? 'Arquivo anexado' : '')].concat(pess?[u?.pix_chave ? `${u.pix_tipo}: ${u.pix_chave}` : 'Não cadastrada']:[]); }) });
+    T.push({ id:'fila', titulo:'A pagar agora (fila de pagamento)', aba:'A pagar agora', larg:[16,24,14,12,18,18],
+      cols:['Indicação','Indicador','Liberada desde','Valor','Estado','Chave Pix'], tipos:['t','t','d','m','t','t'],
+      rows: D.aPagar.map(r => { const u = perfil(r.indicador_id); return [r.indicacao_id, nome(r.indicador_id), dt(r.atualizado_em || r.criado_em), Number(r.valor), REW[r.estado][1], u?.pix_chave ? (pess ? `${u.pix_tipo}: ${u.pix_chave}` : 'Cadastrada') : 'Não cadastrada']; }) });
+  }
+  if (k === 'completo' || k === 'indicadores') T.push({ id:'indicadores', titulo:'Indicadores', larg:[22,14,24,11,12,9,12,13,13,14],
+    cols:['Indicador','Função','Condomínio','Indicações','Qualificadas','Vendas','Encerradas','Recebido no período','A pagar agora','Recebido (total)'],
+    tipos:['t','t','t','n','n','n','n','m','m','m'],
+    rows: D.indicadores.map(x => [x.u?.nome || '—', x.u?.funcao || '', condo(x.u?.condominio_id)?.nome || x.u?.condominio_texto || '', x.n, x.q, x.v, x.e, x.rec, x.apagar, x.total]) });
+  if (k === 'completo' || k === 'condos') T.push({ id:'condos', titulo:'Condomínios', larg:[30,18,14,14,11,11,11,9,12],
+    cols:['Condomínio','Bairro','Cidade','Região','Indicadores','Indicações','Qualificadas','Vendas','Conversão'],
+    tipos:['t','t','t','t','n','n','n','n','p'],
+    rows: D.condos.map(x => [x.c.nome, x.c.bairro || '', x.c.cidade || '', x.c.regiao || '', x.ind, x.n, x.q, x.v, x.n ? x.v / x.n : 0]) });
+  if (k === 'completo' || k === 'aud') T.push({ id:'aud', titulo:'Auditoria', larg:[18,24,70], cols:['Data e hora','Quem','Ação'], tipos:['dt','t','t'],
+    rows: (audit || []).map(l => [dt(l.criado_em), perfil(l.autor_id)?.nome || 'Sistema', l.acao]) });
+  return T;
+}
+function relResumo(D){
+  return [
+    ['Indicações recebidas', D.inds.length, 'n'], ['Oportunidades qualificadas', D.qualif, 'n'], ['Vendas concluídas', D.vendas, 'n'],
+    ['Conversão indicação → venda', D.inds.length ? D.vendas / D.inds.length : 0, 'p'], ['Encerradas', D.encerr, 'n'], ['Ocorrências de duplicidade', D.ocorr, 'n'],
+    ['Novos indicadores', D.novos, 'n'], ['Recompensas geradas', D.sum(D.gerados), 'm'], ['Recompensas pagas', D.sum(D.pagos), 'm'],
+    ['A pagar agora', D.sum(D.aPagar), 'm'], ['Em processamento', D.sum(D.proc), 'm'], ['Valor por indicação qualificada', Number(S.D.valor), 'm']
+  ];
+}
+const pct = v => `${(v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+const fmtCel = (v, t) => v == null || v === '' ? '' : t === 'm' ? money(v) : t === 'p' ? pct(v) : t === 'd' ? v.toLocaleDateString('pt-BR') : t === 'dt' ? `${v.toLocaleDateString('pt-BR')} ${v.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : t === 'n' ? String(v) : String(v);
+const relNomeArq = (k, ext) => `rendique-${({completo:'relatorio-completo',inds:'indicacoes',fin:'financeiro',indicadores:'indicadores',condos:'condominios',aud:'auditoria'})[k]}-${isoDia(new Date())}.${ext}`;
+function baixar(blob, nome){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
+
+const latin = s => String(s).replace(/→/g, '->').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, '...').replace(/[^\x00-\xFF]/g, ''); // fontes do PDF só têm Latin-1
+async function relPDF(k){
+  await libs('pdf');
+  const D = relDados(), audit = (k === 'completo' || k === 'aud') ? await relAuditoria(D) : null, T = relTabelas(k, D, audit);
+  const { jsPDF } = window.jspdf, doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 14;
+  const NAVY = [29,58,95], GOLD = [245,184,61], INK = [26,32,44], MUTED = [100,110,125], LINE = [222,227,234];
+  const titulo = RELS.find(r => r[0] === k)[1], gerado = fdt(new Date()), quem = S.perfil?.nome || 'Gestor';
+  const tab = window.autoTable ? (o) => window.autoTable(doc, o) : (o) => doc.autoTable(o);
+  // cabeçalho da 1ª página
+  doc.setFillColor(...NAVY); doc.rect(0, 0, W, 30, 'F');
+  const lx = M, ly = 6, u = 18 / 64; // logo "janela acesa" em 18 mm
+  doc.setFillColor(255,255,255); doc.roundedRect(lx + 12*u, ly + 5*u, 40*u, 54*u, 5*u, 5*u, 'F');
+  doc.setFillColor(...NAVY); [[19,13],[19,28],[35,28]].forEach(([x,y]) => doc.roundedRect(lx + x*u, ly + y*u, 10*u, 10*u, 2*u, 2*u, 'F'));
+  doc.roundedRect(lx + 27*u, ly + 44*u, 10*u, 15*u, 2*u, 2*u, 'F');
+  doc.setFillColor(...GOLD); doc.roundedRect(lx + 35*u, ly + 13*u, 10*u, 10*u, 2*u, 2*u, 'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('Rendique', M + 21, 17);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...GOLD); doc.text('Você conhece a oportunidade. Nós cuidamos do resto.', M + 21, 23);
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text(titulo, W - M, 15, { align: 'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text(`Período: ${relPeriodoTxt()}`, W - M, 22, { align: 'right' });
+  doc.setTextColor(...MUTED); doc.setFontSize(8.5); doc.text(`Gerado em ${gerado} por ${quem} (gestor)`, M, 37);
+  let y = 42;
+  // indicadores-chave
+  if (k !== 'aud') {
+    const R = relResumo(D), sel = k === 'fin' ? R.slice(7, 12) : k === 'condos' || k === 'indicadores' ? [R[0], R[1], R[2], R[3], R[6]] : k === 'inds' ? [R[0], R[1], R[2], R[3], R[4], R[5]] : R;
+    const por = Math.min(6, sel.length), gap = 4, bw = (W - 2*M - gap*(por-1)) / por, bh = 18;
+    sel.forEach(([l, v, t], n) => {
+      const cx = M + (n % por) * (bw + gap), cy = y + Math.floor(n / por) * (bh + gap);
+      doc.setDrawColor(...LINE); doc.setFillColor(247,249,252); doc.roundedRect(cx, cy, bw, bh, 2, 2, 'FD');
+      doc.setFillColor(...(t === 'm' ? GOLD : NAVY)); doc.rect(cx, cy + 3, 1.2, bh - 6, 'F');
+      doc.setTextColor(...MUTED); doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.text(l.replace('→','a'), cx + 4, cy + 6.5);
+      doc.setTextColor(...INK); doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(fmtCel(v, t), cx + 4, cy + 14);
+    });
+    y += Math.ceil(sel.length / por) * (bh + gap) + 4;
+  }
+  T.forEach((t, n) => {
+    if (n && y > H - 50) { doc.addPage(); y = 18; }
+    doc.setTextColor(...NAVY); doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text(t.titulo, M, y);
+    doc.setTextColor(...MUTED); doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.text(`${t.rows.length} registro${t.rows.length===1?'':'s'}`, W - M, y, { align: 'right' });
+    const soma = t.larg.reduce((a,b) => a+b, 0), cs = {};
+    t.larg.forEach((l, j) => cs[j] = { cellWidth: (W - 2*M) * l / soma, halign: ['m','n','p'].includes(t.tipos[j]) ? 'right' : 'left' });
+    tab({ startY: y + 3, margin: { left: M, right: M, top: 16, bottom: 16 }, head: [t.cols],
+      body: t.rows.length ? t.rows.map(r => r.map((v, j) => latin(fmtCel(v, t.tipos[j])))) : [[{ content: 'Nenhum registro no período.', colSpan: t.cols.length, styles: { textColor: MUTED, fontStyle: 'italic' } }]],
+      styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.8, textColor: INK, lineColor: LINE, lineWidth: 0.1, overflow: 'linebreak' },
+      headStyles: { fillColor: NAVY, textColor: 255, fontStyle: 'bold', fontSize: 8 }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: cs,
+      didParseCell: h => { if (h.section === 'head' && ['m','n','p'].includes(t.tipos[h.column.index])) h.cell.styles.halign = 'right'; } });
+    y = doc.lastAutoTable.finalY + 10;
+  });
+  if (y > H - 26) { doc.addPage(); y = 18; }
+  doc.setTextColor(...MUTED); doc.setFontSize(7.5); doc.setFont('helvetica','italic');
+  doc.text(doc.splitTextToSize('Recompensa fixa por indicação qualificada. Nenhuma remuneração percentual sobre a operação imobiliária. O indicador apenas informa a oportunidade; atendimento, captação e venda são feitos por corretor habilitado (CRECI). Documento com dados pessoais: guarde e compartilhe conforme a LGPD.', W - 2*M), M, y);
+  const tot = doc.getNumberOfPages();
+  for (let p = 1; p <= tot; p++) {
+    doc.setPage(p); doc.setDrawColor(...LINE); doc.line(M, H - 10, W - M, H - 10);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+    doc.text(`Rendique · ${titulo} · ${relPeriodoTxt()}`, M, H - 6); doc.text(`Página ${p} de ${tot}`, W - M, H - 6, { align: 'right' });
+    if (p > 1) { doc.setFillColor(...NAVY); doc.rect(0, 0, W, 3, 'F'); }
+  }
+  baixar(doc.output('blob'), relNomeArq(k, 'pdf'));
+}
+
+async function relXLSX(k){
+  await libs('xlsx');
+  const D = relDados(), audit = (k === 'completo' || k === 'aud') ? await relAuditoria(D) : null, T = relTabelas(k, D, audit);
+  const wb = new ExcelJS.Workbook(); wb.creator = 'Rendique'; wb.created = new Date();
+  const NAVY = 'FF1D3A5F', GOLD = 'FFF5B83D', ZEBRA = 'FFF5F7FA', BORDA = { style: 'thin', color: { argb: 'FFDDE3EA' } };
+  const local = d => d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000) : null; // Excel não tem fuso: grava a hora local
+  const FMT = { m: '"R$" #,##0.00', p: '0.0%', d: 'dd/mm/yyyy', dt: 'dd/mm/yyyy hh:mm', n: '0' };
+  const titulo = RELS.find(r => r[0] === k)[1];
+  // Resumo
+  const rs = wb.addWorksheet('Resumo', { views: [{ showGridLines: false }] });
+  rs.columns = [{ width: 36 }, { width: 22 }];
+  rs.mergeCells('A1:B1'); Object.assign(rs.getCell('A1'), { value: `Rendique · ${titulo}` }); rs.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+  rs.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; rs.getRow(1).height = 30; rs.getCell('A1').alignment = { vertical: 'middle', indent: 1 };
+  rs.getCell('A2').value = 'Período'; rs.getCell('B2').value = relPeriodoTxt();
+  rs.getCell('A3').value = 'Gerado em'; rs.getCell('B3').value = fdt(new Date());
+  rs.getCell('A4').value = 'Gerado por'; rs.getCell('B4').value = `${S.perfil?.nome || 'Gestor'} (gestor)`;
+  [2,3,4].forEach(r => rs.getCell('A'+r).font = { color: { argb: 'FF64707D' } });
+  let r0 = 6; rs.getCell('A'+r0).value = 'Indicador'; rs.getCell('B'+r0).value = 'Valor';
+  ['A','B'].forEach(c => { const x = rs.getCell(c+r0); x.font = { bold: true, color: { argb: 'FFFFFFFF' } }; x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; });
+  relResumo(D).forEach(([l, v, t], n) => { const row = rs.getRow(r0 + 1 + n); row.getCell(1).value = l; row.getCell(2).value = v; row.getCell(2).numFmt = FMT[t]; row.getCell(2).font = { bold: true };
+    if (t === 'm') row.getCell(1).border = { left: { style: 'thick', color: { argb: GOLD } } };
+    if (n % 2) [1,2].forEach(c => row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } }); });
+  const nota = rs.getCell('A' + (r0 + 15)); nota.value = 'Recompensa fixa por indicação qualificada. Nenhuma remuneração percentual sobre a operação imobiliária.'; nota.font = { italic: true, size: 9, color: { argb: 'FF64707D' } };
+  // uma aba por tabela
+  T.forEach(t => {
+    const ws = wb.addWorksheet((t.aba || t.titulo).replace(/[\\/?*[\]:]/g, '').slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = t.cols.map((c, j) => ({ header: c, width: Math.max(10, Math.round(t.larg[j] * 1.15)), style: FMT[t.tipos[j]] ? { numFmt: FMT[t.tipos[j]] } : {} }));
+    t.rows.forEach(r => ws.addRow(r.map((v, j) => ['d','dt'].includes(t.tipos[j]) ? local(v) : v)));
+    const h = ws.getRow(1); h.height = 22; h.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; c.alignment = { vertical: 'middle', wrapText: true }; });
+    ws.eachRow((row, n) => { if (n > 1) row.eachCell({ includeEmpty: true }, (c, j) => { c.border = { bottom: BORDA }; if (n % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } }; if (j === t.cols.length && t.id === 'aud') c.alignment = { wrapText: true }; }); });
+    if (t.rows.length) ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: t.cols.length } };
+    const somas = t.tipos.map((x, j) => x === 'm' || (x === 'n' && t.id !== 'fin') ? j : -1).filter(j => j >= 0);
+    if (t.rows.length && somas.length) { const tr = ws.addRow([]), n = t.rows.length + 1; tr.getCell(1).value = 'Total'; somas.forEach(j => { const col = ws.getColumn(j + 1).letter; tr.getCell(j + 1).value = { formula: `SUBTOTAL(9,${col}2:${col}${n})` }; tr.getCell(j + 1).numFmt = FMT[t.tipos[j]]; });
+      tr.eachCell({ includeEmpty: true }, c => { c.font = { bold: true }; c.border = { top: { style: 'thin', color: { argb: NAVY } } }; }); }
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
+}
+
 /* ---------- render ---------- */
 function render(){
   const root = document.documentElement, app = $('#app');
@@ -793,6 +1008,13 @@ const act = {
     const linhas = [['Indicação','Indicador','Chave Pix','Gerada em','Valor','Estado','Pago em','Código Pix']].concat(S.D.rewards.map(r => { const u = perfil(r.indicador_id); return [r.indicacao_id, u?.nome || '', u?.pix_chave ? `${u.pix_tipo}: ${u.pix_chave}` : '', new Date(r.criado_em).toLocaleDateString('pt-BR'), String(Number(r.valor).toFixed(2)).replace('.', ','), REW[r.estado][1], r.estado === 'pago' ? dataPago(r).toLocaleDateString('pt-BR') : '', r.comprovante_codigo || '']; }));
     const csv = '\ufeff' + linhas.map(l => l.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `rendique-financeiro-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); toast('Planilha exportada');
+  },
+  relPer: d => { S.relPer = d.v; if (d.v === 'pers' && !S.relDe) { const n = new Date(); S.relDe = isoDia(new Date(n.getFullYear(), n.getMonth(), 1)); S.relAte = isoDia(n); } render(); },
+  relGerar: (d, el) => {
+    if (papel() !== 'admin') return toast('Somente o gestor pode gerar relatórios.');
+    if (S.relPer === 'pers' && S.relDe && S.relAte && S.relAte < S.relDe) return toast('A data final é anterior à inicial.');
+    const txt = el.innerHTML; el.disabled = true; el.textContent = 'Gerando…';
+    guard(async () => { await (d.t === 'pdf' ? relPDF(d.v) : relXLSX(d.v)); toast(d.t === 'pdf' ? 'PDF gerado' : 'Planilha Excel gerada'); }).finally(() => { el.disabled = false; el.innerHTML = txt; });
   },
   admView: d => { S.admView = d.v; render(); },
   noop: () => {},
@@ -900,6 +1122,8 @@ document.addEventListener('change', e => {
   if (t.id === 'f-condo') $('#addr').hidden = t.value !== 'outro';
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
+  if (t.id === 'r-de' || t.id === 'r-ate') { S[t.id === 'r-de' ? 'relDe' : 'relAte'] = t.value; render(); }
+  if (t.id === 'r-pess') S.relPess = t.checked;
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
