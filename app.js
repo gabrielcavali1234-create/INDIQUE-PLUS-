@@ -74,6 +74,7 @@ const I = {
   chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
+  pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
 };
 const ic = (n,s=20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -119,6 +120,7 @@ function subscribe(){
       toast(`${n.titulo}${n.corpo ? ' · ' + n.corpo : ''}`);
       browserAlert(n);
       try { await loadData(); } catch(e) {}
+      const ci = n.indicacao_id && S.D.inds.find(i => i.id === n.indicacao_id)?.condominio_id; if (ci) M.flash = { id: ci, t: Date.now() };
       render();
     }).subscribe();
 }
@@ -683,16 +685,137 @@ function aRec(){
     </tbody></table></div>
     ${ext.length > (S.finLim || 15) ? `<button class="btn ghost" data-a="finMais">Mostrar mais (${ext.length - (S.finLim || 15)} restantes)</button>` : ''}</div>`;
 }
+/* ---------- Condomínios: mapa ao vivo (gestor) ---------- */
+const LEAF = { css: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css', js: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js' };
+function loadCSS(href){ if (!document.querySelector(`link[href="${href}"]`)) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); } }
+const M = { map: null, el: null, layer: null, pins: {}, aberto: null, enquadrou: false, geoBusy: false, tentou: new Set(), flash: null, avisoBanco: false };
+const temPos = c => c && c.latitude != null && c.longitude != null;
+const gmaps = c => `https://www.google.com/maps/search/?api=1&query=${c.latitude},${c.longitude}`;
+function cStats(c){
+  const L = S.D.inds.filter(i => i.condominio_id === c.id);
+  return { n: L.length, ab: L.filter(i => i.status < 6).length, q: L.filter(i => i.status >= 3 && i.status !== 8).length,
+    ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador').length,
+    nova: L.some(i => Date.now() - new Date(i.criado_em) < DAY), ult: L.map(i => i.criado_em).sort().pop() };
+}
 function aCondos(){
-  return `<div class="grid2"><div class="tbl-wrap"><table><thead><tr><th>Condomínio</th><th>Bairro / cidade</th><th class="r">Indicadores</th><th class="r">Indicações</th><th>QR</th></tr></thead><tbody>
-   ${S.D.condos.map(c => `<tr><td><b>${esc(c.nome)}</b><br><span class="note">${esc(c.endereco||'')}</span></td><td>${esc(c.bairro||'')} · ${esc(c.cidade||'')}</td><td class="r num">${S.D.perfis.filter(u=>u.condominio_id===c.id).length}</td><td class="r num">${S.D.inds.filter(i=>i.condominio_id===c.id).length}</td><td><button class="btn sm ghost" data-a="cqr" data-v="${c.id}">${ic('qr',16)}Ver</button></td></tr>`).join('') || '<tr><td colspan="5" class="note">Cadastre o primeiro condomínio ao lado.</td></tr>'}
+  const C = S.D.condos, sem = C.filter(c => !temPos(c)), aj = S.mapAjuste && condo(S.mapAjuste);
+  const item = c => { const s = cStats(c), st = temPos(c) ? (c.geo_precisao === 'aproximada' ? '<span class="neg">posição aproximada</span>' : `${esc(c.bairro || '')}${c.cidade ? ' · ' + esc(c.cidade) : ''}`) : M.tentou.has(c.id) && !M.geoBusy ? '<span class="neg">endereço não encontrado</span>' : 'localizando…';
+    return `<button class="mitem ${S.mapFoco === c.id ? 'on' : ''}" data-a="mapFoco" data-v="${c.id}"><span class="mdot ${s.ab ? 'on' : ''} ${s.nova ? 'live' : ''}"></span><span class="mtx"><b>${esc(c.nome)}</b><span class="note">${st}</span></span><span class="mcnt" title="Indicações">${s.n}</span></button>`; };
+  return `<div class="card mapcard">
+    <div class="sec-h"><div><h2>Mapa dos condomínios</h2><p class="note">${C.length} condomínio${C.length === 1 ? '' : 's'}${sem.length ? ` · ${sem.length} sem localização` : ' · todos no mapa'} · <span class="aovivo"><i></i>Ao vivo</span></p></div>
+     <div class="maplegend"><span><i class="lg-on"></i>Indicação em aberto</span><span><i class="lg-off"></i>Sem indicação em aberto</span><span><i class="lg-live"></i>Nova nas últimas 24 h</span></div></div>
+    <div class="mapwrap"><div class="mapbox">${aj ? `<div class="mapbanner">${temPos(aj) ? 'Arraste o pino' : 'Toque no mapa'} até a entrada de <b>${esc(aj.nome)}</b>. A posição é salva na hora.<button class="btn sm ghost" data-a="mapAjusteFim">Cancelar</button></div>` : ''}<div id="cmap-slot" class="mapslot"><p class="note">Carregando mapa…</p></div></div>
+     <div class="maplist">${C.map(item).join('') || '<p class="note">Cadastre o primeiro condomínio abaixo.</p>'}</div></div>
+   </div>
+   <div class="grid2"><div class="tbl-wrap"><table><thead><tr><th>Condomínio</th><th>Bairro / cidade</th><th class="r">Indicadores</th><th class="r">Indicações</th><th></th></tr></thead><tbody>
+   ${C.map(c => { const s = cStats(c); return `<tr><td><b>${esc(c.nome)}</b><br><span class="note">${esc(c.endereco||'')}</span></td><td>${esc(c.bairro||'')} · ${esc(c.cidade||'')}</td><td class="r num">${s.ind}</td><td class="r num">${s.n}</td><td><div class="btns" style="flex-wrap:nowrap"><button class="btn sm ghost" data-a="mapFoco" data-v="${c.id}" data-s="1">${ic('pin',16)}Mapa</button><button class="btn sm ghost" data-a="cqr" data-v="${c.id}">${ic('qr',16)}QR</button></div></td></tr>`; }).join('') || '<tr><td colspan="5" class="note">Cadastre o primeiro condomínio ao lado.</td></tr>'}
    </tbody></table></div>
    <form data-f="condo" class="card" novalidate><h2>Cadastrar condomínio</h2>
     <label class="f">Nome<input class="in" id="k-nome" name="nome" placeholder="Ex.: Residencial Solar das Palmeiras"></label>
-    <label class="f">Endereço<input class="in" id="k-end" name="end"></label>
+    <label class="f">Endereço com número<input class="in" id="k-end" name="end" placeholder="Ex.: Av. dos Autonomistas, 3100"></label>
     <div class="row2"><label class="f">Bairro<input class="in" id="k-bairro" name="bairro"></label><label class="f">Cidade<input class="in" id="k-cidade" name="cidade" value="São Paulo"></label></div>
     <label class="f">Região<input class="in" id="k-reg" name="reg" placeholder="Ex.: Zona Sul"></label>
+    <p class="note">O condomínio aparece no mapa sozinho, pelo endereço. Confira o pino e, se precisar, ajuste no ponto exato da portaria.</p>
     <button class="btn" type="submit">Cadastrar e gerar QR Code</button></form></div>`;
+}
+function popCondo(c){
+  const s = cStats(c);
+  return `<div class="cpop"><b class="cpop-t">${esc(c.nome)}</b><span class="note">${esc([c.endereco, c.bairro, c.cidade].filter(Boolean).join(' · '))}</span>
+    ${c.geo_precisao === 'aproximada' ? '<span class="cpop-warn">Posição aproximada. Ajuste o pino.</span>' : ''}
+    <div class="cpop-k"><span><b>${s.n}</b>indicações</span><span><b>${s.ab}</b>em aberto</span><span><b>${s.ind}</b>indicadores</span></div>
+    ${s.ult ? `<span class="note">Última indicação ${ago(s.ult)}</span>` : ''}
+    <div class="cpop-b"><button class="btn sm" data-a="condoInds" data-v="${c.id}">Ver indicações</button><button class="btn sm ghost" data-a="cqr" data-v="${c.id}">QR Code</button><button class="btn sm ghost" data-a="mapAjustar" data-v="${c.id}">Ajustar pino</button><a class="btn sm ghost" href="${gmaps(c)}" target="_blank" rel="noopener">Google Maps</a></div></div>`;
+}
+function iconCondo(c){
+  const s = cStats(c), fl = M.flash && M.flash.id === c.id && Date.now() - M.flash.t < 60000;
+  return L.divIcon({ className: 'cpin-w', iconSize: [40, 48], iconAnchor: [20, 46], popupAnchor: [0, -42],
+    html: `<div class="cpin ${s.ab ? 'on' : ''} ${s.nova ? 'live' : ''} ${fl ? 'flash' : ''} ${S.mapAjuste === c.id ? 'drag' : ''} ${c.geo_precisao === 'aproximada' ? 'aprox' : ''}"><svg viewBox="0 0 40 48" aria-hidden="true"><path d="M20 47C20 47 37 30.5 37 18A17 17 0 0 0 3 18C3 30.5 20 47 20 47Z" class="cpin-s"/><rect x="13" y="9" width="14" height="19" rx="2" class="cpin-b"/><rect x="15.5" y="12" width="3.5" height="3.5" rx=".8" class="cpin-w1"/><rect x="21" y="12" width="3.5" height="3.5" rx=".8" class="cpin-l"/><rect x="15.5" y="17.5" width="3.5" height="3.5" rx=".8" class="cpin-w1"/><rect x="21" y="17.5" width="3.5" height="3.5" rx=".8" class="cpin-w1"/><rect x="18.3" y="23" width="3.4" height="5" rx=".8" class="cpin-w1"/></svg>${s.n ? `<b>${s.n}</b>` : ''}</div>` });
+}
+async function montaMapa(){
+  const slot = $('#cmap-slot'); if (!slot) return;
+  if (!window.L) {
+    try { loadCSS(LEAF.css); await loadScript(LEAF.js); }
+    catch(e) { slot.innerHTML = '<p class="note">Não foi possível carregar o mapa. Verifique a internet e clique em Atualizar.</p>'; return; }
+  }
+  const alvo = $('#cmap-slot'); if (!alvo) return;
+  if (!M.el) { M.el = document.createElement('div'); M.el.className = 'cmap'; }
+  alvo.innerHTML = ''; alvo.appendChild(M.el);
+  if (!M.map) {
+    M.map = L.map(M.el, { scrollWheelZoom: false, zoomControl: true }).setView([-23.55, -46.70], 11);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(M.map);
+    M.layer = L.layerGroup().addTo(M.map);
+    M.map.on('click', e => { if (S.mapAjuste) salvaPos(S.mapAjuste, e.latlng, 'manual'); });
+    M.el.addEventListener('mouseenter', () => M.map.scrollWheelZoom.enable());
+    M.el.addEventListener('mouseleave', () => M.map.scrollWheelZoom.disable());
+  }
+  M.map.invalidateSize();
+  M.el.classList.toggle('ajustando', !!S.mapAjuste);
+  desenhaPins();
+  geoPendentes();
+}
+function desenhaPins(){
+  if (!M.map) return;
+  M.layer.clearLayers(); M.pins = {};
+  const C = S.D.condos.filter(temPos);
+  C.forEach(c => {
+    const mk = L.marker([c.latitude, c.longitude], { icon: iconCondo(c), draggable: S.mapAjuste === c.id, title: c.nome, riseOnHover: true, zIndexOffset: cStats(c).ab ? 500 : 0 })
+      .bindPopup(() => popCondo(c), { maxWidth: 300, minWidth: 240, autoPanPadding: [24, 24] }).addTo(M.layer);
+    mk.on('popupopen', () => M.aberto = c.id); mk.on('popupclose', () => { if (M.aberto === c.id) M.aberto = null; });
+    mk.on('dragend', () => salvaPos(c.id, mk.getLatLng(), 'manual'));
+    M.pins[c.id] = mk;
+  });
+  if (!M.enquadrou && C.length) {
+    M.enquadrou = true;
+    if (C.length === 1) M.map.setView([C[0].latitude, C[0].longitude], 16);
+    else M.map.fitBounds(L.latLngBounds(C.map(c => [c.latitude, c.longitude])), { padding: [48, 48], maxZoom: 16 });
+  }
+  if (M.aberto && M.pins[M.aberto] && !S.mapAjuste) M.pins[M.aberto].openPopup();
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const endExtenso = s => String(s || '').replace(/^\s*av\.?\s+/i, 'Avenida ').replace(/^\s*r\.\s*/i, 'Rua ').replace(/^\s*al\.?\s+/i, 'Alameda ').replace(/^\s*estr\.?\s+/i, 'Estrada ').replace(/^\s*pç?a\.?\s+/i, 'Praça ');
+async function geocodifica(c){
+  const base = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&accept-language=pt-BR&q=';
+  const end = endExtenso(c.endereco), tent = [];
+  if (end) { tent.push([[end, c.bairro, c.cidade].filter(Boolean).join(', '), 'exata']); tent.push([[end, c.cidade].filter(Boolean).join(', '), 'exata']); }
+  if (c.bairro || c.cidade) tent.push([[c.bairro, c.cidade].filter(Boolean).join(', '), 'aproximada']);
+  for (let k = 0; k < tent.length; k++) {
+    if (k) await sleep(1100); // limite do serviço gratuito: 1 consulta por segundo
+    try {
+      const r = await fetch(base + encodeURIComponent(tent[k][0]), { headers: { Accept: 'application/json' } });
+      const j = r.ok ? await r.json() : [];
+      if (j[0]) {
+        const exato = tent[k][1] === 'exata' && /house|building|residential|apartments/.test(j[0].addresstype + ' ' + j[0].type) ? 'exata' : tent[k][1] === 'exata' && /\d/.test(c.endereco || '') ? 'aproximada' : tent[k][1];
+        return { lat: +j[0].lat, lng: +j[0].lon, prec: exato };
+      }
+    } catch(e) {}
+  }
+  return null;
+}
+async function geoPendentes(){
+  if (M.geoBusy || papel() !== 'admin') return;
+  const fila = S.D.condos.filter(c => !temPos(c) && !M.tentou.has(c.id)); if (!fila.length) return;
+  M.geoBusy = true;
+  for (const c of fila) {
+    M.tentou.add(c.id);
+    const g = await geocodifica(c);
+    if (g) {
+      Object.assign(c, { latitude: g.lat, longitude: g.lng, geo_precisao: g.prec });
+      try { await q(sb.from('condominios').update({ latitude: g.lat, longitude: g.lng, geo_precisao: g.prec }).eq('id', c.id)); }
+      catch(e) { if (!M.avisoBanco) { M.avisoBanco = true; toast('Para guardar a localização, rode o schema.sql atualizado no Supabase.'); } }
+      if (fila.length > 1) M.enquadrou = false;
+    }
+    if (S.admTab === 'condos') render();
+    await sleep(1100);
+  }
+  M.geoBusy = false; M.enquadrou = false;
+  if (S.admTab === 'condos') render();
+}
+async function salvaPos(id, ll, prec){
+  const c = condo(id); if (!c) return;
+  Object.assign(c, { latitude: ll.lat, longitude: ll.lng, geo_precisao: prec });
+  S.mapAjuste = null; M.aberto = id; render();
+  try { await q(sb.from('condominios').update({ latitude: ll.lat, longitude: ll.lng, geo_precisao: prec }).eq('id', id)); toast('Localização salva'); }
+  catch(e) { toast('Não foi possível salvar. Rode o schema.sql atualizado no Supabase.'); }
 }
 function aConvites(){
   const L = S.D.convites || [], now = Date.now();
@@ -964,6 +1087,7 @@ function render(){
   if (nav) root.dataset.side = ''; else delete root.dataset.side;
   $('#bell').innerHTML = vBell() + (S.screen === 'app' && papel() === 'admin' ? vDrawer() : '');
   document.querySelectorAll('[data-qr]').forEach(drawQR);
+  if (S.screen === 'app' && papel() === 'admin' && S.admTab === 'condos') montaMapa();
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -1016,6 +1140,13 @@ const act = {
     const txt = el.innerHTML; el.disabled = true; el.textContent = 'Gerando…';
     guard(async () => { await (d.t === 'pdf' ? relPDF(d.v) : relXLSX(d.v)); toast(d.t === 'pdf' ? 'PDF gerado' : 'Planilha Excel gerada'); }).finally(() => { el.disabled = false; el.innerHTML = txt; });
   },
+  mapFoco: d => { S.mapFoco = d.v; const c = condo(d.v); render();
+    if (d.s) $('.mapcard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!temPos(c)) { toast(M.geoBusy ? 'Localizando o endereço…' : 'Endereço não encontrado. Toque no mapa no ponto da portaria.'); if (!M.geoBusy) { S.mapAjuste = c.id; render(); } return; }
+    if (M.map) { M.map.flyTo([c.latitude, c.longitude], 17, { duration: .8 }); setTimeout(() => M.pins[c.id]?.openPopup(), 850); } },
+  mapAjustar: d => { S.mapAjuste = d.v; M.map?.closePopup(); render(); const c = condo(d.v); if (temPos(c)) M.map?.setView([c.latitude, c.longitude], Math.max(M.map.getZoom(), 18)); },
+  mapAjusteFim: () => { S.mapAjuste = null; render(); },
+  condoInds: d => { const c = condo(d.v); S.admTab = 'inds'; S.admGrupo = 'todas'; S.admQ = c?.nome || ''; render(); window.scrollTo(0, 0); },
   admView: d => { S.admView = d.v; render(); },
   noop: () => {},
   openInd: async d => { S.drawer = d.v; render(); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) {} } },

@@ -18,6 +18,10 @@ create table if not exists public.condominios (
   regiao      text,
   criado_em   timestamptz not null default now()
 );
+-- localização no mapa (preenchida pelo painel a partir do endereço; o gestor pode ajustar o pino)
+alter table public.condominios add column if not exists latitude     double precision;
+alter table public.condominios add column if not exists longitude    double precision;
+alter table public.condominios add column if not exists geo_precisao text;
 
 create table if not exists public.perfis (
   id               uuid primary key references auth.users(id) on delete cascade,
