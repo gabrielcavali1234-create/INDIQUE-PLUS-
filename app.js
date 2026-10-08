@@ -15,7 +15,7 @@ const REW = {processamento:['proc','Em processamento'],disponivel:['disp','Dispo
 
 const params = new URLSearchParams(location.search);
 const S = {
-  novaVar: loadLS('rendique-nova') || 'a', nvStep: 0, nd: null,
+  novaVar: 'a', nvStep: 0, nd: null,
   device: loadLS('rendique-device'),
   screen: 'loading', tab: 'home', admTab: 'geral', filter: 'todas', admFilter: 'all', admGrupo: 'novas', admView: 'lista', admQ: '', drawer: null,
   session: null, perfil: null, det: null, lastId: null,
