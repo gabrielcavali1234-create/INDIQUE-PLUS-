@@ -300,6 +300,7 @@ begin
     if not exists (select 1 from public.condominios where id = v_condo) then raise exception 'QR Code inválido.'; end if;
     v_origem := 'QR Code do condomínio';
   end if;
+  if coalesce((p->>'fora_condominio')::boolean, false) then v_condo := null; end if;
   return public._inserir_indicacao(p || jsonb_build_object('condominio_id', v_condo), v_ind.id, v_origem, null);
 end $$;
 
@@ -358,6 +359,12 @@ begin
   if v_ind.status = 8 then raise exception 'Esta indicação está encerrada.'; end if;
   if p_status < 0 or p_status > 8 or p_status = v_ind.status then raise exception 'Status inválido.'; end if;
   if v_papel = 'corretor' and (v_ind.status = 0 or p_status = 7) then raise exception 'Essa etapa é do administrador.'; end if;
+  if p_status = 6 and v_ind.status < 6 and v_ind.indicador_id is not null then
+    if v_papel = 'corretor' then raise exception 'A venda é registrada pelo gestor, com valor e percentual do bônus.'; end if;
+    if not exists (select 1 from public.bonus_venda where indicacao_id = p_id) then
+      raise exception 'Use "Registrar venda" para informar o valor e o percentual do bônus.';
+    end if;
+  end if;
   if p_status in (4,5,6,7) and v_ind.status < 4
      and not exists (select 1 from public.fichas_imovel where indicacao_id = p_id and completa) then
     raise exception 'Complete a ficha do imóvel antes de liberar o anúncio.';

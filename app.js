@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081905 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081930 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -281,18 +281,40 @@ function vPublico(){
     <h1>${P.done.dup ? 'Já temos o seu contato.' : 'Recebemos seu contato!'}</h1>
     <p class="muted">${P.done.dup ? 'Um profissional vai falar com você em breve.' : 'Um profissional imobiliário habilitado vai falar com você pelo WhatsApp.'}</p>
     ${P.done.id ? `<span class="idtag">${P.done.id}</span>` : ''}</div></div>`;
-  return `<div class="narrow cards" style="gap:16px">
-   <div class="pub-hero"><span class="eyebrow" style="color:inherit;opacity:.8">Rendique${info?.condominio ? ' · ' + esc(info.condominio) : ''}</span><h1>Conhece alguém que quer vender um imóvel?</h1>
-    <p>Deixe o contato do proprietário. Um profissional imobiliário habilitado vai falar com ele, sem compromisso.</p></div>
-   <form data-f="publico" class="card" novalidate>
-    <label class="f">Nome do proprietário<input class="in" id="p-owner" name="owner"></label>
-    <label class="f">WhatsApp<input class="in" id="p-phone" name="phone" inputmode="tel" placeholder="(11) 90000-0000"></label>
-    <label class="f">Unidade<input class="in" id="p-unit" name="unit" placeholder="Ex.: Apto 54 · Bloco A"></label>
+  const ch = (name, opts, def) => `<div class="chips" role="radiogroup">${opts.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
+  const temCondo = !!info?.condominio;
+  return `<div class="narrow cards pubf" style="gap:16px">
+   <div class="pub-hero"><span class="eyebrow" style="color:inherit;opacity:.8">Rendique${info?.condominio ? ' · ' + esc(info.condominio) : ''}</span><h1>Quer vender seu imóvel?</h1>
+    <p>Deixe seu contato. Um corretor habilitado fala com você pelo WhatsApp, sem compromisso e sem custo para avaliar.</p></div>
+   <form data-f="publico" class="card nvsec" novalidate>
+    <h2>Seu contato</h2>
+    <label class="f">Seu nome<input class="in" id="p-owner" name="owner" autocomplete="name" placeholder="Ex.: Maria da Silva"></label>
+    <label class="f">WhatsApp com DDD<input class="in" id="p-phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="(11) 90000-0000"></label>
+    <div class="f"><span class="qlabel">Melhor horário para falar com você</span>${ch('horario',['Manhã','Tarde','Noite','Qualquer horário'],'Qualquer horário')}</div>
+    <h2 style="margin-top:8px">O imóvel</h2>
+    ${temCondo ? `<div class="nvonde" role="radiogroup"><label class="nvopt"><input type="radio" name="onde" value="condo" checked><span><b>Neste condomínio</b><small>${esc(info.condominio)}</small></span></label><label class="nvopt"><input type="radio" name="onde" value="novo"><span><b>Em outro endereço</b><small>Outro condomínio ou casa de rua</small></span></label></div>` : '<input type="hidden" name="onde" value="novo">'}
+    <div class="nvaddr" data-when="onde=novo">
+     <label class="f">Nome do condomínio <small>(se tiver)</small><input class="in" id="f-cnome" name="cnome"></label>
+     <div class="row2 nvcep"><label class="f">CEP<input class="in" id="f-cep" name="cep" inputmode="numeric" placeholder="00000-000" autocomplete="postal-code"></label><span class="note" id="f-cep-st">Digite o CEP e preenchemos o endereço.</span></div>
+     <label class="f">Rua ou avenida<input class="in" id="f-end" name="end" autocomplete="address-line1"></label>
+     <div class="row3"><label class="f">Número<input class="in" id="f-numero" name="numero" inputmode="numeric"></label><label class="f">Bairro<input class="in" id="f-bairro" name="bairro"></label><label class="f">Cidade<input class="in" id="f-cidade" name="cidade" value="São Paulo"></label></div>
+    </div>
+    <div class="f"><span class="qlabel">Tipo de imóvel</span>${ch('tipo',['Apartamento','Casa','Cobertura','Sala comercial','Outro'],'Apartamento')}</div>
+    <div class="row2"><label class="f"><span data-when="tipo!=Casa">Apartamento / unidade</span><span data-when="tipo=Casa">Número da casa</span><input class="in" id="p-apto" name="apto" placeholder="Ex.: 82"></label><label class="f" data-when="tipo!=Casa">Bloco ou torre <small>(se tiver)</small><input class="in" id="p-bloco" name="bloco" placeholder="Ex.: B"></label></div>
+    <div class="f"><span class="qlabel">Dormitórios</span>${ch('dorms',['1','2','3','4+'],'2')}</div>
+    <div class="f"><span class="qlabel">Você já decidiu vender?</span>${ch('interesse',['Sim, quero vender','Estou pensando'],'Sim, quero vender')}</div>
+    <label class="f">Algo que o corretor deva saber? <small>(opcional)</small><textarea class="in" id="p-obs" name="obs" placeholder="Ex.: prefiro mensagem antes de ligar"></textarea></label>
     <label class="check"><input type="checkbox" id="p-consent" name="consent"><span>Sou o proprietário (ou tenho autorização dele) e autorizo que um profissional imobiliário entre em contato sobre a venda do imóvel.</span></label>
     <div id="p-err" class="err" hidden></div>
     <button class="btn big gold" type="submit">Quero ser contatado</button>
     ${info?.nome ? `<p class="note">Indicação registrada por ${esc(info.nome)} (${esc(info.codigo)}).</p>` : ''}
+    <p class="note">Seus dados são usados só para o contato sobre a venda (LGPD).</p>
    </form></div>`;
+}
+function pubSync(){
+  const f = $('form[data-f=publico]'); if (!f) return;
+  const d = {}; new FormData(f).forEach((v, k) => d[k] = String(v));
+  f.querySelectorAll('[data-when]').forEach(el => { const [k, v] = el.dataset.when.split(/!?=/), neg = el.dataset.when.includes('!='), val = d[k] || ''; el.hidden = neg ? val === v : val !== v; });
 }
 function vDevice(){
   const small = window.matchMedia('(max-width: 760px)').matches;
@@ -583,7 +605,7 @@ function vPro(){
    <div class="cards list">${L.map(i => { const nx = i.status + 1; return `<div class="card" style="gap:10px">
     <div class="sec-h"><span class="mono note">${i.id}</span><span class="lc-pills">${pill(i.status)}${fichaTag(i)}</span></div><h2>${esc(i.proprietario_nome)}</h2>
     <dl class="kv"><dt>Contato</dt><dd class="mono">${fph(i.telefone)}</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd><dt>Imóvel</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm. · ${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Indicado por</dt><dd>${esc(perfil(i.indicador_id)?.nome || i.origem)}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}</dl>
-    <div class="btns">${nx <= 6 ? `<button class="btn sm" data-a="adv" data-v="${i.id}" data-s="${nx}">Avançar: ${ST[nx]}</button>` : ''}${i.status >= 2 ? `<button class="btn sm ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',16)}Ficha do imóvel</button>` : ''}<button class="btn sm danger" data-a="close" data-v="${i.id}">Encerrar</button></div></div>`; }).join('') || '<p class="muted">Nenhuma oportunidade em atendimento agora.</p>'}</div>
+    <div class="btns">${nx <= 5 ? `<button class="btn sm" data-a="adv" data-v="${i.id}" data-s="${nx}">Avançar: ${ST[nx]}</button>` : `<span class="note">A venda é registrada pelo gestor, com valor e percentual. Avise o gestor quando fechar.</span>`}${i.status >= 2 ? `<button class="btn sm ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',16)}Ficha do imóvel</button>` : ''}<button class="btn sm danger" data-a="close" data-v="${i.id}">Encerrar</button></div></div>`; }).join('') || '<p class="muted">Nenhuma oportunidade em atendimento agora.</p>'}</div>
    <p class="note">Indicações com status “Enviada” aguardam validação do gestor antes de chegar aqui.</p>`;
 }
 
@@ -630,9 +652,8 @@ const fmtN = v => v === '' || v == null ? '' : Number(v).toLocaleString('pt-BR',
 const ficha = id => S.D.fichas?.[id]?.dados || null;
 function fichaFalta(d){ d = d || {}; return FICHA_OBRIG.filter(([k]) => k === 'area_util' || k === 'valor_venda' ? !(Number(d[k]) > 0) : !String(d[k] ?? '').trim()).map(x => x[1]); }
 function fichaTag(i){
-  if (i.status < 2 || i.status === 8) return '';
+  if (i.status < 2 || i.status >= 4) return '';
   const d = ficha(i.id), falta = fichaFalta(d), ok = !falta.length;
-  if (i.status >= 4 && ok) return '';
   return `<span class="ftag ${ok ? 'ok' : ''}">${ok ? ic('check',13) + 'Ficha completa' : `Ficha ${FICHA_OBRIG.length - falta.length}/${FICHA_OBRIG.length}`}</span>`;
 }
 function fichaResumo(i){
@@ -1136,11 +1157,13 @@ const libCache = {};
 function loadScript(src){ return libCache[src] ||= new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => { delete libCache[src]; fail(new Error('Não foi possível carregar o gerador de arquivos. Verifique a internet e tente de novo.')); }; document.head.appendChild(s); }); }
 async function libs(k){ for (const s of LIBS[k]) await loadScript(s); }
 const RELS = [
-  ['completo','Relatório completo','Resumo, indicações, financeiro, indicadores, condomínios e auditoria em um só arquivo.','doc'],
+  ['completo','Relatório completo','Resumo, indicações, fichas, financeiro, bônus de venda, indicadores, condomínios e auditoria em um só arquivo.','doc'],
   ['inds','Indicações','Todas as indicações do período, com etapa, condomínio, indicador e motivo de encerramento.','list'],
   ['fin','Financeiro','Recompensas geradas e pagas, fila de pagamento, Pix e comprovantes.','wallet'],
   ['indicadores','Indicadores','Desempenho de cada porteiro, zelador ou síndico: indicações, qualificadas, vendas e valores.','users'],
   ['condos','Condomínios','Indicações, qualificadas, vendas e conversão por condomínio e região.','building'],
+  ['bonus','Bônus de venda','Vendas registradas, valor vendido, percentual, bônus gerados, a pagar e pagos.','wallet'],
+  ['fichas','Fichas dos imóveis','Metragem, cômodos, valor de venda, R$/m², custos mensais, ocupação e documentação.','doc'],
   ['aud','Auditoria','Registro de cada ação feita no sistema, com data, hora e autor.','shield']
 ];
 const isoDia = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1176,7 +1199,13 @@ function relDados(){
   const condos = S.D.condos.map(c => { const L = inds.filter(i => i.condominio_id === c.id); return { c, ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador').length, n: L.length, q: L.filter(i => alcancou(i,3)).length, v: L.filter(i => alcancou(i,6)).length }; });
   const fora = inds.filter(i => !i.condominio_id); if (fora.length) condos.push({ c: { nome: 'Outro endereço', bairro: '', cidade: '', regiao: '' }, ind: 0, n: fora.length, q: fora.filter(i => alcancou(i,3)).length, v: fora.filter(i => alcancou(i,6)).length });
   condos.sort((x, y) => y.n - x.n || x.c.nome.localeCompare(y.c.nome));
-  return { a, b, em, inds, gerados, pagos, lanc, aPagar, proc, sum, qualif, vendas, encerr, indicadores, condos,
+  const BV = S.D.bonus || [], bonVendas = BV.filter(x => x.estado !== 'cancelado' && em(new Date(x.data_venda + 'T12:00')));
+  const bonPagos = BV.filter(x => x.estado === 'pago' && x.pago_em && em(new Date(x.pago_em + 'T12:00')));
+  const bonLanc = BV.filter(x => em(new Date(x.data_venda + 'T12:00')) || (x.pago_em && em(new Date(x.pago_em + 'T12:00'))));
+  const bonApagar = BV.filter(x => x.estado === 'disponivel'), bonAguard = BV.filter(x => x.estado === 'aguardando');
+  const idsPer = new Set(inds.map(i => i.id));
+  const fichas = Object.values(S.D.fichas || {}).filter(f => idsPer.has(f.indicacao_id) || em(new Date(f.atualizado_em)));
+  return { a, b, em, inds, gerados, pagos, lanc, aPagar, proc, sum, qualif, vendas, encerr, indicadores, condos, bonVendas, bonPagos, bonLanc, bonApagar, bonAguard, fichas,
     novos: S.D.perfis.filter(p => p.papel === 'indicador' && em(new Date(p.criado_em))).length, ocorr: S.D.ocorr.filter(o => em(new Date(o.criado_em))).length };
 }
 async function relAuditoria(D){
@@ -1188,7 +1217,7 @@ async function relAuditoria(D){
 function aRel(){
   const D = relDados(), per = S.relPer || 'mes';
   const cont = { completo: `${D.inds.length} indicaç${D.inds.length===1?'ão':'ões'} · ${money(D.sum(D.pagos))} pagos`, inds: `${D.inds.length} indicaç${D.inds.length===1?'ão':'ões'} no período`, fin: `${D.lanc.length} lançamento${D.lanc.length===1?'':'s'} · ${money(D.sum(D.pagos))} pagos`,
-    indicadores: `${D.indicadores.filter(x => x.n).length} com indicações no período`, condos: `${D.condos.filter(x => x.n).length} com indicações no período`, aud: 'Ações registradas no período' };
+    indicadores: `${D.indicadores.filter(x => x.n).length} com indicações no período`, condos: `${D.condos.filter(x => x.n).length} com indicações no período`, aud: 'Ações registradas no período', bonus: `${D.bonVendas.length} venda${D.bonVendas.length===1?'':'s'} · ${money(D.sum(D.bonVendas))} em bônus`, fichas: `${D.fichas.length} ficha${D.fichas.length===1?'':'s'} no período` };
   return `<div class="card relper"><h2>Período do relatório</h2>
     <div class="filters">${PERIODOS.map(([k,l]) => `<button class="chipbtn ${per===k?'on':''}" data-a="relPer" data-v="${k}">${l}</button>`).join('')}<button class="chipbtn ${per==='pers'?'on':''}" data-a="relPer" data-v="pers">Escolher datas</button></div>
     ${per === 'pers' ? `<div class="row2"><label class="f">De<input class="in" type="date" id="r-de" value="${esc(S.relDe||'')}"></label><label class="f">Até<input class="in" type="date" id="r-ate" value="${esc(S.relAte||'')}"></label></div>` : ''}
@@ -1217,6 +1246,17 @@ function relTabelas(k, D, audit){
       cols:['Indicação','Indicador','Liberada desde','Valor','Estado','Chave Pix'], tipos:['t','t','d','m','t','t'],
       rows: D.aPagar.map(r => { const u = perfil(r.indicador_id); return [r.indicacao_id, nome(r.indicador_id), dt(r.atualizado_em || r.criado_em), Number(r.valor), REW[r.estado][1], u?.pix_chave ? (pess ? `${u.pix_tipo}: ${u.pix_chave}` : 'Cadastrada') : 'Não cadastrada']; }) });
   }
+  if (k === 'completo' || k === 'fichas') T.push({ id:'fichas', titulo:'Fichas dos imóveis', aba:'Fichas', larg:[15,17,24,8,6,6,6,6,12,10,10,9,11,11,10],
+    cols:['Indicação','Proprietário','Imóvel','Área útil (m²)','Dorm.','Suítes','Banh.','Vagas','Valor de venda','R$/m²','Condomínio/mês','IPTU/ano','Ocupação','Documentação','Ficha'],
+    tipos:['t','t','t','n','t','t','t','t','m','m','m','m','t','t','t'],
+    rows: D.fichas.map(f => { const i = S.D.inds.find(x => x.id === f.indicacao_id) || {}, d = f.dados || {}, num = v => v === undefined || v === '' ? '' : Number(v);
+      return [f.indicacao_id, i.proprietario_nome || '', [i.unidade, i.endereco || condoNome(i.condominio_id)].filter(Boolean).join(' · '), num(d.area_util), d.dormitorios || '', d.suites || '', d.banheiros || '', d.vagas || '',
+        num(d.valor_venda), Number(d.valor_venda) > 0 && Number(d.area_util) > 0 ? d.valor_venda / d.area_util : '', num(d.condominio), num(d.iptu), d.ocupacao || '', d.documentacao || '', f.completa ? 'Completa' : 'Incompleta']; }) });
+  if (k === 'completo' || k === 'bonus') T.push({ id:'bonus', titulo:'Bônus de venda', aba:'Bônus de venda', larg:[15,20,11,14,7,12,15,12,11,15].concat(pess?[24]:[]),
+    cols:['Indicação','Indicador','Venda em','Valor da venda','%','Bônus','Estado','Comissão recebida','Pago em','Comprovante Pix'].concat(pess?['Chave Pix']:[]),
+    tipos:['t','t','d','m','t','m','t','d','d','t'].concat(pess?['t']:[]),
+    rows: D.bonLanc.map(b => { const u = perfil(b.indicador_id), dt = v => v ? new Date(v + 'T12:00') : null;
+      return [b.indicacao_id, u?.nome || '—', dt(b.data_venda), Number(b.valor_venda), b.modo === 'fixo' ? 'fixo' : pctBR(b.percentual), Number(b.valor), BON[b.estado][1], dt(b.comissao_recebida_em), dt(b.pago_em), b.comprovante_codigo || (b.comprovante_arquivo ? 'Arquivo anexado' : '')].concat(pess?[u?.pix_chave ? `${u.pix_tipo}: ${u.pix_chave}` : 'Não cadastrada']:[]); }) });
   if (k === 'completo' || k === 'indicadores') T.push({ id:'indicadores', titulo:'Indicadores', larg:[22,14,24,11,12,9,12,13,13,14],
     cols:['Indicador','Função','Condomínio','Indicações','Qualificadas','Vendas','Encerradas','Recebido no período','A pagar agora','Recebido (total)'],
     tipos:['t','t','t','n','n','n','n','m','m','m'],
@@ -1234,12 +1274,14 @@ function relResumo(D){
     ['Indicações recebidas', D.inds.length, 'n'], ['Oportunidades qualificadas', D.qualif, 'n'], ['Vendas concluídas', D.vendas, 'n'],
     ['Conversão indicação → venda', D.inds.length ? D.vendas / D.inds.length : 0, 'p'], ['Encerradas', D.encerr, 'n'], ['Ocorrências de duplicidade', D.ocorr, 'n'],
     ['Novos indicadores', D.novos, 'n'], ['Recompensas geradas', D.sum(D.gerados), 'm'], ['Recompensas pagas', D.sum(D.pagos), 'm'],
-    ['A pagar agora', D.sum(D.aPagar), 'm'], ['Em processamento', D.sum(D.proc), 'm'], ['Valor por indicação qualificada', Number(S.D.valor), 'm']
+    ['A pagar agora', D.sum(D.aPagar), 'm'], ['Em processamento', D.sum(D.proc), 'm'], ['Valor por indicação qualificada', Number(S.D.valor), 'm'],
+    ['Vendas registradas', D.bonVendas.length, 'n'], ['Valor vendido (VGV)', D.sum(D.bonVendas.map(x => ({ valor: x.valor_venda }))), 'm'], ['Bônus gerado', D.sum(D.bonVendas), 'm'],
+    ['Bônus pago', D.sum(D.bonPagos), 'm'], ['Bônus a pagar agora', D.sum(D.bonApagar), 'm'], ['Bônus aguardando comissão', D.sum(D.bonAguard), 'm']
   ];
 }
 const pct = v => `${(v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 const fmtCel = (v, t) => v == null || v === '' ? '' : t === 'm' ? money(v) : t === 'p' ? pct(v) : t === 'd' ? v.toLocaleDateString('pt-BR') : t === 'dt' ? `${v.toLocaleDateString('pt-BR')} ${v.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : t === 'n' ? String(v) : String(v);
-const relNomeArq = (k, ext) => `rendique-${({completo:'relatorio-completo',inds:'indicacoes',fin:'financeiro',indicadores:'indicadores',condos:'condominios',aud:'auditoria'})[k]}-${isoDia(new Date())}.${ext}`;
+const relNomeArq = (k, ext) => `rendique-${({completo:'relatorio-completo',inds:'indicacoes',fin:'financeiro',indicadores:'indicadores',condos:'condominios',aud:'auditoria',bonus:'bonus-de-venda',fichas:'fichas-dos-imoveis'})[k]}-${isoDia(new Date())}.${ext}`;
 function baixar(blob, nome){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
 
 const latin = s => String(s).replace(/→/g, '->').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, '...').replace(/[^\x00-\xFF]/g, ''); // fontes do PDF só têm Latin-1
@@ -1266,7 +1308,7 @@ async function relPDF(k){
   let y = 42;
   // indicadores-chave
   if (k !== 'aud') {
-    const R = relResumo(D), sel = k === 'fin' ? R.slice(7, 12) : k === 'condos' || k === 'indicadores' ? [R[0], R[1], R[2], R[3], R[6]] : k === 'inds' ? [R[0], R[1], R[2], R[3], R[4], R[5]] : R;
+    const R = relResumo(D), sel = k === 'fin' ? R.slice(7, 12) : k === 'bonus' ? R.slice(12, 18) : k === 'fichas' ? [R[0], R[1], R[2]] : k === 'condos' || k === 'indicadores' ? [R[0], R[1], R[2], R[3], R[6]] : k === 'inds' ? [R[0], R[1], R[2], R[3], R[4], R[5]] : R;
     const por = Math.min(6, sel.length), gap = 4, bw = (W - 2*M - gap*(por-1)) / por, bh = 18;
     sel.forEach(([l, v, t], n) => {
       const cx = M + (n % por) * (bw + gap), cy = y + Math.floor(n / por) * (bh + gap);
@@ -1292,7 +1334,7 @@ async function relPDF(k){
   });
   if (y > H - 26) { doc.addPage(); y = 18; }
   doc.setTextColor(...MUTED); doc.setFontSize(7.5); doc.setFont('helvetica','italic');
-  doc.text(doc.splitTextToSize('Recompensa fixa por indicação qualificada. Nenhuma remuneração percentual sobre a operação imobiliária. O indicador apenas informa a oportunidade; atendimento, captação e venda são feitos por corretor habilitado (CRECI). Documento com dados pessoais: guarde e compartilhe conforme a LGPD.', W - 2*M), M, y);
+  doc.text(doc.splitTextToSize('Recompensa fixa por indicação qualificada e bônus de venda conforme a regra definida pelo gestor (sujeita à validação jurídica). O indicador apenas informa a oportunidade; atendimento, captação e venda são feitos por corretor habilitado (CRECI). Documento com dados pessoais: guarde e compartilhe conforme a LGPD.', W - 2*M), M, y);
   const tot = doc.getNumberOfPages();
   for (let p = 1; p <= tot; p++) {
     doc.setPage(p); doc.setDrawColor(...LINE); doc.line(M, H - 10, W - M, H - 10);
@@ -1325,7 +1367,7 @@ async function relXLSX(k){
   relResumo(D).forEach(([l, v, t], n) => { const row = rs.getRow(r0 + 1 + n); row.getCell(1).value = l; row.getCell(2).value = v; row.getCell(2).numFmt = FMT[t]; row.getCell(2).font = { bold: true };
     if (t === 'm') row.getCell(1).border = { left: { style: 'thick', color: { argb: GOLD } } };
     if (n % 2) [1,2].forEach(c => row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } }); });
-  const nota = rs.getCell('A' + (r0 + 15)); nota.value = 'Recompensa fixa por indicação qualificada. Nenhuma remuneração percentual sobre a operação imobiliária.'; nota.font = { italic: true, size: 9, color: { argb: 'FF64707D' } };
+  const nota = rs.getCell('A' + (r0 + 21)); nota.value = 'Recompensa fixa por indicação qualificada e bônus de venda conforme a regra definida pelo gestor (sujeita à validação jurídica).'; nota.font = { italic: true, size: 9, color: { argb: 'FF64707D' } };
   // uma aba por tabela
   T.forEach(t => {
     const ws = wb.addWorksheet((t.aba || t.titulo).replace(/[\\/?*[\]:]/g, '').slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -1334,7 +1376,7 @@ async function relXLSX(k){
     const h = ws.getRow(1); h.height = 22; h.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; c.alignment = { vertical: 'middle', wrapText: true }; });
     ws.eachRow((row, n) => { if (n > 1) row.eachCell({ includeEmpty: true }, (c, j) => { c.border = { bottom: BORDA }; if (n % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } }; if (j === t.cols.length && t.id === 'aud') c.alignment = { wrapText: true }; }); });
     if (t.rows.length) ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: t.cols.length } };
-    const somas = t.tipos.map((x, j) => x === 'm' || (x === 'n' && t.id !== 'fin') ? j : -1).filter(j => j >= 0);
+    const somas = t.id === 'fichas' ? [] : t.tipos.map((x, j) => x === 'm' || (x === 'n' && t.id !== 'fin') ? j : -1).filter(j => j >= 0);
     if (t.rows.length && somas.length) { const tr = ws.addRow([]), n = t.rows.length + 1; tr.getCell(1).value = 'Total'; somas.forEach(j => { const col = ws.getColumn(j + 1).letter; tr.getCell(j + 1).value = { formula: `SUBTOTAL(9,${col}2:${col}${n})` }; tr.getCell(j + 1).numFmt = FMT[t.tipos[j]]; });
       tr.eachCell({ includeEmpty: true }, c => { c.font = { bold: true }; c.border = { top: { style: 'thin', color: { argb: NAVY } } }; }); }
   });
@@ -1369,6 +1411,7 @@ function render(){
   document.querySelectorAll('[data-qr]').forEach(drawQR);
   if (S.screen === 'app' && papel() === 'admin' && S.admTab === 'condos') montaMapa();
   if (S.screen === 'app' && S.tab === 'nova' && papel() === 'indicador') nvRestaura();
+  if (S.screen === 'publico') pubSync();
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -1547,6 +1590,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.ma
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.form?.dataset.f === 'nova') nvSync();
+  if (t.form?.dataset.f === 'publico') pubSync();
   if (t.form?.dataset.f === 'ficha') fichaCalc();
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
@@ -1557,6 +1601,7 @@ document.addEventListener('change', e => {
 document.addEventListener('input', e => {
   if (e.target.form?.dataset.f === 'ficha') fichaCalc();
   if (e.target.form?.dataset.f === 'venda') vendaCalc();
+  if (e.target.form?.dataset.f === 'publico') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } pubSync(); }
   if (e.target.form?.dataset.f === 'nova') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } nvSync(); }
   if (e.target.id === 'f-busca') { S.finQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#f-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
@@ -1667,13 +1712,19 @@ const forms = {
     S.lastId = r.id; await loadData(); go('ok');
   }),
   publico: fd => guard(async () => {
-    const g = k => String(fd.get(k)||'').trim();
-    if (!g('owner') || dig(g('phone')).length < 10 || !g('unit')) return showErr('#p-err', 'Preencha nome, WhatsApp com DDD e unidade.');
+    const d = {}; fd.forEach((v, k) => d[k] = String(v)); const g = k => String(d[k] || '').trim();
+    if (!g('owner')) return showErr('#p-err', 'Informe seu nome.');
+    if (dig(g('phone')).length < 10) return showErr('#p-err', 'Informe o WhatsApp com DDD.');
+    const fora = g('onde') === 'novo';
+    if (fora && (!g('end') || !g('numero'))) return showErr('#p-err', 'Informe a rua e o número do imóvel.');
+    if (!g('apto')) return showErr('#p-err', g('tipo') === 'Casa' ? 'Informe o número da casa.' : 'Informe o apartamento ou unidade.');
     if (!fd.get('consent')) return showErr('#p-err', 'Marque a autorização de contato para continuar.');
     if (!sb) return showErr('#p-err', 'Sistema indisponível no momento.');
+    const end = fora ? [g('cnome'), `${g('end')}, ${g('numero')} – ${g('bairro')}, ${g('cidade')}${dig(g('cep')).length === 8 ? ' · CEP ' + g('cep') : ''}`].filter(Boolean).join(' · ') : null;
     try {
       const r = await rpc('indicacao_publica', { p_codigo: S.pub.q || null, p_condominio: S.pub.k || null,
-        p: { proprietario_nome: g('owner'), telefone: dig(g('phone')), whatsapp: dig(g('phone')), unidade: g('unit'), horario: 'Qualquer horário', consentimento: true } });
+        p: { proprietario_nome: g('owner'), telefone: dig(g('phone')), whatsapp: dig(g('phone')), unidade: nvUnidade(d), endereco: end, fora_condominio: fora,
+             tipo: g('tipo'), dormitorios: g('dorms'), horario: g('horario'), interesse: g('interesse'), como: 'QR Code (o próprio proprietário)', observacoes: g('obs'), consentimento: true } });
       S.pub.done = { dup: r.duplicada, id: r.id }; render();
     } catch(e) { showErr('#p-err', msg(e)); }
   }),
