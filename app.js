@@ -504,7 +504,7 @@ const kpi = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l
 function vAdm(){
   const open = S.D.ocorr.filter(o => o.estado === 'aberta').length;
   const novas = S.D.inds.filter(i => i.status === 0).length;
-  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Recompensas'],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria']];
+  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria']];
   const body = { geral:aGeral, inds:aInds, ocorr:aOcorr, rec:aRec, condos:aCondos, users:aUsers, prog:aProg, aud:aAud }[S.admTab]();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
    <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
@@ -598,12 +598,89 @@ function aOcorr(){
     <dl class="kv"><dt>Tentativa de</dt><dd>${esc(perfil(o.tentativa_por)?.nome || 'QR Code')}</dd><dt>Proprietário</dt><dd>${esc(o.proprietario_nome)} · <span class="mono">${fph(o.telefone)}</span></dd><dt>Imóvel</dt><dd>${esc(o.unidade)} · ${esc(condoNome(o.condominio_id))}</dd><dt>Registro original</dt><dd class="mono">${esc(o.indicacao_original||'—')}${orig?` (${esc(perfil(orig.indicador_id)?.nome || orig.origem)})`:''}</dd></dl>
     ${o.estado==='aberta' ? `<div class="btns"><button class="btn sm" data-a="ocorr" data-v="${o.id}" data-e="mantida">Manter registro original</button><button class="btn sm ghost" data-a="ocorr" data-v="${o.id}" data-e="suspeita">Marcar como suspeita</button></div>` : `<span class="note">Resolvida: ${o.estado==='mantida'?'registro original mantido':'marcada como suspeita'}</span>`}</div>`; }).join('') || '<p class="muted">Nenhuma ocorrência.</p>'}</div>`;
 }
+/* ---------- Financeiro do gestor ---------- */
+const PERIODOS = [['mes','Este mês'],['mespass','Mês passado'],['90d','Últimos 90 dias'],['ano','Este ano'],['tudo','Tudo']];
+function janela(k){
+  const n = new Date(), y = n.getFullYear(), m = n.getMonth();
+  if (k === 'mes') return [new Date(y, m, 1), null];
+  if (k === 'mespass') return [new Date(y, m - 1, 1), new Date(y, m, 1)];
+  if (k === '90d') return [new Date(Date.now() - 90 * DAY), null];
+  if (k === 'ano') return [new Date(y, 0, 1), null];
+  return [null, null];
+}
+const dataPago = r => r.pago_em ? new Date(r.pago_em + 'T12:00') : new Date(r.atualizado_em || r.criado_em);
+const noPeriodo = (d, k) => { const [a, b] = janela(k); return (!a || d >= a) && (!b || d < b); };
+const brl0 = v => Number(v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits: 0 });
+function finCalc(){
+  const R = S.D.rewards, k = S.finPer || 'mes', ativos = R.filter(r => r.estado !== 'cancelada'), sum = L => L.reduce((a,b) => a + Number(b.valor), 0);
+  const pagosPer = R.filter(r => r.estado === 'pago' && noPeriodo(dataPago(r), k));
+  const geradosPer = ativos.filter(r => noPeriodo(new Date(r.criado_em), k));
+  const aPagar = R.filter(r => r.estado === 'disponivel' || r.estado === 'resgate');
+  const proc = R.filter(r => r.estado === 'processamento');
+  const vendas = S.D.inds.filter(i => i.status === 6 || i.status === 7).length;
+  const prazos = R.filter(r => r.estado === 'pago' && r.pago_em).map(r => Math.max(0, (dataPago(r) - new Date(r.criado_em)) / DAY));
+  return { k, sum, pagosPer, geradosPer, aPagar, proc, resg: aPagar.filter(r => r.estado === 'resgate'),
+    custoVenda: vendas ? sum(ativos) / vendas : null, vendas,
+    prazo: prazos.length ? prazos.reduce((a,b) => a + b, 0) / prazos.length : null, totalPago: sum(R.filter(r => r.estado === 'pago')) };
+}
+function finChart(){
+  const n = new Date(), meses = [];
+  for (let k = 5; k >= 0; k--) { const d = new Date(n.getFullYear(), n.getMonth() - k, 1); meses.push({ ini: d, fim: new Date(d.getFullYear(), d.getMonth() + 1, 1), rot: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), g: 0, p: 0 }); }
+  S.D.rewards.forEach(r => {
+    if (r.estado !== 'cancelada') { const d = new Date(r.criado_em), m = meses.find(x => d >= x.ini && d < x.fim); if (m) m.g += Number(r.valor); }
+    if (r.estado === 'pago') { const d = dataPago(r), m = meses.find(x => d >= x.ini && d < x.fim); if (m) m.p += Number(r.valor); }
+  });
+  const max = Math.max(10, ...meses.map(m => Math.max(m.g, m.p)));
+  const passo = [10,20,50,100,200,500,1000,2000,5000,10000].find(x => max / x <= 4) || Math.ceil(max / 4);
+  const topo = Math.ceil(max / passo) * passo, W = 640, H = 240, L = 56, B = 28, T = 12, plotH = H - B - T, gw = (W - L - 8) / 6, bw = Math.min(28, gw / 3.2);
+  const y = v => T + plotH - (v / topo) * plotH;
+  let g = '';
+  for (let v = 0; v <= topo; v += passo) g += `<line x1="${L}" x2="${W-8}" y1="${y(v)}" y2="${y(v)}" class="fg-grid"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" class="fg-ax">${brl0(v)}</text>`;
+  const bar = (x, v, cls, tip) => { const h = Math.max(0, y(0) - y(v)); return v ? `<path d="M${x},${y(0)} v${-(h-4 > 0 ? h-4 : 0)} q0,-4 4,-4 h${bw-8} q4,0 4,4 v${h-4 > 0 ? h-4 : 0} z" class="${cls}"/>` : ''; };
+  meses.forEach((m, i) => {
+    const cx = L + gw * i + gw / 2;
+    g += bar(cx - bw - 1, m.g, 'fg-g') + bar(cx + 1, m.p, 'fg-p');
+    g += `<rect x="${L + gw*i}" y="${T}" width="${gw}" height="${plotH}" fill="transparent" class="fg-hit" data-tip="<b>${m.rot}</b><br>Gerado: ${money(m.g)}<br>Pago: ${money(m.p)}"/>`;
+    g += `<text x="${cx}" y="${H-8}" text-anchor="middle" class="fg-ax">${m.rot}</text>`;
+  });
+  return `<figure class="fchart"><div class="sec-h"><h2>Recompensas por mês</h2><div class="flegend"><span><i class="lg-g"></i>Geradas</span><span><i class="lg-p"></i>Pagas</span></div></div>
+    <div class="fsvg"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Recompensas geradas e pagas nos últimos 6 meses">${g}</svg></div>
+    <figcaption class="note">Geradas: valor das indicações que chegaram a "Oportunidade qualificada" no mês. Pagas: valor pago no mês.</figcaption></figure>`;
+}
 function aRec(){
-  return `<p class="note">Os valores não podem ser editados manualmente. Cada mudança fica registrada na auditoria.</p>
-   <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Gerada em</th><th class="r">Valor</th><th>Estado</th><th>Ação</th></tr></thead><tbody>
-   ${S.D.rewards.map(r => `<tr><td class="mono">${r.indicacao_id}</td><td>${esc(perfil(r.indicador_id)?.nome || '—')}</td><td class="num">${fdt(r.criado_em)}</td><td class="r num"><b>${money(r.valor)}</b></td><td>${REW[r.estado][1]}</td>
-    <td><div class="btns" style="flex-wrap:nowrap">${r.estado==='processamento' ? `<button class="btn sm" data-a="rew" data-v="${r.indicacao_id}" data-e="disponivel">Liberar</button>` : ['disponivel','resgate'].includes(r.estado) ? `<button class="btn sm gold" data-a="pagarPix" data-v="${r.indicacao_id}">Pagar via Pix</button>` : r.estado==='pago' ? `<button class="btn sm ghost" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button>` : ''}<button class="btn sm ghost" data-a="openInd" data-v="${r.indicacao_id}">Ver indicação</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="note">Nenhuma recompensa ainda.</td></tr>'}
-   </tbody></table></div>`;
+  const F = finCalc(), per = PERIODOS.find(x => x[0] === F.k)[1].toLowerCase();
+  const tile = (rot, val, sub, cls='') => `<div class="ftile ${cls}"><span class="l">${rot}</span><span class="v">${val}</span><span class="note">${sub}</span></div>`;
+  const fila = [...F.aPagar].sort((a,b) => (b.estado === 'resgate') - (a.estado === 'resgate') || new Date(a.criado_em) - new Date(b.criado_em));
+  const porInd = {}; S.D.rewards.forEach(r => { if (r.estado === 'cancelada') return; const o = porInd[r.indicador_id] ||= { rec: 0, apagar: 0, proc: 0, n: 0 }; o.n++; if (r.estado === 'pago') o.rec += Number(r.valor); else if (r.estado === 'processamento') o.proc += Number(r.valor); else o.apagar += Number(r.valor); });
+  const ranking = Object.entries(porInd).sort((a,b) => (b[1].rec + b[1].apagar) - (a[1].rec + a[1].apagar)).slice(0, 8);
+  const EST = [['todos','Todos'],['processamento','Em processamento'],['disponivel','Disponível'],['resgate','Resgate pedido'],['pago','Pago'],['cancelada','Cancelada']];
+  const q = (S.finQ || '').toLowerCase(), est = S.finEst || 'todos';
+  const ext = S.D.rewards.filter(r => (est === 'todos' || r.estado === est) && (!q || [r.indicacao_id, perfil(r.indicador_id)?.nome].some(v => String(v||'').toLowerCase().includes(q))));
+  return `<div class="filters">${PERIODOS.map(([k,l]) => `<button class="chipbtn ${F.k===k?'on':''}" data-a="finPer" data-v="${k}">${l}</button>`).join('')}</div>
+   <div class="ftiles">
+    ${tile(`Pago (${per})`, money(F.sum(F.pagosPer)), `${F.pagosPer.length} pagamento${F.pagosPer.length===1?'':'s'}`)}
+    ${tile('A pagar agora', money(F.sum(F.aPagar)), F.resg.length ? `<b class="neg">${F.resg.length} pedido${F.resg.length===1?'':'s'} de resgate</b> · ${F.aPagar.length} no total` : `${F.aPagar.length} recompensa${F.aPagar.length===1?'':'s'} liberada${F.aPagar.length===1?'':'s'}`, F.resg.length ? 'warn' : '')}
+    ${tile('Aguardando liberação', money(F.sum(F.proc)), `${F.proc.length} em processamento`)}
+    ${tile(`Gerado (${per})`, money(F.sum(F.geradosPer)), `${F.geradosPer.length} indicaç${F.geradosPer.length===1?'ão qualificada':'ões qualificadas'}`)}
+    ${tile('Custo por venda', F.custoVenda == null ? '—' : money(F.custoVenda), F.vendas ? `recompensas ÷ ${F.vendas} venda${F.vendas===1?'':'s'} concluída${F.vendas===1?'':'s'}` : 'ainda sem vendas concluídas')}
+    ${tile('Prazo médio de pagamento', F.prazo == null ? '—' : `${Math.round(F.prazo)} dia${Math.round(F.prazo)===1?'':'s'}`, 'da qualificação até o Pix')}
+   </div>
+   <div class="grid2 fin2">
+    ${finChart()}
+    <div class="card"><div class="sec-h"><h2>Fila de pagamento</h2><span class="note">${money(F.sum(F.aPagar))}</span></div>
+     <div class="hist">${fila.slice(0, 6).map(r => { const u = perfil(r.indicador_id); return `<div><div style="min-width:0"><b>${esc(u?.nome || '—')}</b>${r.estado==='resgate'?' <span class="tag resg">Resgate pedido</span>':''}<div class="note"><span class="mono">${r.indicacao_id}</span> · ${u?.pix_chave ? 'Pix cadastrado' : '<span class="neg">sem chave Pix</span>'} · ${ago(r.atualizado_em || r.criado_em)}</div></div><div class="btns" style="flex-wrap:nowrap;align-items:center"><b class="num">${money(r.valor)}</b><button class="btn sm gold" data-a="pagarPix" data-v="${r.indicacao_id}">Pagar</button></div></div>`; }).join('') || '<p class="muted">Nada a pagar agora.</p>'}</div>${fila.length > 6 ? `<button class="link" data-a="finEst" data-v="disponivel">Ver todas as ${fila.length} no extrato ↓</button>` : ''}</div>
+   </div>
+   <div class="card"><h2>Por indicador</h2><div class="tbl-wrap" style="border:0"><table><thead><tr><th>Indicador</th><th class="r">Recompensas</th><th class="r">Recebido</th><th class="r">A pagar</th><th class="r">Em processamento</th><th>Chave Pix</th></tr></thead><tbody>
+    ${ranking.map(([id,o]) => { const u = perfil(id); return `<tr><td><b>${esc(u?.nome || '—')}</b><br><span class="note">${esc(u?.funcao || '')}</span></td><td class="r num">${o.n}</td><td class="r num"><b>${money(o.rec)}</b></td><td class="r num">${money(o.apagar)}</td><td class="r num">${money(o.proc)}</td><td>${u?.pix_chave ? `<span class="mono">${esc(u.pix_tipo)}</span>` : '<span class="neg">Não cadastrada</span>'}</td></tr>`; }).join('') || '<tr><td colspan="6" class="note">Sem recompensas ainda.</td></tr>'}
+   </tbody></table></div></div>
+   <div class="card"><div class="sec-h"><h2>Extrato</h2><button class="btn sm ghost" data-a="exportFin">${ic('doc',16)}Exportar planilha (CSV)</button></div>
+    <div class="ind-bar"><label class="search">${ic('search',18)}<input class="in" id="f-busca" placeholder="Buscar por indicador ou ID" value="${esc(S.finQ||'')}" autocomplete="off"></label></div>
+    <div class="filters">${EST.map(([k,l]) => `<button class="chipbtn ${est===k?'on':''}" data-a="finEst" data-v="${k}">${l}<span class="cnum">${k==='todos'?S.D.rewards.length:S.D.rewards.filter(r=>r.estado===k).length}</span></button>`).join('')}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Gerada em</th><th class="r">Valor</th><th>Estado</th><th>Pago em</th><th>Ação</th></tr></thead><tbody>
+    ${ext.slice(0, S.finLim || 15).map(r => `<tr><td class="mono">${r.indicacao_id}</td><td>${esc(perfil(r.indicador_id)?.nome || '—')}</td><td class="num">${fd(r.criado_em)}</td><td class="r num"><b>${money(r.valor)}</b></td><td>${REW[r.estado][1]}</td><td class="num">${r.estado==='pago' ? dataPago(r).toLocaleDateString('pt-BR') : '—'}</td>
+     <td><div class="btns" style="flex-wrap:nowrap">${r.estado==='processamento' ? `<button class="btn sm" data-a="rew" data-v="${r.indicacao_id}" data-e="disponivel">Liberar</button>` : ['disponivel','resgate'].includes(r.estado) ? `<button class="btn sm gold" data-a="pagarPix" data-v="${r.indicacao_id}">Pagar via Pix</button>` : r.estado==='pago' ? `<button class="btn sm ghost" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button>` : ''}<button class="btn sm ghost" data-a="openInd" data-v="${r.indicacao_id}">Ver indicação</button></div></td></tr>`).join('') || '<tr><td colspan="7" class="note">Nenhum lançamento.</td></tr>'}
+    </tbody></table></div>
+    ${ext.length > (S.finLim || 15) ? `<button class="btn ghost" data-a="finMais">Mostrar mais (${ext.length - (S.finLim || 15)} restantes)</button>` : ''}</div>`;
 }
 function aCondos(){
   return `<div class="grid2"><div class="tbl-wrap"><table><thead><tr><th>Condomínio</th><th>Bairro / cidade</th><th class="r">Indicadores</th><th class="r">Indicações</th><th>QR</th></tr></thead><tbody>
@@ -708,6 +785,14 @@ const act = {
   }),
   askNotif: async () => { try { const p = await Notification.requestPermission(); toast(p === 'granted' ? 'Alertas do navegador ativados' : 'Alertas não autorizados neste navegador'); } catch(e) {} render(); },
   admGrupo: d => { S.admGrupo = d.v; render(); },
+  finPer: d => { S.finPer = d.v; render(); },
+  finEst: d => { S.finEst = d.v; S.finLim = 15; render(); },
+  finMais: () => { S.finLim = (S.finLim || 15) + 30; render(); },
+  exportFin: () => {
+    const linhas = [['Indicação','Indicador','Chave Pix','Gerada em','Valor','Estado','Pago em','Código Pix']].concat(S.D.rewards.map(r => { const u = perfil(r.indicador_id); return [r.indicacao_id, u?.nome || '', u?.pix_chave ? `${u.pix_tipo}: ${u.pix_chave}` : '', new Date(r.criado_em).toLocaleDateString('pt-BR'), String(Number(r.valor).toFixed(2)).replace('.', ','), REW[r.estado][1], r.estado === 'pago' ? dataPago(r).toLocaleDateString('pt-BR') : '', r.comprovante_codigo || '']; }));
+    const csv = '\ufeff' + linhas.map(l => l.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `rendique-financeiro-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); toast('Planilha exportada');
+  },
   admView: d => { S.admView = d.v; render(); },
   noop: () => {},
   openInd: async d => { S.drawer = d.v; render(); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) {} } },
@@ -798,6 +883,7 @@ document.addEventListener('click', e => {
   if (a.dataset.a === 'mclose' && a.classList.contains('btn')) { closeModal(); return; }
   act[a.dataset.a]?.(a.dataset, a, e);
 });
+document.addEventListener('mouseover', e => { const t = e.target.closest?.('[data-tip]'); const tip = $('#ftip'); if (!tip) return; if (!t) { tip.hidden = true; return; } tip.innerHTML = t.dataset.tip; tip.hidden = false; const r = t.getBoundingClientRect(); tip.style.left = Math.min(window.innerWidth - 180, Math.max(8, r.left + r.width/2 - 80)) + 'px'; tip.style.top = (r.top + 8) + 'px'; });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches?.('.lcard')) { e.target.click(); } if (e.key === 'Escape') { if (S.drawer) { S.drawer = null; render(); return; } if ($('#modal').innerHTML) closeModal(); else if (S.bell) { S.bell = false; render(); } } });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -808,6 +894,7 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.id === 'f-busca') { S.finQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#f-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
 
 const okEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
