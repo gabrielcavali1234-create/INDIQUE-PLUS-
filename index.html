@@ -424,6 +424,31 @@ tr.flash td{background:var(--gold-soft)}
 [data-device="desk"] .nvres{position:sticky;top:96px}
 @media (max-width:900px){[data-device="desk"] .nvB{grid-template-columns:1fr}[data-device="desk"] .nvres{position:static}}
 [data-device="mob"] .nvB .nvres{order:2}
+.modal .box.wide{width:min(880px,100%);text-align:left;padding:0;gap:0}
+.fichaf{display:flex;flex-direction:column;min-height:0}
+.fichaf .fh{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:18px 20px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+.fichaf .fh h2{margin:2px 0}.fichaf .fh .note{margin:0}
+.fichaf>.alert{margin:14px 20px 0}
+.fbody{display:flex;flex-direction:column;gap:20px;padding:18px 20px}
+.fbody section{display:flex;flex-direction:column;gap:12px}
+.fbody h3{margin:0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.fgrid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px 18px}
+.chips.sm span{min-height:38px;padding:6px 12px;font-size:14px}
+.chips input[type=checkbox]:checked+span{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.req{color:var(--danger);font-style:normal}
+.insuf{position:relative;display:block}.insuf em{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--muted);font-size:13px;pointer-events:none}
+.insuf .in{padding-right:64px}
+.m2{display:flex;align-items:center;min-height:48px;font-family:var(--display);font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.ffoot{position:sticky;bottom:0;display:flex;flex-direction:column;gap:10px;padding:14px 20px 18px;background:var(--surface);border-top:1px solid var(--line)}
+.ffoot .note{margin:0}.ffoot .btns{justify-content:flex-end}
+.okt{color:var(--s6);display:inline-flex;align-items:center;gap:4px}
+.lc-pills{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ftag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px dashed color-mix(in srgb,var(--danger) 55%,var(--line));color:var(--danger);background:var(--surface)}
+.ftag.ok{border:1px solid color-mix(in srgb,var(--s6) 45%,var(--line));color:var(--s6)}
+.fichabox{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2)}
+.fichabox .sec-h{margin:0}.fichabox .kv{margin:0}.fichabox .note{margin:0}
+.fgrid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px;align-items:end}
+@media (max-width:640px){.fgrid3{grid-template-columns:1fr 1fr}}
 .fin2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .fchart{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fchart h2{font-size:17px}
@@ -508,6 +533,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610080200"></script>
+<script src="app.js?v=202610080230"></script>
 </body>
 </html>
