@@ -57,6 +57,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - Painel do gestor: visão geral, indicações, ocorrências, recompensas, condomínios, usuários, programa, auditoria, sininho em tempo real.
 - Convite por link para **corretor** (uso único, 7 dias) e link fixo de **indicador** (aba Usuários).
 - **Relatórios** (aba Relatórios, só gestor): completo, indicações, financeiro, indicadores, condomínios e auditoria, em PDF ou Excel, por período. Telefones e chaves Pix só entram se o gestor marcar a opção.
+- **Mapa ao vivo dos condomínios** (aba Condomínios): pino por condomínio com número de indicações, localização automática pelo endereço (OpenStreetMap) e ajuste manual do pino.
 - Painel do indicador e do corretor; QR Code pessoal e por condomínio.
 
 **Como atualizar o banco**: rodar `supabase/schema.sql` inteiro no SQL Editor (não apaga dados).
