@@ -718,20 +718,22 @@ const act = {
   rew: d => guard(async () => { await rpc('mudar_recompensa', { p_indicacao: d.v, p_estado: d.e }); await refresh(); toast(d.e === 'pago' ? 'Pagamento registrado' : 'Recompensa liberada'); }),
   ocorr: d => guard(async () => { await rpc('resolver_ocorrencia', { p_id: Number(d.v), p_estado: d.e }); await refresh(); }),
   editPix: () => { S.editPix = !S.editPix; render(); },
+  anexarComp: d => act.pagarPix({ v: d.v, modo: 'anexar' }),
   pagarPix: d => {
+    const anexar = d.modo === 'anexar';
     const r = S.D.rewards.find(x => x.indicacao_id === d.v), u = perfil(r.indicador_id), t0 = new Date(), hoje = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}-${String(t0.getDate()).padStart(2,'0')}`;
     const pix = u?.pix_chave ? `<div class="paybox"><span class="eyebrow">Chave Pix · ${esc(u.pix_tipo)}</span><div class="copyrow"><span>${esc(u.pix_chave)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(u.pix_chave)}">${ic('copy',16)}Copiar</button></div></div>`
       : `<div class="alert"><b>${esc(u?.nome || 'O indicador')} ainda não cadastrou a chave Pix.</b><p class="note">Peça para ele cadastrar em Carteira → Sua chave Pix.</p>${u?.telefone ? `<a class="btn sm wa" href="${waLink(u.telefone)}?text=${encodeURIComponent('Oi! Para receber sua recompensa do Rendique, cadastre sua chave Pix no app: Carteira → Sua chave Pix.')}" target="_blank" rel="noopener">${ic('chat',16)}Avisar pelo WhatsApp</a>` : ''}</div>`;
     openModal(`<form data-f="pagamento" class="cards" style="gap:14px;text-align:left" novalidate>
-      <input type="hidden" name="ind" value="${esc(d.v)}">
-      <div><p class="eyebrow">Pagar recompensa · ${esc(d.v)}</p><h2>${money(r.valor)} para ${esc(u?.nome || '—')}</h2></div>
-      ${pix}
-      <p class="note">1. Faça o Pix no app do seu banco. 2. Volte aqui e registre o comprovante.</p>
-      <label class="f">Data do pagamento<input class="in" type="date" id="pg-data" name="data" value="${hoje}"></label>
-      <label class="f">Código da transação Pix <small>(ID / E2E, opcional se anexar a foto)</small><input class="in mono" id="pg-cod" name="codigo" placeholder="E1234567820261007…"></label>
+      <input type="hidden" name="ind" value="${esc(d.v)}"><input type="hidden" name="modo" value="${anexar ? 'anexar' : 'pagar'}">
+      <div><p class="eyebrow">${anexar ? 'Comprovante' : 'Pagar recompensa'} · ${esc(d.v)}</p><h2>${anexar ? `Inserir comprovante de ${money(r.valor)}` : `${money(r.valor)} para ${esc(u?.nome || '—')}`}</h2></div>
+      ${anexar ? `<p class="note">Pagamento para ${esc(u?.nome || '—')}. Anexe a foto ou o PDF do comprovante e/ou informe o código da transação.</p>` : `${pix}
+      <p class="note">1. Faça o Pix no app do seu banco. 2. Volte aqui e registre o comprovante.</p>`}
+      <label class="f">Data do pagamento<input class="in" type="date" id="pg-data" name="data" value="${anexar && r.pago_em ? r.pago_em : hoje}"></label>
+      <label class="f">Código da transação Pix <small>(ID / E2E, opcional se anexar a foto)</small><input class="in mono" id="pg-cod" name="codigo" value="${esc(anexar ? (r.comprovante_codigo || '') : '')}" placeholder="E1234567820261007…"></label>
       <label class="f">Foto ou PDF do comprovante <small>(opcional se informar o código)</small><input class="in" type="file" id="pg-arq" name="arquivo" accept="image/*,application/pdf"></label>
       <div id="pg-err" class="err" hidden></div>
-      <div class="btns"><button class="btn gold" type="submit">Confirmar pagamento</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
+      <div class="btns"><button class="btn gold" type="submit">${anexar ? 'Salvar comprovante' : 'Confirmar pagamento'}</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
   },
   verComp: d => guard(async () => {
     const r = S.D.rewards.find(x => x.indicacao_id === d.v); if (!r) return;
@@ -741,7 +743,8 @@ const act = {
     openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:12px"><p class="eyebrow">Comprovante · ${esc(r.indicacao_id)}</p><h2>${money(r.valor)} pago</h2>
       <dl class="kv"><dt>Data</dt><dd>${r.pago_em ? new Date(r.pago_em + 'T12:00').toLocaleDateString('pt-BR') : '—'}</dd>${quem?`<dt>Registrado por</dt><dd>${esc(quem)}</dd>`:''}${r.comprovante_codigo?`<dt>Código Pix</dt><dd class="mono">${esc(r.comprovante_codigo)}</dd>`:''}</dl>
       ${link ? (/\.pdf(\?|$)/i.test(r.comprovante_arquivo) ? `<a class="btn ghost" href="${esc(link)}" target="_blank" rel="noopener">Abrir comprovante (PDF)</a>` : `<a href="${esc(link)}" target="_blank" rel="noopener"><img src="${esc(link)}" alt="Comprovante do Pix" style="max-width:100%;border-radius:12px;border:1px solid var(--line)"></a>`) : (r.comprovante_arquivo ? '<p class="note">Não foi possível abrir o arquivo agora.</p>' : '')}
-      ${!r.comprovante_codigo && !r.comprovante_arquivo ? '<p class="note">Pagamento registrado antes do comprovante existir no sistema.</p>' : ''}
+      ${!r.comprovante_codigo && !r.comprovante_arquivo ? '<p class="note">Ainda não há comprovante para este pagamento.</p>' : ''}
+      ${papel() === 'admin' ? `<button class="btn ${r.comprovante_codigo || r.comprovante_arquivo ? 'ghost' : 'gold'}" data-a="anexarComp" data-v="${esc(r.indicacao_id)}">${ic('doc',18)}${r.comprovante_codigo || r.comprovante_arquivo ? 'Alterar comprovante' : 'Inserir comprovante'}</button>` : ''}
       <button class="btn ghost" data-a="mclose">Fechar</button></div>`);
   }),
   resgatar: () => guard(async () => {
@@ -922,9 +925,10 @@ const forms = {
       const { error } = await sb.storage.from('comprovantes').upload(caminho, file, { upsert: false, contentType: file.type || undefined });
       if (error) return showErr('#pg-err', 'Não foi possível enviar o comprovante: ' + msg(error));
     }
-    try { await rpc('registrar_pagamento', { p_indicacao: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); }
+    const fn = String(fd.get('modo')) === 'anexar' ? 'anexar_comprovante' : 'registrar_pagamento';
+    try { await rpc(fn, { p_indicacao: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); }
     catch(e) { return showErr('#pg-err', msg(e)); }
-    closeModal(); await refresh(); toast('Pagamento registrado');
+    closeModal(); await refresh(); toast(fn === 'anexar_comprovante' ? 'Comprovante salvo' : 'Pagamento registrado');
   }),
   cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round(Number(fd.get('valor')) || 0)) }); await refresh(); toast('Valor salvo'); })
 };

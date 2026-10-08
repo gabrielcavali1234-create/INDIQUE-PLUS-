@@ -627,6 +627,29 @@ end $$;
 revoke execute on function public.atualizar_pix(text,text), public.registrar_pagamento(text,date,text,text) from public, anon;
 grant execute on function public.atualizar_pix(text,text), public.registrar_pagamento(text,date,text,text) to authenticated;
 
+create or replace function public.anexar_comprovante(p_indicacao text, p_data date, p_codigo text, p_arquivo text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_r public.recompensas;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select * into v_r from public.recompensas where indicacao_id = p_indicacao for update;
+  if not found then raise exception 'Recompensa não encontrada.'; end if;
+  if v_r.estado <> 'pago' then raise exception 'Use "Pagar via Pix" para recompensas ainda não pagas.'; end if;
+  if coalesce(trim(p_codigo),'') = '' and coalesce(trim(p_arquivo),'') = '' then
+    raise exception 'Informe o código da transação Pix ou anexe o comprovante.';
+  end if;
+  update public.recompensas
+     set pago_em = coalesce(p_data, pago_em, current_date),
+         pago_por = coalesce(pago_por, auth.uid()),
+         comprovante_codigo = coalesce(nullif(trim(p_codigo),''), comprovante_codigo),
+         comprovante_arquivo = coalesce(nullif(trim(p_arquivo),''), comprovante_arquivo),
+         registrado_em = now(), atualizado_em = now()
+   where id = v_r.id;
+  perform public.registra('Comprovante anexado: ' || p_indicacao);
+end $$;
+revoke execute on function public.anexar_comprovante(text,date,text,text) from public, anon;
+grant execute on function public.anexar_comprovante(text,date,text,text) to authenticated;
+
 -- Pasta privada para os comprovantes (Supabase Storage)
 insert into storage.buckets (id, name, public) values ('comprovantes', 'comprovantes', false)
 on conflict (id) do nothing;
