@@ -326,11 +326,14 @@ begin
    where id = p_id;
   insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, p_status, auth.uid(), v_nome);
 
-  if p_status >= 3 and p_status <> 8 and v_ind.indicador_id is not null
-     and not exists (select 1 from public.recompensas where indicacao_id = p_id) then
-    select valor_recompensa into v_valor from public.configuracoes where id = 1;
-    insert into public.recompensas (indicacao_id, indicador_id, valor) values (p_id, v_ind.indicador_id, v_valor);
-    perform public.registra('Recompensa de R$ ' || v_valor || ' gerada para ' || p_id);
+  if p_status >= 3 and p_status <> 8 and v_ind.indicador_id is not null then
+    if not exists (select 1 from public.recompensas where indicacao_id = p_id) then
+      select valor_recompensa into v_valor from public.configuracoes where id = 1;
+      insert into public.recompensas (indicacao_id, indicador_id, valor) values (p_id, v_ind.indicador_id, v_valor);
+      perform public.registra('Recompensa de R$ ' || v_valor || ' gerada para ' || p_id);
+    else
+      update public.recompensas set estado = 'processamento', atualizado_em = now() where indicacao_id = p_id and estado = 'cancelada';
+    end if;
   end if;
   if p_status = 8 then
     update public.recompensas set estado = 'cancelada', atualizado_em = now() where indicacao_id = p_id and estado = 'processamento';
@@ -375,6 +378,43 @@ begin
 end $$;
 revoke execute on function public.reabrir_indicacao(text) from public, anon;
 grant execute on function public.reabrir_indicacao(text) to authenticated;
+
+create or replace function public.voltar_etapa(p_id text) returns smallint
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ind public.indicacoes;
+  v_novo smallint;
+  v_rew public.recompensas;
+  v_nome text;
+  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Captação em andamento','Em negociação','Venda concluída','Recompensa liberada','Encerrada'];
+begin
+  if not public.is_admin() then raise exception 'Só o gestor pode voltar etapas.'; end if;
+  select * into v_ind from public.indicacoes where id = p_id for update;
+  if not found then raise exception 'Indicação não encontrada.'; end if;
+  if v_ind.status = 8 then raise exception 'Indicação encerrada: use "Reabrir indicação".'; end if;
+  if v_ind.status = 0 then raise exception 'Esta indicação já está na primeira etapa.'; end if;
+  v_novo := v_ind.status - 1;
+
+  select * into v_rew from public.recompensas where indicacao_id = p_id;
+  if found and v_novo < 3 and v_rew.estado in ('disponivel','resgate','pago') then
+    raise exception 'A recompensa desta indicação já foi liberada ou paga. Não dá para voltar para antes de "Oportunidade qualificada".';
+  end if;
+
+  select nome into v_nome from public.perfis where id = auth.uid();
+  update public.indicacoes set status = v_novo, atualizado_em = now() where id = p_id;
+  insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, v_novo, auth.uid(), v_nome || ' (voltou etapa)');
+  if v_novo < 3 then
+    update public.recompensas set estado = 'cancelada', atualizado_em = now() where indicacao_id = p_id and estado = 'processamento';
+  end if;
+  if v_ind.indicador_id is not null then
+    insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+    values (v_ind.indicador_id, 'status', 'Sua indicação foi atualizada', p_id || ': ' || v_rotulo[v_novo + 1], p_id);
+  end if;
+  perform public.registra(p_id || ' voltou para ' || v_rotulo[v_novo + 1]);
+  return v_novo;
+end $$;
+revoke execute on function public.voltar_etapa(text) from public, anon;
+grant execute on function public.voltar_etapa(text) to authenticated;
 
 -- Recompensas: o admin libera e registra pagamento; o indicador pede resgate
 create or replace function public.mudar_recompensa(p_indicacao text, p_estado text) returns void

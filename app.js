@@ -561,7 +561,7 @@ function cardAdm(i, compact){
     ${compact ? '' : `<p class="lc-sub">Indicado por <b>${esc(ind || 'QR Code')}</b></p>`}
    </div>
    <div class="lc-act">
-    <a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a>
+    <div class="btns" style="flex-wrap:nowrap;gap:6px">${i.status >= 1 && i.status <= 7 ? `<button class="iconbtn" data-a="back1" data-v="${i.id}" aria-label="Voltar para ${ST[i.status-1]}" title="Voltar para ${ST[i.status-1]}">${ic('undo',18)}</button>` : ''}<a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a></div>
     ${nx ? `<button class="btn sm ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx}</button>` : i.status === 8 ? `<button class="btn sm ghost" data-a="reopen" data-v="${i.id}">${ic('undo',16)}Reabrir</button>` : ''}
    </div>
   </article>`;
@@ -585,7 +585,7 @@ function vDrawer(){
     <section><p class="eyebrow">Proprietário</p><h2>${esc(i.proprietario_nome)}</h2><p class="mono" style="margin-top:4px">${fph(i.telefone)}</p>
      <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
     ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
-    ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></section>` : ''}
+    ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div></section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
     <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}</dl></section>
     <section><p class="eyebrow">Linha do tempo</p>${timeline(i)}</section>
@@ -721,6 +721,14 @@ const act = {
      <p class="note">Fica registrado na linha do tempo e na auditoria. O indicador vê o motivo na indicação dele.</p>
      <div id="m-err" class="err" hidden></div>
      <div class="btns"><button class="btn danger" data-a="confirmClose" data-v="${esc(d.v)}">Encerrar indicação</button><button class="btn ghost" data-a="mclose">Cancelar</button></div></div>`),
+  back1: d => { const i = S.D.inds.find(x => x.id === d.v); if (!i) return;
+    const r = S.D.rewards.find(x => x.indicacao_id === i.id), novo = i.status - 1;
+    const aviso = novo < 3 && r && r.estado === 'processamento' ? '<p class="note"><b>A recompensa em processamento será cancelada.</b> Se a indicação avançar de novo até "Oportunidade qualificada", ela volta automaticamente.</p>' : '';
+    openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
+     <div><p class="eyebrow">${esc(i.id)} · ${esc(i.proprietario_nome)}</p><h2>Voltar para "${ST[novo]}"?</h2></div>
+     <p class="note">A indicação sai de "${ST[i.status]}" e volta uma etapa. O indicador é avisado e fica registrado na linha do tempo e na auditoria.</p>${aviso}
+     <div class="btns"><button class="btn" data-a="confirmBack" data-v="${esc(i.id)}">${ic('undo',18)}Voltar etapa</button><button class="btn ghost" data-a="mclose">Cancelar</button></div></div>`); },
+  confirmBack: d => guard(async () => { closeModal(); const st = await rpc('voltar_etapa', { p_id: d.v }); delete S.D.hist[d.v]; await refresh(); if (S.drawer === d.v) { try { await loadHist(d.v); } catch(e) {} render(); } toast(`${d.v} voltou para ${ST[st]}`); }),
   reopen: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
      <div><p class="eyebrow">Reabrir ${esc(d.v)}</p><h2>Desfazer o encerramento?</h2></div>
      <p class="note">A indicação volta para a etapa em que estava antes de ser encerrada (no mínimo "Em validação") e aparece de novo em atendimento. Se ela já tinha recompensa, a recompensa volta para "Em processamento". O indicador é avisado e tudo fica registrado na auditoria.</p>
