@@ -384,6 +384,46 @@ tr.flash td{background:var(--gold-soft)}
 .leaflet-tile-pane{filter:saturate(.7)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.5)}}
 :root[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.5)}
+.nvA,.nvB{display:flex;flex-direction:column;gap:16px;min-width:0}
+.nvA{max-width:760px}
+.nvcard,.nvcol{display:flex;flex-direction:column;gap:18px}
+.nvsec{display:flex;flex-direction:column;gap:14px;min-width:0}
+.nvsec h2{display:flex;align-items:center;gap:10px;margin:0}
+.nvB .nvsec+.nvsec,.nvB .nvenvio{border-top:1px solid var(--line);padding-top:20px}
+.nvn{width:28px;height:28px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:inline-grid;place-items:center;font-size:14px;flex:none}
+.nvonde{display:grid;gap:8px}
+.nvopt{position:relative;display:block;cursor:pointer}
+.nvopt input{position:absolute;opacity:0;inset:0;margin:0}
+.nvopt>span{display:flex;flex-direction:column;gap:2px;padding:12px 14px 12px 44px;border:1px solid var(--line);border-radius:14px;background:var(--bg);position:relative}
+.nvopt>span::before{content:"";position:absolute;left:14px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;border:2px solid var(--line);background:var(--surface)}
+.nvopt small{color:var(--muted);font-size:13px}
+.nvopt input:checked+span{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 7%,var(--surface))}
+.nvopt input:checked+span::before{border-color:var(--brand);box-shadow:inset 0 0 0 4px var(--surface);background:var(--brand)}
+.nvopt input:focus-visible+span{outline:3px solid var(--gold);outline-offset:2px}
+.nvaddr{display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:14px;background:var(--surface-2)}
+.nvaddr .in{background:var(--surface)}
+.row3{display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1fr);gap:12px}
+.nvcep{align-items:end}.nvcep .note{margin:0 0 12px}
+@media (max-width:560px){.row3{grid-template-columns:1fr 1fr}.row3 .f:first-child{grid-column:1/-1}.nvcep{grid-template-columns:1fr}.nvcep .note{margin:0}}
+.chips.big span{min-height:48px;padding:10px 18px;font-weight:600}
+.nvprog{list-style:none;margin:0 0 4px;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:760px}
+.nvprog li{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted);font-weight:600}
+.nvprog li::before{content:"";height:4px;border-radius:4px;background:var(--line)}
+.nvprog li.feito::before,.nvprog li.atual::before{background:var(--brand)}
+.nvprog li span{display:none}.nvprog li em{font-style:normal}
+.nvprog li.atual{color:var(--ink)}
+@media (max-width:560px){.nvprog li em{display:none}.nvprog li.atual em{display:block;white-space:nowrap}}
+.nvnav{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:16px}
+.nvnav .btn{min-width:140px}
+.nvenvio{display:flex;flex-direction:column;gap:14px}
+.nvres{display:flex;flex-direction:column;gap:10px}
+.nvres .kv,.nvsec .kv{margin:0}
+.nvfalta{color:var(--muted);font-style:italic;font-weight:400}
+.nvrec{display:flex;gap:8px;align-items:center;margin:0;padding:10px 12px;border-radius:12px;background:var(--gold-soft);color:var(--ink)}
+[data-device="desk"] .nvB{display:grid;grid-template-columns:minmax(0,1fr) 340px;align-items:start;max-width:1120px}
+[data-device="desk"] .nvres{position:sticky;top:96px}
+@media (max-width:900px){[data-device="desk"] .nvB{grid-template-columns:1fr}[data-device="desk"] .nvres{position:static}}
+[data-device="mob"] .nvB .nvres{order:2}
 .fin2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .fchart{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fchart h2{font-size:17px}
@@ -468,6 +508,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610080115"></script>
+<script src="app.js?v=202610080200"></script>
 </body>
 </html>

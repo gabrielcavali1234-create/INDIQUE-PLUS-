@@ -15,6 +15,7 @@ const REW = {processamento:['proc','Em processamento'],disponivel:['disp','Dispo
 
 const params = new URLSearchParams(location.search);
 const S = {
+  novaVar: loadLS('rendique-nova') || 'a', nvStep: 0, nd: null,
   device: loadLS('rendique-device'),
   screen: 'loading', tab: 'home', admTab: 'geral', filter: 'todas', admFilter: 'all', admGrupo: 'novas', admView: 'lista', admQ: '', drawer: null,
   session: null, perfil: null, det: null, lastId: null,
@@ -365,42 +366,121 @@ function vHome(){
     ${recent.map(cardInd).join('') || `<div class="card"><p class="note">Você ainda não fez nenhuma indicação. Quando souber de alguém que quer vender, toque em <b>Nova indicação</b>.</p></div>`}</section>
    <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p></div></div>`;
 }
+/* ---------- Nova indicação (indicador) ---------- */
+const NV_PASSOS = [['aut','Autorização'],['imovel','Imóvel'],['prop','Proprietário'],['venda','Venda'],['rev','Revisar']];
+function nvOnde(){ const u = S.perfil; return u.condominio_id ? 'meu' : (u.condominio_texto ? 'novo' : (S.D.condos.length ? 'lista' : 'novo')); }
 function vNova(){
-  const u = S.perfil;
-  const ch = (name,opts,def,cls='') => `<div class="chips ${cls}" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
-  const temCondo = !!u.condominio_id;
-  return `${ph('Nova indicação')}
-  <p class="muted" style="margin-top:-6px">Preencha o que você souber. Nossa equipe confirma o resto com o proprietário.</p>
-  <form data-f="nova" novalidate class="cards" style="gap:14px"><div class="fgrid">
-   <div class="card"><h2>Proprietário</h2>
-    <label class="f">Nome<input class="in" id="f-owner" name="owner" autocomplete="off" placeholder="Ex.: Maria da Silva"></label>
-    <label class="f">Telefone<input class="in" id="f-phone" name="phone" inputmode="tel" placeholder="(11) 90000-0000"></label>
-    <label class="check" style="background:none;padding:0"><input type="checkbox" id="f-samewa" name="samewa" checked> O WhatsApp é o mesmo número</label>
-    <label class="f" id="wa-wrap" hidden>WhatsApp<input class="in" id="f-wa" name="wa" inputmode="tel" placeholder="(11) 90000-0000"></label>
-    <div class="f"><span class="qlabel">Melhor horário para contato</span>${ch('horario',['Manhã','Tarde','Noite','Qualquer horário'],'Qualquer horário')}</div>
-    <div class="f"><span class="qlabel">O proprietário autorizou passar o contato dele?</span>${ch('autorizou',['Sim','Não'],'','yn')}</div>
-   </div>
-   <div class="card"><h2>Imóvel</h2>
-    <label class="f">Condomínio<select class="in" id="f-condo" name="condo">${S.D.condos.map(c=>`<option value="${c.id}" ${c.id===u.condominio_id?'selected':''}>${esc(c.nome)}</option>`).join('')}<option value="outro" ${temCondo?'':'selected'}>Outro endereço</option></select></label>
-    <div id="addr" class="cards" style="gap:14px" ${temCondo?'hidden':''}>
-     <label class="f">Endereço<input class="in" id="f-end" name="end" placeholder="Rua, avenida…"></label>
-     <div class="row2"><label class="f">Número<input class="in" id="f-numero" name="numero" inputmode="numeric"></label><label class="f">Bairro<input class="in" id="f-bairro" name="bairro"></label></div>
-     <label class="f">Cidade<input class="in" id="f-cidade" name="cidade" value="São Paulo"></label></div>
-    <label class="f">Unidade / complemento<input class="in" id="f-unit" name="unit" placeholder="Ex.: Apto 82 · Bloco B"></label>
+  const u = S.perfil, meu = condo(u.condominio_id), varB = S.novaVar === 'b', passo = S.nvStep || 0;
+  const ch = (name, opts, def, cls='') => `<div class="chips ${cls}" role="radiogroup">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<label><input type="radio" name="${name}" value="${esc(v)}" ${v===def?'checked':''}><span>${l}</span></label>`; }).join('')}</div>`;
+  const onde = nvOnde();
+  const secAut = `<section class="nvsec" data-step="0"><h2>${varB?'<span class="nvn">1</span>':''}Antes de começar</h2>
+    <div class="f"><span class="qlabel">O proprietário autorizou você a passar o contato dele?</span>${ch('autorizou',[['Sim','Sim, ele autorizou'],['Não','Ainda não']],'','yn big')}</div>
+    <div class="alert" data-when="autorizou=Não"><b>Peça a autorização primeiro.</b><p class="note">Sem autorização do proprietário não podemos registrar o contato dele (LGPD). Pergunte se ele aceita receber a ligação de um corretor e volte aqui.</p></div>
+    <p class="note">Você só informa a oportunidade. Quem liga, avalia e negocia é um corretor habilitado.</p></section>`;
+  const secImovel = `<section class="nvsec" data-step="1"><h2>${varB?'<span class="nvn">2</span>':''}Onde fica o imóvel</h2>
+    <div class="nvonde" role="radiogroup">
+     ${meu ? `<label class="nvopt"><input type="radio" name="onde" value="meu" ${onde==='meu'?'checked':''}><span><b>No meu condomínio</b><small>${esc(meu.nome)}${meu.endereco ? ' · ' + esc(meu.endereco) : ''}</small></span></label>` : ''}
+     ${S.D.condos.length ? `<label class="nvopt"><input type="radio" name="onde" value="lista" ${onde==='lista'?'checked':''}><span><b>${meu ? 'Em outro condomínio parceiro' : 'Em um condomínio parceiro'}</b><small>Escolha na lista de condomínios cadastrados</small></span></label>` : ''}
+     <label class="nvopt"><input type="radio" name="onde" value="novo" ${onde==='novo'?'checked':''}><span><b>Em outro endereço</b><small>Condomínio fora da lista ou casa de rua</small></span></label>
+    </div>
+    <label class="f" data-when="onde=lista">Condomínio<select class="in" id="f-condo" name="condo"><option value="">Escolha…</option>${S.D.condos.filter(c => c.id !== u.condominio_id).map(c => `<option value="${c.id}">${esc(c.nome)}${c.bairro ? ' · ' + esc(c.bairro) : ''}</option>`).join('')}</select></label>
+    <div class="nvaddr" data-when="onde=novo">
+     <label class="f">Nome do condomínio <small>(deixe em branco se for casa de rua)</small><input class="in" id="f-cnome" name="cnome" placeholder="Ex.: Residencial Solar das Palmeiras" value="${esc(!u.condominio_id && u.condominio_texto || '')}"></label>
+     <div class="row2 nvcep"><label class="f">CEP<input class="in" id="f-cep" name="cep" inputmode="numeric" placeholder="00000-000" autocomplete="postal-code"></label><span class="note" id="f-cep-st">Digite o CEP e preenchemos o endereço.</span></div>
+     <label class="f">Rua ou avenida<input class="in" id="f-end" name="end" placeholder="Ex.: Av. dos Autonomistas" autocomplete="address-line1"></label>
+     <div class="row3"><label class="f">Número<input class="in" id="f-numero" name="numero" inputmode="numeric"></label><label class="f">Bairro<input class="in" id="f-bairro" name="bairro"></label><label class="f">Cidade<input class="in" id="f-cidade" name="cidade" value="São Paulo"></label></div>
+    </div>
     <div class="f"><span class="qlabel">Tipo de imóvel</span>${ch('tipo',['Apartamento','Casa','Cobertura','Sala comercial','Outro'],'Apartamento')}</div>
-    <div class="f"><span class="qlabel">Dormitórios (aproximado)</span>${ch('dorms',['1','2','3','4+'],'2')}</div>
-   </div>
-   <div class="card"><h2>Oportunidade</h2>
-    <div class="f"><span class="qlabel">O proprietário já disse que quer vender?</span>${ch('interesse',['Sim','Ainda não confirmou'],'Sim')}</div>
+    <div class="row2"><label class="f"><span data-when="tipo!=Casa">Apartamento / unidade</span><span data-when="tipo=Casa">Número da casa</span><input class="in" id="f-apto" name="apto" placeholder="Ex.: 82"></label><label class="f" data-when="tipo!=Casa">Bloco ou torre <small>(se tiver)</small><input class="in" id="f-bloco" name="bloco" placeholder="Ex.: B"></label></div>
+    <div class="f"><span class="qlabel">Dormitórios (aproximado)</span>${ch('dorms',['1','2','3','4+','Não sei'],'2')}</div></section>`;
+  const secProp = `<section class="nvsec" data-step="2"><h2>${varB?'<span class="nvn">3</span>':''}Proprietário</h2>
+    <label class="f">Nome<input class="in" id="f-owner" name="owner" autocomplete="off" placeholder="Ex.: Maria da Silva"></label>
+    <label class="f">Telefone com DDD<input class="in" id="f-phone" name="phone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <label class="check" style="background:none;padding:0"><input type="checkbox" id="f-samewa" name="samewa" checked> O WhatsApp é o mesmo número</label>
+    <label class="f" data-when="samewa=">WhatsApp<input class="in" id="f-wa" name="wa" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <div class="f"><span class="qlabel">Melhor horário para o corretor ligar</span>${ch('horario',['Manhã','Tarde','Noite','Qualquer horário'],'Qualquer horário')}</div></section>`;
+  const secVenda = `<section class="nvsec" data-step="3"><h2>${varB?'<span class="nvn">4</span>':''}Sobre a venda</h2>
+    <div class="f"><span class="qlabel">O proprietário já disse que quer vender?</span>${ch('interesse',['Sim','Está pensando','Ainda não confirmou'],'Sim')}</div>
     <div class="f"><span class="qlabel">Quando ele comentou?</span>${ch('quando',['Esta semana','Este mês','Há mais tempo'],'Esta semana')}</div>
     <div class="f"><span class="qlabel">Como você ficou sabendo?</span>${ch('como',['Ele me contou','Pediu indicação','Vi anúncio ou placa','Outro'],'Ele me contou')}</div>
-    <label class="f">Observações <small>(opcional)</small><textarea class="in" id="f-obs" name="obs" placeholder="Algo que ajude o corretor no primeiro contato"></textarea></label>
-   </div></div><div class="narrow" style="margin-inline:0">
-   <label class="check"><input type="checkbox" id="f-consent" name="consent"><span>Confirmo que o proprietário autorizou o compartilhamento de seus dados para que um profissional imobiliário entre em contato sobre seu interesse em vender o imóvel.</span></label>
-   <div id="f-err" class="err" hidden></div>
-   <button class="btn big gold" type="submit">Enviar indicação</button>
-   <p class="note" style="text-align:center">Você não precisa avaliar, negociar nem falar de preço. Isso fica com o profissional habilitado.</p>
-  </div></form>`;
+    <label class="f">Observações <small>(opcional)</small><textarea class="in" id="f-obs" name="obs" placeholder="Ex.: prefere falar depois das 18h; o imóvel está vazio"></textarea></label></section>`;
+  const envio = `<div class="nvenvio"><label class="check"><input type="checkbox" id="f-consent" name="consent"><span>Confirmo que o proprietário autorizou o compartilhamento dos dados dele para que um profissional imobiliário entre em contato sobre a venda do imóvel.</span></label>
+    <div id="f-err" class="err" hidden></div>
+    <button class="btn big gold" type="submit">Enviar indicação</button>
+    <p class="note" style="text-align:center">Você não precisa avaliar, negociar nem falar de preço. Isso fica com o profissional habilitado.</p></div>`;
+  const resumo = `<aside class="card nvres"><p class="eyebrow">Resumo da indicação</p><div id="nv-resumo">${nvResumoHTML()}</div>
+    <p class="note nvrec">${ic('wallet',16)}<span>Se a oportunidade for qualificada, você recebe <b>${money(S.D.valor)}</b> via Pix.</span></p></aside>`;
+  if (varB) return `${ph('Nova indicação')}<p class="muted" style="margin-top:-6px">Preencha o que você souber. O corretor confirma o resto com o proprietário.</p>
+    <form data-f="nova" novalidate class="nvB"><div class="nvcol card">${secAut}${secImovel}${secProp}${secVenda}${envio}</div>${resumo}</form>`;
+  const prog = `<ol class="nvprog">${NV_PASSOS.map(([k,l],n) => `<li class="${n<passo?'feito':n===passo?'atual':''}"><span>${n<passo?ic('check',14):n+1}</span><em>${l}</em></li>`).join('')}</ol>`;
+  return `${ph('Nova indicação')}${prog}
+    <form data-f="nova" novalidate class="nvA" data-passo="${passo}"><div class="card nvcard">${secAut}${secImovel}${secProp}${secVenda}
+     <section class="nvsec" data-step="4"><h2>Revise antes de enviar</h2><div id="nv-resumo">${nvResumoHTML()}</div><p class="note nvrec">${ic('wallet',16)}<span>Se a oportunidade for qualificada, você recebe <b>${money(S.D.valor)}</b> via Pix.</span></p>${envio}</section>
+     <div id="f-err-p" class="err" hidden></div>
+     <div class="nvnav">${passo ? `<button type="button" class="btn ghost" data-a="nvPasso" data-v="-1">${ic('back',18)}Voltar</button>` : '<span></span>'}${passo < 4 ? `<button type="button" class="btn" data-a="nvPasso" data-v="1">Continuar</button>` : ''}</div>
+    </div></form>`;
+}
+function nvDados(){
+  const f = $('form[data-f=nova]'); if (!f) return S.nd || {};
+  const o = {}; new FormData(f).forEach((v, k) => o[k] = String(v)); return o;
+}
+function nvUnidade(d){
+  const a = String(d.apto||'').trim(), b = String(d.bloco||'').trim(); if (!a) return '';
+  const pre = d.tipo === 'Casa' ? 'Casa' : d.tipo === 'Sala comercial' ? 'Sala' : d.tipo === 'Cobertura' ? 'Cobertura' : 'Apto';
+  const ua = /^\d+[a-z]?$/i.test(a) ? `${pre} ${a}` : a, ub = !b || d.tipo === 'Casa' ? '' : (/^[a-z0-9]{1,3}$/i.test(b) ? `Bloco ${b.toUpperCase()}` : b);
+  return [ua, ub].filter(Boolean).join(' · ');
+}
+function nvLocal(d){
+  const onde = d.onde || nvOnde();
+  if (onde === 'meu') return condo(S.perfil.condominio_id)?.nome || '';
+  if (onde === 'lista') return condo(d.condo)?.nome || '';
+  const end = [d.end && (d.end + (d.numero ? ', ' + d.numero : '')), d.bairro, d.cidade].filter(Boolean).join(' – ');
+  return [d.cnome, end].filter(Boolean).join(' · ');
+}
+function nvResumoHTML(){
+  const d = S.nd || {}, l = (k, v) => `<dt>${k}</dt><dd>${v ? esc(v) : '<span class="nvfalta">a preencher</span>'}</dd>`;
+  return `<dl class="kv">${l('Imóvel', nvLocal(d))}${l('Unidade', nvUnidade(d))}${l('Tipo', d.tipo ? `${d.tipo}${d.dorms && d.dorms !== 'Não sei' ? ' · ' + d.dorms + ' dorm.' : ''}` : '')}${l('Proprietário', d.owner)}${l('Telefone', d.phone ? fph(d.phone) : '')}${l('Horário', d.horario)}${l('Interesse', d.interesse ? `${d.interesse} · ${d.quando || ''}` : '')}</dl>`;
+}
+function nvSync(){
+  const f = $('form[data-f=nova]'); if (!f) return;
+  const d = S.nd = nvDados();
+  f.querySelectorAll('[data-when]').forEach(el => { const [k, v] = el.dataset.when.split(/!?=/), neg = el.dataset.when.includes('!='), val = k === 'samewa' ? (d.samewa ? 'on' : '') : (d[k] || ''); el.hidden = neg ? val === v : val !== v; });
+  const r = $('#nv-resumo'); if (r) r.innerHTML = nvResumoHTML();
+  if (f.classList.contains('nvA')) f.querySelectorAll('[data-step]').forEach(s => s.hidden = +s.dataset.step !== (S.nvStep || 0));
+}
+function nvRestaura(){
+  const f = $('form[data-f=nova]'); if (!f || !S.nd) { nvSync(); return; }
+  Object.entries(S.nd).forEach(([k, v]) => f.querySelectorAll(`[name="${k}"]`).forEach(el => { if (el.type === 'radio') el.checked = el.value === v; else if (el.type === 'checkbox') el.checked = !!v; else el.value = v; }));
+  if (!('samewa' in S.nd)) { const s = f.querySelector('[name=samewa]'); if (s) s.checked = false; }
+  nvSync();
+}
+function nvErro(passo, d){
+  if (passo === 0) return d.autorizou === 'Sim' ? '' : d.autorizou === 'Não' ? 'Peça a autorização do proprietário antes de continuar.' : 'Responda se o proprietário autorizou passar o contato.';
+  if (passo === 1) {
+    const onde = d.onde || nvOnde();
+    if (onde === 'lista' && !d.condo) return 'Escolha o condomínio na lista.';
+    if (onde === 'novo' && !String(d.end||'').trim()) return 'Informe a rua ou avenida do imóvel.';
+    if (onde === 'novo' && !String(d.numero||'').trim()) return 'Informe o número do endereço.';
+    if (!String(d.apto||'').trim()) return d.tipo === 'Casa' ? 'Informe o número da casa.' : 'Informe o apartamento ou unidade.';
+  }
+  if (passo === 2) {
+    if (!String(d.owner||'').trim()) return 'Informe o nome do proprietário.';
+    if (dig(d.phone).length < 10) return 'Informe um telefone com DDD.';
+    if (!d.samewa && d.wa && dig(d.wa).length < 10) return 'Confira o WhatsApp, com DDD.';
+  }
+  return '';
+}
+async function nvCep(v){
+  const c = dig(v), st = $('#f-cep-st'); if (c.length !== 8) return;
+  if (st) st.textContent = 'Buscando endereço…';
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${c}/json/`), j = await r.json();
+    if (j.erro) throw 0;
+    const set = (id, val) => { const el = $(id); if (el && val) el.value = val; };
+    set('#f-end', j.logradouro); set('#f-bairro', j.bairro); set('#f-cidade', j.localidade);
+    if (st) st.textContent = `${j.localidade}${j.uf ? ' – ' + j.uf : ''}. Confira e informe o número.`;
+    nvSync(); $('#f-numero')?.focus();
+  } catch(e) { if (st) st.textContent = 'CEP não encontrado. Preencha o endereço abaixo.'; }
 }
 function vOk(){ return `<div class="card result"><div class="badge">${ic('check',36)}</div><h1>Indicação recebida!</h1>
    <p class="muted">Nossa equipe irá analisar a oportunidade e você poderá acompanhar tudo por aqui.</p><span class="idtag">${esc(S.lastId)}</span>
@@ -1089,6 +1169,7 @@ function render(){
   $('#bell').innerHTML = vBell() + (S.screen === 'app' && papel() === 'admin' ? vDrawer() : '');
   document.querySelectorAll('[data-qr]').forEach(drawQR);
   if (S.screen === 'app' && papel() === 'admin' && S.admTab === 'condos') montaMapa();
+  if (S.screen === 'app' && S.tab === 'nova' && papel() === 'indicador') nvRestaura();
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -1148,6 +1229,12 @@ const act = {
   mapAjustar: d => { S.mapAjuste = d.v; M.map?.closePopup(); render(); const c = condo(d.v); if (temPos(c)) M.map?.setView([c.latitude, c.longitude], Math.max(M.map.getZoom(), 18)); },
   mapAjusteFim: () => { S.mapAjuste = null; render(); },
   condoInds: d => { const c = condo(d.v); S.admTab = 'inds'; S.admGrupo = 'todas'; S.admQ = c?.nome || ''; render(); window.scrollTo(0, 0); },
+  nvPasso: d => {
+    const p = S.nvStep || 0, dir = +d.v; S.nd = nvDados();
+    if (dir > 0) { const e = nvErro(p, S.nd); if (e) return showErr('#f-err-p', e); }
+    $('#f-err-p') && ($('#f-err-p').hidden = true);
+    S.nvStep = Math.max(0, Math.min(4, p + dir)); render(); window.scrollTo(0, 0);
+  },
   admView: d => { S.admView = d.v; render(); },
   noop: () => {},
   openInd: async d => { S.drawer = d.v; render(); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) {} } },
@@ -1250,8 +1337,7 @@ document.addEventListener('mouseover', e => { const t = e.target.closest?.('[dat
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches?.('.lcard')) { e.target.click(); } if (e.key === 'Escape') { if (S.drawer) { S.drawer = null; render(); return; } if ($('#modal').innerHTML) closeModal(); else if (S.bell) { S.bell = false; render(); } } });
 document.addEventListener('change', e => {
   const t = e.target;
-  if (t.id === 'f-samewa') $('#wa-wrap').hidden = t.checked;
-  if (t.id === 'f-condo') $('#addr').hidden = t.value !== 'outro';
+  if (t.form?.dataset.f === 'nova') nvSync();
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
   if (t.id === 'r-de' || t.id === 'r-ate') { S[t.id === 'r-de' ? 'relDe' : 'relAte'] = t.value; render(); }
@@ -1259,6 +1345,7 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.form?.dataset.f === 'nova') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } nvSync(); }
   if (e.target.id === 'f-busca') { S.finQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#f-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
 
@@ -1351,21 +1438,19 @@ const forms = {
     toast(papel() === 'admin' ? 'Bem-vindo! Você é o gestor do Rendique.' : 'Cadastro concluído!');
   }),
   nova: fd => guard(async () => {
-    const g = k => String(fd.get(k)||'').trim();
-    if (!g('owner')) return showErr('#f-err', 'Informe o nome do proprietário.');
-    if (dig(g('phone')).length < 10) return showErr('#f-err', 'Informe um telefone com DDD.');
-    if (g('autorizou') !== 'Sim') return showErr('#f-err', g('autorizou') === 'Não' ? 'Peça a autorização do proprietário antes de enviar. Sem ela, não podemos registrar o contato.' : 'Responda se o proprietário autorizou passar o contato.');
-    if (!g('unit')) return showErr('#f-err', 'Informe a unidade (ex.: Apto 82 · Bloco B).');
-    if (g('condo') === 'outro' && !g('end')) return showErr('#f-err', 'Informe o endereço do imóvel.');
-    if (!fd.get('consent')) return showErr('#f-err', 'Marque a confirmação de autorização do proprietário.');
-    const outro = g('condo') === 'outro';
+    const d = S.nd = nvDados(), g = k => String(d[k]||'').trim();
+    for (let p = 0; p < 4; p++) { const e = nvErro(p, d); if (e) { if ($('form.nvA')) { S.nvStep = p; nvSync(); } return showErr($('form.nvA') ? '#f-err-p' : '#f-err', e); } }
+    if (!d.consent) return showErr('#f-err', 'Marque a confirmação de autorização do proprietário.');
+    const onde = d.onde || nvOnde(), cid = onde === 'meu' ? S.perfil.condominio_id : onde === 'lista' ? g('condo') : null;
+    const end = onde === 'novo' ? [g('cnome'), `${g('end')}, ${g('numero')} – ${g('bairro')}, ${g('cidade')}${dig(g('cep')).length === 8 ? ' · CEP ' + g('cep') : ''}`].filter(Boolean).join(' · ') : null;
     let r;
     try {
       r = await rpc('enviar_indicacao', { p: {
-        proprietario_nome: g('owner'), telefone: dig(g('phone')), whatsapp: fd.get('samewa') ? dig(g('phone')) : dig(g('wa')), horario: g('horario'),
-        condominio_id: outro ? null : g('condo'), unidade: g('unit'), endereco: outro ? `${g('end')}, ${g('numero')} – ${g('bairro')}, ${g('cidade')}` : null,
+        proprietario_nome: g('owner'), telefone: dig(g('phone')), whatsapp: d.samewa ? dig(g('phone')) : dig(g('wa')) || dig(g('phone')), horario: g('horario'),
+        condominio_id: cid, unidade: nvUnidade(d), endereco: end,
         tipo: g('tipo'), dormitorios: g('dorms'), interesse: g('interesse'), quando: g('quando'), como: g('como'), observacoes: g('obs'), consentimento: true } });
     } catch(e) { return showErr('#f-err', msg(e)); }
+    S.nd = null; S.nvStep = 0;
     if (r.duplicada) return go('dup');
     S.lastId = r.id; await loadData(); go('ok');
   }),
