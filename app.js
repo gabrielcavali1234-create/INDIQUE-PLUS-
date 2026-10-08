@@ -72,7 +72,8 @@ const I = {
   search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   columns:'<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="13" rx="1.5"/>',
   chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
-  x:'<path d="M6 6l12 12M18 6L6 18"/>'
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
 };
 const ic = (n,s=20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 const logo = (n,dark) => `<svg class="logo" width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="5" width="40" height="54" rx="5" fill="${dark?'#FFFFFF':'var(--brand)'}"/>${[[19,13],[19,28],[35,28]].map(([x,y])=>`<rect x="${x}" y="${y}" width="10" height="10" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/>`).join('')}<rect x="35" y="13" width="10" height="10" rx="2" fill="var(--lit)"/><rect x="27" y="44" width="10" height="15" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/></svg>`;
@@ -561,7 +562,7 @@ function cardAdm(i, compact){
    </div>
    <div class="lc-act">
     <a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a>
-    ${nx ? `<button class="btn sm ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx}</button>` : ''}
+    ${nx ? `<button class="btn sm ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx}</button>` : i.status === 8 ? `<button class="btn sm ghost" data-a="reopen" data-v="${i.id}">${ic('undo',16)}Reabrir</button>` : ''}
    </div>
   </article>`;
 }
@@ -583,6 +584,7 @@ function vDrawer(){
    <div class="db">
     <section><p class="eyebrow">Proprietário</p><h2>${esc(i.proprietario_nome)}</h2><p class="mono" style="margin-top:4px">${fph(i.telefone)}</p>
      <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
+    ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
     ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
     <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}</dl></section>
@@ -719,6 +721,11 @@ const act = {
      <p class="note">Fica registrado na linha do tempo e na auditoria. O indicador vê o motivo na indicação dele.</p>
      <div id="m-err" class="err" hidden></div>
      <div class="btns"><button class="btn danger" data-a="confirmClose" data-v="${esc(d.v)}">Encerrar indicação</button><button class="btn ghost" data-a="mclose">Cancelar</button></div></div>`),
+  reopen: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
+     <div><p class="eyebrow">Reabrir ${esc(d.v)}</p><h2>Desfazer o encerramento?</h2></div>
+     <p class="note">A indicação volta para a etapa em que estava antes de ser encerrada (no mínimo "Em validação") e aparece de novo em atendimento. Se ela já tinha recompensa, a recompensa volta para "Em processamento". O indicador é avisado e tudo fica registrado na auditoria.</p>
+     <div class="btns"><button class="btn" data-a="confirmReopen" data-v="${esc(d.v)}">${ic('undo',18)}Reabrir indicação</button><button class="btn ghost" data-a="mclose">Cancelar</button></div></div>`),
+  confirmReopen: d => guard(async () => { closeModal(); const st = await rpc('reabrir_indicacao', { p_id: d.v }); delete S.D.hist[d.v]; await refresh(); if (S.drawer === d.v) { try { await loadHist(d.v); } catch(e) {} render(); } toast(`${d.v} reaberta: ${ST[st]}`); }),
   confirmClose: d => guard(async () => {
     const m = $('#m-motivo')?.value || '', j = ($('#m-just')?.value || '').trim();
     if (j.length < 10) return showErr('#m-err', 'Escreva a justificativa (pelo menos 10 letras).');

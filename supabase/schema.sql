@@ -343,6 +343,39 @@ begin
   perform public.registra(p_id || ' → ' || v_rotulo[p_status + 1]);
 end $$;
 
+create or replace function public.reabrir_indicacao(p_id text) returns smallint
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ind public.indicacoes;
+  v_prev smallint;
+  v_nome text;
+  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Captação em andamento','Em negociação','Venda concluída','Recompensa liberada','Encerrada'];
+begin
+  if not public.is_admin() then raise exception 'Só o gestor pode reabrir uma indicação.'; end if;
+  select * into v_ind from public.indicacoes where id = p_id for update;
+  if not found then raise exception 'Indicação não encontrada.'; end if;
+  if v_ind.status <> 8 then raise exception 'Esta indicação não está encerrada.'; end if;
+
+  select status into v_prev from public.historico
+   where indicacao_id = p_id and status <> 8 order by criado_em desc, id desc limit 1;
+  v_prev := greatest(coalesce(v_prev, 1), 1);
+
+  select nome into v_nome from public.perfis where id = auth.uid();
+  update public.indicacoes set status = v_prev, motivo_encerramento = null, atualizado_em = now() where id = p_id;
+  insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, v_prev, auth.uid(), v_nome || ' (reaberta)');
+  if v_prev >= 3 then
+    update public.recompensas set estado = 'processamento', atualizado_em = now() where indicacao_id = p_id and estado = 'cancelada';
+  end if;
+  if v_ind.indicador_id is not null then
+    insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+    values (v_ind.indicador_id, 'status', 'Sua indicação foi reaberta', p_id || ': ' || v_rotulo[v_prev + 1], p_id);
+  end if;
+  perform public.registra(p_id || ' reaberta → ' || v_rotulo[v_prev + 1]);
+  return v_prev;
+end $$;
+revoke execute on function public.reabrir_indicacao(text) from public, anon;
+grant execute on function public.reabrir_indicacao(text) to authenticated;
+
 -- Recompensas: o admin libera e registra pagamento; o indicador pede resgate
 create or replace function public.mudar_recompensa(p_indicacao text, p_estado text) returns void
 language plpgsql security definer set search_path = public as $$
