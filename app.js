@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610072345 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610080115 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -8,7 +8,7 @@ const sb = (CFG.supabaseUrl && CFG.supabaseKey && window.supabase)
   : null;
 const SITE = location.origin + location.pathname.replace(/index\.html$/, '');
 
-const ST = ['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Captação em andamento','Em negociação','Venda concluída','Recompensa liberada','Encerrada'];
+const ST = ['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Recompensa liberada','Encerrada'];
 const MOTIVOS = ['Proprietário desistiu da venda','Não foi possível falar com o proprietário','Dados incorretos','Imóvel já anunciado com outra imobiliária','Outro motivo'];
 const FUNCOES = ['Porteiro','Zelador','Síndico','Funcionário do condomínio','Outro parceiro'];
 const REW = {processamento:['proc','Em processamento'],disponivel:['disp','Disponível'],resgate:['resg','Resgate solicitado'],pago:['pago','Pago'],cancelada:['pago','Cancelada']};
@@ -515,7 +515,7 @@ function vAdm(){
 function aGeral(){
   const L = S.D.inds, n = L.length, now = Date.now(), since = d => L.filter(i => new Date(i.criado_em) > now - d*DAY).length;
   const reached = (i,k) => i.status >= k && i.status !== 8;
-  const fun = [['Indicações',n,0],['Contatos',L.filter(i=>reached(i,2)).length,2],['Qualificadas',L.filter(i=>reached(i,3)).length,3],['Captações',L.filter(i=>reached(i,4)).length,4],['Negociações',L.filter(i=>reached(i,5)).length,5],['Vendas',L.filter(i=>reached(i,6)).length,6]];
+  const fun = [['Indicações',n,0],['Contatos',L.filter(i=>reached(i,2)).length,2],['Qualificadas',L.filter(i=>reached(i,3)).length,3],['Anúncios',L.filter(i=>reached(i,4)).length,4],['Negociações',L.filter(i=>reached(i,5)).length,5],['Vendas',L.filter(i=>reached(i,6)).length,6]];
   const R = S.D.rewards.filter(r => r.estado !== 'cancelada'), sum = f => R.filter(f).reduce((a,b) => a + Number(b.valor), 0);
   const inds = S.D.perfis.filter(p => p.papel === 'indicador');
   const ativos = inds.filter(u => L.some(i => i.indicador_id === u.id && new Date(i.criado_em) > now - 30*DAY)).length;
@@ -541,13 +541,14 @@ function aGeral(){
 const GRUPOS = [
   ['novas','Para validar', i => i.status === 0],
   ['andamento','Em atendimento', i => i.status === 1 || i.status === 2],
-  ['qualif','Qualificadas', i => i.status === 3 || i.status === 4],
+  ['qualif','Qualificar', i => i.status === 3],
+  ['anuncio','Anúncio ativo', i => i.status === 4],
   ['negoc','Em negociação', i => i.status === 5],
-  ['concl','Concluídas', i => i.status === 6 || i.status === 7],
+  ['concl','Venda realizada', i => i.status === 6 || i.status === 7],
   ['encerr','Encerradas', i => i.status === 8],
   ['todas','Todas', () => true]
 ];
-const PROX = { 0:'Validar', 1:'Contato feito', 2:'Qualificar', 3:'Iniciar captação', 4:'Iniciar negociação', 5:'Venda concluída', 6:'Liberar recompensa' };
+const PROX = { 0:'Validar', 1:'Contato feito', 2:'Qualificar', 3:'Publicar anúncio', 4:'Iniciar negociação', 5:'Venda realizada', 6:'Liberar recompensa' };
 const waLink = t => `https://wa.me/55${dig(t)}`;
 function filtraInds(){
   const q = (S.admQ || '').trim().toLowerCase(), qd = dig(q);
