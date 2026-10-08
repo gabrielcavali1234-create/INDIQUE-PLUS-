@@ -359,7 +359,9 @@ tr.flash td{background:var(--gold-soft)}
 .pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--brand);font-weight:600;font-size:13px;padding:8px}
 body.busy{cursor:progress}
 body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
-@media (max-width:480px){.who-chip{display:none}}
+.logoutbtn{display:flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
+.logoutbtn:hover{border-color:var(--danger);color:var(--danger)}
+@media (max-width:480px){.who-chip{display:none}.logoutbtn span{display:none}.logoutbtn{width:40px;padding:0;justify-content:center}}
 </style>
 </head>
 <body>
@@ -372,6 +374,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610072252"></script>
+<script src="app.js?v=202610072256"></script>
 </body>
 </html>

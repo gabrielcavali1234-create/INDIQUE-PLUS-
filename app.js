@@ -309,7 +309,8 @@ function vTop(){
      <button class="${S.device==='mob'?'on':''}" data-a="device" data-v="mob" aria-pressed="${S.device==='mob'}" aria-label="Versão celular" title="Versão celular">${ic('phone2',18)}</button>
      <button class="${S.device==='desk'?'on':''}" data-a="device" data-v="desk" aria-pressed="${S.device==='desk'}" aria-label="Versão computador" title="Versão computador">${ic('monitor',18)}</button></div>
     ${inApp ? `<button class="bellbtn" data-a="bell" aria-label="Notificações${unread?`: ${unread} novas`:''}" aria-expanded="${S.bell}">${ic('bell',20)}${unread?`<span class="badge">${unread>99?'99+':unread}</span>`:''}</button>
-     <span class="who-chip" title="${esc(S.perfil.nome)}"><b>${esc(S.perfil.nome.split(' ')[0])}</b><small>${rot}</small></span>` : ''}
+     <span class="who-chip" title="${esc(S.perfil.nome)}"><b>${esc(S.perfil.nome.split(' ')[0])}</b><small>${rot}</small></span>
+     <button class="logoutbtn" data-a="logout" aria-label="Sair" title="Sair">${ic('out',18)}<span>Sair</span></button>` : ''}
    </div></div></header>`;
 }
 function vBell(){
@@ -688,7 +689,7 @@ const act = {
   atab: d => { S.admTab = d.v; S.flash = null; render(); },
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await refresh(); toast('Dados atualizados'); }),
-  logout: () => guard(async () => { await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
+  logout: () => guard(async () => { S.drawer = null; S.bell = false; closeModal(); await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
   authMode: d => { const e = $('#l-email')?.value; if (e) S.email = e.trim().toLowerCase(); S.authMode = d.v; render(); },
   eye: (d, el) => { const i = document.getElementById(d.v); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.textContent = show ? 'ocultar' : 'mostrar'; },
   resendSignup: () => guard(async () => { const { error } = await sb.auth.resend({ type: 'signup', email: S.email, options: { emailRedirectTo: SITE } }); if (error) throw error; toast('Novo código enviado'); }),
