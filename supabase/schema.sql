@@ -797,3 +797,116 @@ revoke all on public.fichas_imovel from anon;
 grant select on public.fichas_imovel to authenticated;
 revoke execute on function public.salvar_ficha(text, jsonb) from public, anon;
 grant execute on function public.salvar_ficha(text, jsonb) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Bonificação por venda (percentual do valor de venda ou valor fixo)
+-- ATENÇÃO: validar com o jurídico antes de pagar percentual a quem não tem CRECI.
+-- ---------------------------------------------------------------------
+alter table public.configuracoes add column if not exists bonus_modo       text    not null default 'percentual';
+alter table public.configuracoes add column if not exists bonus_percentual numeric not null default 0.3;
+alter table public.configuracoes add column if not exists bonus_fixo       numeric not null default 300;
+
+create table if not exists public.bonus_venda (
+  indicacao_id        text primary key references public.indicacoes(id) on delete cascade,
+  indicador_id        uuid references public.perfis(id) on delete set null,
+  valor_venda         numeric not null check (valor_venda > 0),
+  data_venda          date not null default current_date,
+  modo                text not null default 'percentual' check (modo in ('percentual','fixo')),
+  percentual          numeric,
+  valor               numeric not null check (valor >= 0),
+  estado              text not null default 'aguardando' check (estado in ('aguardando','disponivel','pago','cancelado')),
+  comissao_recebida_em date,
+  pago_em             date,
+  pago_por            uuid references public.perfis(id) on delete set null,
+  comprovante_codigo  text,
+  comprovante_arquivo text,
+  observacao          text,
+  criado_em           timestamptz not null default now(),
+  atualizado_em       timestamptz not null default now()
+);
+alter table public.bonus_venda enable row level security;
+drop policy if exists bonus_ler on public.bonus_venda;
+create policy bonus_ler on public.bonus_venda for select to authenticated using (public.is_admin() or indicador_id = auth.uid());
+revoke all on public.bonus_venda from anon;
+grant select on public.bonus_venda to authenticated;
+
+create or replace function public.definir_bonus(p_modo text, p_percentual numeric, p_fixo numeric) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  if p_modo not in ('percentual','fixo') then raise exception 'Modo inválido.'; end if;
+  if coalesce(p_percentual,0) < 0 or coalesce(p_percentual,0) > 10 then raise exception 'Percentual deve ficar entre 0 e 10%%.'; end if;
+  update public.configuracoes set bonus_modo = p_modo, bonus_percentual = coalesce(p_percentual, bonus_percentual), bonus_fixo = coalesce(p_fixo, bonus_fixo) where id = 1;
+  perform public.registra('Regra de bônus por venda: ' || p_modo || ' (' || coalesce(p_percentual::text,'-') || '% / R$ ' || coalesce(p_fixo::text,'-') || ')');
+end $$;
+
+create or replace function public.registrar_venda(p_id text, p_valor_venda numeric, p_data date, p_percentual numeric default null, p_obs text default null) returns numeric
+language plpgsql security definer set search_path = public as $$
+declare v_ind public.indicacoes; v_cfg public.configuracoes; v_b public.bonus_venda; v_pct numeric; v_val numeric; v_nome text;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select * into v_ind from public.indicacoes where id = p_id for update;
+  if not found then raise exception 'Indicação não encontrada.'; end if;
+  if v_ind.indicador_id is null then raise exception 'Esta indicação não tem indicador para receber bônus.'; end if;
+  if v_ind.status not in (5,6,7) then raise exception 'A indicação precisa estar Em negociação para registrar a venda.'; end if;
+  if coalesce(p_valor_venda,0) <= 0 then raise exception 'Informe o valor da venda.'; end if;
+  select * into v_b from public.bonus_venda where indicacao_id = p_id;
+  if found and v_b.estado = 'pago' then raise exception 'O bônus desta venda já foi pago.'; end if;
+  select * into v_cfg from public.configuracoes where id = 1;
+  if v_cfg.bonus_modo = 'fixo' then v_pct := null; v_val := v_cfg.bonus_fixo;
+  else v_pct := coalesce(p_percentual, v_cfg.bonus_percentual); v_val := round(p_valor_venda * v_pct / 100, 2); end if;
+  insert into public.bonus_venda (indicacao_id, indicador_id, valor_venda, data_venda, modo, percentual, valor, estado, observacao)
+  values (p_id, v_ind.indicador_id, p_valor_venda, coalesce(p_data, current_date), v_cfg.bonus_modo, v_pct, v_val, 'aguardando', nullif(trim(p_obs),''))
+  on conflict (indicacao_id) do update set valor_venda = excluded.valor_venda, data_venda = excluded.data_venda, modo = excluded.modo,
+     percentual = excluded.percentual, valor = excluded.valor, observacao = excluded.observacao,
+     estado = case when bonus_venda.estado = 'cancelado' then 'aguardando' else bonus_venda.estado end, atualizado_em = now();
+  if v_ind.status < 6 then
+    select nome into v_nome from public.perfis where id = auth.uid();
+    update public.indicacoes set status = 6, atualizado_em = now() where id = p_id;
+    insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, 6, auth.uid(), v_nome);
+  end if;
+  insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bônus de R$ ' || v_val || ' será liberado quando a comissão for recebida.', p_id);
+  perform public.registra('Venda registrada ' || p_id || ': R$ ' || p_valor_venda || ' · bônus R$ ' || v_val);
+  return v_val;
+end $$;
+
+create or replace function public.mudar_bonus(p_id text, p_estado text, p_data date default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_b public.bonus_venda;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select * into v_b from public.bonus_venda where indicacao_id = p_id for update;
+  if not found then raise exception 'Bônus não encontrado.'; end if;
+  if v_b.estado = 'pago' then raise exception 'Bônus já pago não pode ser alterado.'; end if;
+  if p_estado not in ('aguardando','disponivel','cancelado') then raise exception 'Estado inválido.'; end if;
+  update public.bonus_venda set estado = p_estado, atualizado_em = now(),
+    comissao_recebida_em = case when p_estado = 'disponivel' then coalesce(p_data, current_date) when p_estado = 'aguardando' then null else comissao_recebida_em end
+   where indicacao_id = p_id;
+  if p_estado = 'disponivel' then
+    insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+    values (v_b.indicador_id, 'bonus', 'Bônus de venda liberado', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
+  end if;
+  perform public.registra('Bônus de ' || p_id || ' → ' || p_estado);
+end $$;
+
+create or replace function public.pagar_bonus(p_id text, p_data date, p_codigo text, p_arquivo text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_b public.bonus_venda;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select * into v_b from public.bonus_venda where indicacao_id = p_id for update;
+  if not found then raise exception 'Bônus não encontrado.'; end if;
+  if v_b.estado <> 'disponivel' then raise exception 'Marque a comissão como recebida antes de pagar o bônus.'; end if;
+  if coalesce(trim(p_codigo),'') = '' and coalesce(trim(p_arquivo),'') = '' then raise exception 'Informe o código da transação Pix ou anexe o comprovante.'; end if;
+  update public.bonus_venda set estado = 'pago', pago_em = coalesce(p_data, current_date), pago_por = auth.uid(), atualizado_em = now(),
+    comprovante_codigo = nullif(trim(p_codigo),''), comprovante_arquivo = nullif(trim(p_arquivo),'') where indicacao_id = p_id;
+  insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+  values (v_b.indicador_id, 'bonus', 'Bônus de venda pago', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
+  perform public.registra('Bônus pago: ' || p_id || ' (R$ ' || v_b.valor || ')');
+end $$;
+
+revoke execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text),
+  public.mudar_bonus(text,text,date), public.pagar_bonus(text,date,text,text) from public, anon;
+grant execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text),
+  public.mudar_bonus(text,text,date), public.pagar_bonus(text,date,text,text) to authenticated;

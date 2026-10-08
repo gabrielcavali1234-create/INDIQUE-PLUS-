@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081630 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081900 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -100,12 +100,15 @@ async function loadData(){
     q(sb.from('notificacoes').select('*').order('criado_em',{ascending:false}).limit(60)).then(r => S.D.notifs = r),
     q(sb.from('indicacoes').select('*').order('criado_em',{ascending:false}).limit(1000)).then(r => S.D.inds = r)
   ];
+  if (p === 'indicador') jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('recompensas').select('*').order('criado_em',{ascending:false})).then(r => S.D.rewards = r));
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('fichas_imovel').select('*')).then(r => { S.D.fichas = Object.fromEntries(r.map(x => [x.indicacao_id, x])); }).catch(() => { S.D.fichas = {}; }));
   if (p === 'admin') {
     jobs.push(q(sb.from('ocorrencias').select('*').order('criado_em',{ascending:false}).limit(200)).then(r => S.D.ocorr = r));
     jobs.push(q(sb.from('convites_acesso').select('*').order('criado_em',{ascending:false}).limit(50)).then(r => S.D.convites = r).catch(() => S.D.convites = []));
+    jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
+    jobs.push(q(sb.from('configuracoes').select('bonus_modo,bonus_percentual,bonus_fixo').eq('id',1)).then(r => S.D.bonusCfg = r[0] || null).catch(() => S.D.bonusCfg = null));
     jobs.push(q(sb.from('auditoria').select('*').order('criado_em',{ascending:false}).limit(150)).then(r => S.D.audit = r));
   }
   await Promise.all(jobs);
@@ -520,7 +523,8 @@ function vCarteira(){
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
    ${cardPix()}
-   <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.D.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate. O valor não depende do preço do imóvel nem do resultado da negociação.</p></div></div>
+   ${(S.D.bonus||[]).length ? `<div class="card"><h2>Bônus de venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe um bônus. Ele é liberado depois que a imobiliária recebe a comissão.</p><div class="hist">${S.D.bonus.map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${b.estado==='disponivel'?'Liberado':BON[b.estado][1]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`).join('')}</div></div>` : ''}
+   <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.D.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate.</p></div></div>
    <div class="col"><div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].map(r => { const i = S.D.inds.find(x => x.id === r.indicacao_id);
      return `<div><div><div class="mono" style="font-size:13px">${r.indicacao_id}</div><div class="note">${esc(i?.proprietario_nome||'')} · ${fd(r.criado_em)}</div></div><div style="text-align:right"><div class="a">${money(r.valor)}</div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span>${r.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`; }).join('') || '<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
 }
@@ -588,8 +592,8 @@ const kpi = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l
 function vAdm(){
   const open = S.D.ocorr.filter(o => o.estado === 'aberta').length;
   const novas = S.D.inds.filter(i => i.status === 0).length;
-  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
-  const body = ({ geral:aGeral, inds:aInds, ocorr:aOcorr, rec:aRec, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
+  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
+  const body = ({ geral:aGeral, inds:aInds, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
    <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
 }
@@ -741,7 +745,7 @@ function vDrawer(){
     ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div></section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
     ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
-    <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}</dl></section>
+    <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}${bonusDe(i.id)?`<dt>Bônus de venda</dt><dd>${money(bonusDe(i.id).valor)} · ${BON[bonusDe(i.id).estado][1]}${bonusDe(i.id).estado!=='pago'?` · <button class="link" data-a="registrarVenda" data-v="${i.id}">editar venda</button>`:''}</dd>`:(i.status===6||i.status===7)&&i.indicador_id?`<dt>Bônus de venda</dt><dd><button class="link" data-a="registrarVenda" data-v="${i.id}">Registrar valor da venda</button></dd>`:''}</dl></section>
     <section><p class="eyebrow">Linha do tempo</p>${timeline(i)}</section>
    </div></aside></div>`;
 }
@@ -875,6 +879,103 @@ function cStats(c){
   return { n: L.length, ab: L.filter(i => i.status < 6).length, q: L.filter(i => i.status >= 3 && i.status !== 8).length,
     ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador').length,
     nova: L.some(i => Date.now() - new Date(i.criado_em) < DAY), ult: L.map(i => i.criado_em).sort().pop() };
+}
+/* ---------- Bônus de venda (gestor) ---------- */
+const BON = { aguardando: ['proc','Aguardando comissão'], disponivel: ['disp','A pagar'], pago: ['pago','Pago'], cancelado: ['pago','Cancelado'] };
+const pctBR = v => `${Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
+const brlK = v => { v = Number(v || 0); return v >= 1e6 ? `R$ ${(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})} mi` : v >= 1e3 ? `R$ ${(v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:0})} mil` : money(v); };
+const bonusCfg = () => S.D.bonusCfg || { bonus_modo: 'percentual', bonus_percentual: 0.3, bonus_fixo: 300 };
+const bonusDe = id => (S.D.bonus || []).find(b => b.indicacao_id === id);
+const dataBon = (b, campo) => b[campo] ? new Date(b[campo] + 'T12:00') : null;
+function bonusCalc(){
+  const B = S.D.bonus || [], k = S.bonPer || 'ano', em = d => d && noPeriodo(d, k), sum = (L, f='valor') => L.reduce((a, b) => a + Number(b[f] || 0), 0);
+  const ativos = B.filter(b => b.estado !== 'cancelado'), vendasPer = ativos.filter(b => em(dataBon(b,'data_venda')));
+  const pagosPer = B.filter(b => b.estado === 'pago' && em(dataBon(b,'pago_em')));
+  const aguard = B.filter(b => b.estado === 'aguardando'), apagar = B.filter(b => b.estado === 'disponivel');
+  const prazos = B.filter(b => b.estado === 'pago' && b.pago_em).map(b => Math.max(0, (dataBon(b,'pago_em') - dataBon(b,'data_venda')) / DAY));
+  return { k, B, ativos, vendasPer, pagosPer, aguard, apagar, sum, prazo: prazos.length ? prazos.reduce((a,b) => a+b, 0) / prazos.length : null };
+}
+function graficoMeses(titulo, itens, rotG, rotP, legenda){
+  const n = new Date(), meses = [];
+  for (let k = 5; k >= 0; k--) { const d = new Date(n.getFullYear(), n.getMonth() - k, 1); meses.push({ ini: d, fim: new Date(d.getFullYear(), d.getMonth() + 1, 1), rot: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), g: 0, p: 0 }); }
+  itens.forEach(([d, v, t]) => { const m = d && meses.find(x => d >= x.ini && d < x.fim); if (m) m[t] += Number(v); });
+  const max = Math.max(10, ...meses.map(m => Math.max(m.g, m.p)));
+  const passo = [10,20,50,100,200,500,1000,2000,5000,10000,20000,50000].find(x => max / x <= 4) || Math.ceil(max / 4);
+  const topo = Math.ceil(max / passo) * passo, W = 640, H = 240, L = 64, B = 28, T = 12, plotH = H - B - T, gw = (W - L - 8) / 6, bw = Math.min(28, gw / 3.2);
+  const y = v => T + plotH - (v / topo) * plotH; let g = '';
+  for (let v = 0; v <= topo; v += passo) g += `<line x1="${L}" x2="${W-8}" y1="${y(v)}" y2="${y(v)}" class="fg-grid"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" class="fg-ax">${brl0(v)}</text>`;
+  const bar = (x, v, cls) => { const h = Math.max(0, y(0) - y(v)), r = Math.max(0, h - 4); return v ? `<path d="M${x},${y(0)} v${-r} q0,-4 4,-4 h${bw-8} q4,0 4,4 v${r} z" class="${cls}"/>` : ''; };
+  meses.forEach((m, i) => { const cx = L + gw * i + gw / 2;
+    g += bar(cx - bw - 1, m.g, 'fg-g') + bar(cx + 1, m.p, 'fg-p');
+    g += `<rect x="${L + gw*i}" y="${T}" width="${gw}" height="${plotH}" fill="transparent" class="fg-hit" data-tip="<b>${m.rot}</b><br>${rotG}: ${money(m.g)}<br>${rotP}: ${money(m.p)}"/><text x="${cx}" y="${H-8}" text-anchor="middle" class="fg-ax">${m.rot}</text>`; });
+  return `<figure class="fchart"><div class="sec-h"><h2>${titulo}</h2><div class="flegend"><span><i class="lg-g"></i>${rotG}</span><span><i class="lg-p"></i>${rotP}</span></div></div>
+    <div class="fsvg"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${titulo}">${g}</svg></div><figcaption class="note">${legenda}</figcaption></figure>`;
+}
+function aBonus(){
+  const F = bonusCalc(), per = PERIODOS.find(x => x[0] === F.k)[1].toLowerCase(), cfg = bonusCfg();
+  const tile = (rot, val, sub, cls='') => `<div class="ftile ${cls}"><span class="l">${rot}</span><span class="v">${val}</span><span class="note">${sub}</span></div>`;
+  const nomeI = id => perfil(id)?.nome || '—';
+  const linhaFila = (b, botao) => `<div><div style="min-width:0"><b>${esc(nomeI(b.indicador_id))}</b><div class="note"><span class="mono">${b.indicacao_id}</span> · venda de ${brlK(b.valor_venda)} em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div class="btns" style="flex-wrap:nowrap;align-items:center"><b class="num">${money(b.valor)}</b>${botao}</div></div>`;
+  const rank = {}; F.ativos.forEach(b => { const o = rank[b.indicador_id] ||= { n: 0, vgv: 0, tot: 0, pago: 0, apagar: 0, aguard: 0 }; o.n++; o.vgv += Number(b.valor_venda); o.tot += Number(b.valor); if (b.estado === 'pago') o.pago += Number(b.valor); else if (b.estado === 'disponivel') o.apagar += Number(b.valor); else o.aguard += Number(b.valor); });
+  const EST = [['todos','Todos'],['aguardando','Aguardando comissão'],['disponivel','A pagar'],['pago','Pago'],['cancelado','Cancelado']], est = S.bonEst || 'todos';
+  const ext = F.B.filter(b => est === 'todos' || b.estado === est).sort((a,b) => String(b.data_venda).localeCompare(String(a.data_venda)));
+  const ex = 450000, exB = cfg.bonus_modo === 'fixo' ? Number(cfg.bonus_fixo) : ex * Number(cfg.bonus_percentual) / 100;
+  const itensG = F.ativos.map(b => [dataBon(b,'data_venda'), b.valor, 'g']).concat(F.B.filter(b => b.estado === 'pago').map(b => [dataBon(b,'pago_em'), b.valor, 'p']));
+  return `<div class="filters">${PERIODOS.map(([k,l]) => `<button class="chipbtn ${F.k===k?'on':''}" data-a="bonPer" data-v="${k}">${l}</button>`).join('')}</div>
+   <div class="ftiles">
+    ${tile(`Vendas (${per})`, String(F.vendasPer.length), `${brlK(F.sum(F.vendasPer,'valor_venda'))} em vendas (VGV)`)}
+    ${tile(`Bônus gerado (${per})`, money(F.sum(F.vendasPer)), F.vendasPer.length ? `média de ${money(F.sum(F.vendasPer) / F.vendasPer.length)} por venda` : 'nenhuma venda no período')}
+    ${tile('Aguardando comissão', money(F.sum(F.aguard)), `${F.aguard.length} venda${F.aguard.length===1?'':'s'} sem comissão recebida`)}
+    ${tile('A pagar agora', money(F.sum(F.apagar)), `${F.apagar.length} bônus liberado${F.apagar.length===1?'':'s'}`, F.apagar.length ? 'warn' : '')}
+    ${tile(`Pago (${per})`, money(F.sum(F.pagosPer)), `${F.pagosPer.length} pagamento${F.pagosPer.length===1?'':'s'}`)}
+    ${tile('Prazo médio', F.prazo == null ? '—' : `${Math.round(F.prazo)} dia${Math.round(F.prazo)===1?'':'s'}`, 'da venda até o Pix')}
+   </div>
+   <div class="grid2 fin2">
+    ${graficoMeses('Bônus por mês', itensG, 'Gerado', 'Pago', 'Gerado: bônus das vendas fechadas no mês. Pago: bônus pagos no mês.')}
+    <div class="card"><div class="sec-h"><h2>Regra do bônus</h2><span class="tag ${cfg.bonus_modo==='fixo'?'disp':'proc'}">${cfg.bonus_modo === 'fixo' ? 'Valor fixo' : 'Percentual'}</span></div>
+     <form data-f="bonusCfg" class="cards" style="gap:12px" novalidate>
+      <div class="chips sm" role="radiogroup"><label><input type="radio" name="modo" value="percentual" ${cfg.bonus_modo!=='fixo'?'checked':''}><span>% do valor da venda</span></label><label><input type="radio" name="modo" value="fixo" ${cfg.bonus_modo==='fixo'?'checked':''}><span>Valor fixo por venda</span></label></div>
+      <div class="row2"><label class="f">Percentual<span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${fmtN(cfg.bonus_percentual)}"><em>%</em></span></label><label class="f">Valor fixo<span class="insuf"><input class="in" name="fixo" inputmode="decimal" value="${fmtN(cfg.bonus_fixo)}"><em>R$</em></span></label></div>
+      <p class="note">Exemplo: venda de ${money(ex)} → bônus de <b>${money(exB)}</b>. Vale para as próximas vendas registradas.</p>
+      <button class="btn ghost" type="submit">Salvar regra</button></form>
+     <div class="alert lite"><b>Valide com o jurídico.</b><p class="note">Pagamento em percentual sobre a venda a quem não tem CRECI pode ser entendido como corretagem. O valor fixo por venda é a opção mais segura.</p></div></div>
+   </div>
+   <div class="grid2">
+    <div class="card"><div class="sec-h"><h2>Aguardando comissão</h2><span class="note">${money(F.sum(F.aguard))}</span></div>
+     <p class="note">Quando a imobiliária receber a comissão da venda, marque aqui. O bônus fica liberado para pagar.</p>
+     <div class="hist">${F.aguard.map(b => linhaFila(b, `<button class="btn sm" data-a="bonEstado" data-v="${b.indicacao_id}" data-e="disponivel">Comissão recebida</button>`)).join('') || '<p class="muted">Nenhuma venda aguardando comissão.</p>'}</div></div>
+    <div class="card"><div class="sec-h"><h2>A pagar</h2><span class="note">${money(F.sum(F.apagar))}</span></div>
+     <div class="hist">${F.apagar.map(b => linhaFila(b, `<button class="btn sm gold" data-a="bonPagar" data-v="${b.indicacao_id}">Pagar</button>`)).join('') || '<p class="muted">Nada a pagar agora.</p>'}</div></div>
+   </div>
+   <div class="card"><h2>Por indicador</h2><div class="tbl-wrap" style="border:0"><table><thead><tr><th>Indicador</th><th class="r">Vendas</th><th class="r">VGV</th><th class="r">Bônus total</th><th class="r">Pago</th><th class="r">A pagar</th><th class="r">Aguardando</th></tr></thead><tbody>
+    ${Object.entries(rank).sort((a,b) => b[1].tot - a[1].tot).map(([id,o]) => `<tr><td><b>${esc(nomeI(id))}</b><br><span class="note">${esc(perfil(id)?.funcao || '')}</span></td><td class="r num">${o.n}</td><td class="r num">${brlK(o.vgv)}</td><td class="r num"><b>${money(o.tot)}</b></td><td class="r num">${money(o.pago)}</td><td class="r num">${money(o.apagar)}</td><td class="r num">${money(o.aguard)}</td></tr>`).join('') || '<tr><td colspan="7" class="note">Nenhuma venda registrada ainda.</td></tr>'}
+   </tbody></table></div></div>
+   <div class="card"><div class="sec-h"><h2>Extrato de bônus</h2></div>
+    <div class="filters">${EST.map(([k,l]) => `<button class="chipbtn ${est===k?'on':''}" data-a="bonEst" data-v="${k}">${l}<span class="cnum">${k==='todos'?F.B.length:F.B.filter(b=>b.estado===k).length}</span></button>`).join('')}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Venda em</th><th class="r">Valor da venda</th><th class="r">Regra</th><th class="r">Bônus</th><th>Estado</th><th>Ação</th></tr></thead><tbody>
+    ${ext.map(b => `<tr><td class="mono">${b.indicacao_id}</td><td>${esc(nomeI(b.indicador_id))}</td><td class="num">${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</td><td class="r num">${money(b.valor_venda)}</td><td class="r num">${b.modo === 'fixo' ? 'fixo' : pctBR(b.percentual)}</td><td class="r num"><b>${money(b.valor)}</b></td><td><span class="tag ${BON[b.estado][0]}">${BON[b.estado][1]}</span>${b.pago_em ? `<div class="note">${dataBon(b,'pago_em').toLocaleDateString('pt-BR')}</div>` : ''}</td>
+     <td><div class="btns" style="flex-wrap:nowrap">${b.estado === 'aguardando' ? `<button class="btn sm" data-a="bonEstado" data-v="${b.indicacao_id}" data-e="disponivel">Comissão recebida</button>` : b.estado === 'disponivel' ? `<button class="btn sm gold" data-a="bonPagar" data-v="${b.indicacao_id}">Pagar via Pix</button>` : b.estado === 'pago' ? `<button class="btn sm ghost" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button>` : ''}<button class="btn sm ghost" data-a="openInd" data-v="${b.indicacao_id}">Ver indicação</button></div></td></tr>`).join('') || '<tr><td colspan="8" class="note">Nenhum lançamento.</td></tr>'}
+    </tbody></table></div></div>`;
+}
+function vendaModal(id){
+  const i = S.D.inds.find(x => x.id === id), cfg = bonusCfg(), b = bonusDe(id), fi = ficha(id), t0 = new Date();
+  const hoje = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}-${String(t0.getDate()).padStart(2,'0')}`;
+  const valor = b?.valor_venda || fi?.valor_venda || '';
+  openModal(`<form data-f="venda" class="cards" style="gap:14px;text-align:left" novalidate><input type="hidden" name="id" value="${esc(id)}">
+    <div><p class="eyebrow">${esc(id)} · ${esc(i.proprietario_nome)}</p><h2>Registrar venda</h2><p class="note">Indicado por <b>${esc(perfil(i.indicador_id)?.nome || '—')}</b>.</p></div>
+    <label class="f">Valor final da venda<span class="insuf"><input class="in" name="valor" inputmode="decimal" placeholder="Ex.: 450.000" value="${valor ? fmtN(valor) : ''}"><em>R$</em></span></label>
+    <label class="f">Data da venda (escritura ou contrato)<input class="in" type="date" name="data" value="${b?.data_venda || hoje}"></label>
+    ${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value="">` : `<label class="f">Percentual do bônus<span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${fmtN(b?.percentual ?? cfg.bonus_percentual)}"><em>%</em></span></label>`}
+    <div class="bonusprev"><span class="l">Bônus do indicador</span><b id="vd-bonus">—</b><span class="note" id="vd-det"></span><span class="note">Fica aguardando até você marcar que a comissão foi recebida.</span></div>
+    <label class="f">Observação <small>(opcional)</small><input class="in" name="obs" value="${esc(b?.observacao || '')}" placeholder="Ex.: venda financiada, escritura em 15/11"></label>
+    <div id="vd-err" class="err" hidden></div>
+    <div class="btns"><button class="btn gold" type="submit">Registrar venda</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
+  vendaCalc();
+}
+function vendaCalc(){
+  const f = $('form[data-f=venda]'); if (!f) return; const cfg = bonusCfg(), v = Number(numBR(f.valor.value)), p = Number(numBR(f.pct?.value));
+  const bonus = cfg.bonus_modo === 'fixo' ? Number(cfg.bonus_fixo) : v * p / 100;
+  $('#vd-bonus').textContent = v > 0 ? money(bonus) : '—'; $('#vd-det').textContent = v > 0 ? (cfg.bonus_modo === 'fixo' ? 'Valor fixo por venda' : `${pctBR(p)} de ${money(v)}`) : 'Informe o valor da venda';
 }
 function aCondos(){
   const C = S.D.condos, sem = C.filter(c => !temPos(c)), aj = S.mapAjuste && condo(S.mapAjuste);
@@ -1342,7 +1443,13 @@ const act = {
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
-  adv: d => { const i = S.D.inds.find(x => x.id === d.v); if (Number(d.s) === 4 && i && i.status === 3 && fichaFalta(ficha(d.v)).length) return fichaModal(d.v, true); act.advOk(d); },
+  adv: d => { const i = S.D.inds.find(x => x.id === d.v); if (Number(d.s) === 4 && i && i.status === 3 && fichaFalta(ficha(d.v)).length) return fichaModal(d.v, true); if (Number(d.s) === 6 && i && i.status === 5 && i.indicador_id && papel() === 'admin') return vendaModal(d.v); act.advOk(d); },
+  bonPer: d => { S.bonPer = d.v; render(); },
+  bonEst: d => { S.bonEst = d.v; render(); },
+  bonEstado: d => guard(async () => { await rpc('mudar_bonus', { p_id: d.v, p_estado: d.e, p_data: null }); await refresh(); toast(d.e === 'disponivel' ? 'Comissão recebida: bônus liberado para pagamento' : 'Bônus atualizado'); }),
+  bonPagar: d => act.pagarPix({ v: d.v, tipo: 'bonus' }),
+  bonComp: d => act.verComp({ v: d.v, tipo: 'bonus' }),
+  registrarVenda: d => vendaModal(d.v),
   advOk: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
   close: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
      <div><p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2></div>
@@ -1375,12 +1482,12 @@ const act = {
   anexarComp: d => act.pagarPix({ v: d.v, modo: 'anexar' }),
   pagarPix: d => {
     const anexar = d.modo === 'anexar';
-    const r = S.D.rewards.find(x => x.indicacao_id === d.v), u = perfil(r.indicador_id), t0 = new Date(), hoje = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}-${String(t0.getDate()).padStart(2,'0')}`;
+    const bon = d.tipo === 'bonus', r = bon ? bonusDe(d.v) : S.D.rewards.find(x => x.indicacao_id === d.v), u = perfil(r.indicador_id), t0 = new Date(), hoje = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}-${String(t0.getDate()).padStart(2,'0')}`;
     const pix = u?.pix_chave ? `<div class="paybox"><span class="eyebrow">Chave Pix · ${esc(u.pix_tipo)}</span><div class="copyrow"><span>${esc(u.pix_chave)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(u.pix_chave)}">${ic('copy',16)}Copiar</button></div></div>`
       : `<div class="alert"><b>${esc(u?.nome || 'O indicador')} ainda não cadastrou a chave Pix.</b><p class="note">Peça para ele cadastrar em Carteira → Sua chave Pix.</p>${u?.telefone ? `<a class="btn sm wa" href="${waLink(u.telefone)}?text=${encodeURIComponent('Oi! Para receber sua recompensa do Rendique, cadastre sua chave Pix no app: Carteira → Sua chave Pix.')}" target="_blank" rel="noopener">${ic('chat',16)}Avisar pelo WhatsApp</a>` : ''}</div>`;
     openModal(`<form data-f="pagamento" class="cards" style="gap:14px;text-align:left" novalidate>
-      <input type="hidden" name="ind" value="${esc(d.v)}"><input type="hidden" name="modo" value="${anexar ? 'anexar' : 'pagar'}">
-      <div><p class="eyebrow">${anexar ? 'Comprovante' : 'Pagar recompensa'} · ${esc(d.v)}</p><h2>${anexar ? `Inserir comprovante de ${money(r.valor)}` : `${money(r.valor)} para ${esc(u?.nome || '—')}`}</h2></div>
+      <input type="hidden" name="ind" value="${esc(d.v)}"><input type="hidden" name="modo" value="${bon ? 'bonus' : anexar ? 'anexar' : 'pagar'}">
+      <div><p class="eyebrow">${anexar ? 'Comprovante' : bon ? 'Pagar bônus de venda' : 'Pagar recompensa'} · ${esc(d.v)}</p><h2>${anexar ? `Inserir comprovante de ${money(r.valor)}` : `${money(r.valor)} para ${esc(u?.nome || '—')}`}</h2></div>
       ${anexar ? `<p class="note">Pagamento para ${esc(u?.nome || '—')}. Anexe a foto ou o PDF do comprovante e/ou informe o código da transação.</p>` : `${pix}
       <p class="note">1. Faça o Pix no app do seu banco. 2. Volte aqui e registre o comprovante.</p>`}
       <label class="f">Data do pagamento<input class="in" type="date" id="pg-data" name="data" value="${anexar && r.pago_em ? r.pago_em : hoje}"></label>
@@ -1390,7 +1497,7 @@ const act = {
       <div class="btns"><button class="btn gold" type="submit">${anexar ? 'Salvar comprovante' : 'Confirmar pagamento'}</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
   },
   verComp: d => guard(async () => {
-    const r = S.D.rewards.find(x => x.indicacao_id === d.v); if (!r) return;
+    const r = d.tipo === 'bonus' ? bonusDe(d.v) : S.D.rewards.find(x => x.indicacao_id === d.v); if (!r) return;
     let link = '';
     if (r.comprovante_arquivo) { const { data, error } = await sb.storage.from('comprovantes').createSignedUrl(r.comprovante_arquivo, 600); if (!error && data?.signedUrl) link = data.signedUrl; }
     const quem = perfil(r.pago_por)?.nome;
@@ -1450,6 +1557,7 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   if (e.target.form?.dataset.f === 'ficha') fichaCalc();
+  if (e.target.form?.dataset.f === 'venda') vendaCalc();
   if (e.target.form?.dataset.f === 'nova') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } nvSync(); }
   if (e.target.id === 'f-busca') { S.finQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#f-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
@@ -1576,6 +1684,22 @@ const forms = {
     const rows = await q(sb.from('condominios').insert({ nome: g('nome'), endereco: g('end'), bairro: g('bairro'), cidade: g('cidade'), regiao: g('reg') || null }).select());
     await refresh(); toast('Condomínio cadastrado'); act.cqr({ v: rows[0].id });
   }),
+  venda: fd => guard(async () => {
+    const id = String(fd.get('id')), v = Number(numBR(fd.get('valor'))), p = String(fd.get('pct') || '') ? Number(numBR(fd.get('pct'))) : null;
+    if (!(v > 0)) return showErr('#vd-err', 'Informe o valor final da venda.');
+    if (p != null && (isNaN(p) || p < 0 || p > 10)) return showErr('#vd-err', 'O percentual deve ficar entre 0 e 10%.');
+    let bonus;
+    try { bonus = await rpc('registrar_venda', { p_id: id, p_valor_venda: v, p_data: String(fd.get('data') || '') || null, p_percentual: p, p_obs: String(fd.get('obs') || '') }); }
+    catch(e) { return showErr('#vd-err', /registrar_venda|function|schema cache/i.test(e.message || '') ? 'O banco ainda não tem o bônus de venda. Rode o schema.sql atualizado no Supabase.' : msg(e)); }
+    delete S.D.hist[id]; closeModal(); await refresh(); toast(`Venda registrada · bônus de ${money(bonus)} aguardando comissão`);
+  }),
+  bonusCfg: fd => guard(async () => {
+    const modo = String(fd.get('modo')), pct = Number(numBR(fd.get('pct'))), fixo = Number(numBR(fd.get('fixo')));
+    if (modo === 'percentual' && !(pct >= 0 && pct <= 10)) return toast('O percentual deve ficar entre 0 e 10%.');
+    try { await rpc('definir_bonus', { p_modo: modo, p_percentual: isNaN(pct) ? null : pct, p_fixo: isNaN(fixo) ? null : fixo }); }
+    catch(e) { return toast(/definir_bonus|function|schema cache/i.test(e.message || '') ? 'Rode o schema.sql atualizado no Supabase.' : msg(e)); }
+    await refresh(); toast('Regra do bônus salva');
+  }),
   ficha: (fd, f) => guard(async () => {
     const id = String(fd.get('id')), dados = fichaLer(f), lib = S.fichaLib; S.fichaLib = false;
     const falta = fichaFalta(dados);
@@ -1597,14 +1721,14 @@ const forms = {
     if (file && file.size) {
       if (file.size > 8 * 1024 * 1024) return showErr('#pg-err', 'O arquivo passa de 8 MB. Envie uma foto menor.');
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
-      caminho = `${ind}/${Date.now()}.${ext}`;
+      caminho = `${ind}/${String(fd.get('modo')) === 'bonus' ? 'bonus-' : ''}${Date.now()}.${ext}`;
       const { error } = await sb.storage.from('comprovantes').upload(caminho, file, { upsert: false, contentType: file.type || undefined });
       if (error) return showErr('#pg-err', 'Não foi possível enviar o comprovante: ' + msg(error));
     }
-    const fn = String(fd.get('modo')) === 'anexar' ? 'anexar_comprovante' : 'registrar_pagamento';
-    try { await rpc(fn, { p_indicacao: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); }
+    const modo = String(fd.get('modo')), fn = modo === 'bonus' ? 'pagar_bonus' : modo === 'anexar' ? 'anexar_comprovante' : 'registrar_pagamento';
+    try { if (modo === 'bonus') await rpc(fn, { p_id: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); else await rpc(fn, { p_indicacao: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); }
     catch(e) { return showErr('#pg-err', msg(e)); }
-    closeModal(); await refresh(); toast(fn === 'anexar_comprovante' ? 'Comprovante salvo' : 'Pagamento registrado');
+    closeModal(); await refresh(); toast(fn === 'anexar_comprovante' ? 'Comprovante salvo' : fn === 'pagar_bonus' ? 'Bônus pago e registrado' : 'Pagamento registrado');
   }),
   cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round(Number(fd.get('valor')) || 0)) }); await refresh(); toast('Valor salvo'); })
 };
