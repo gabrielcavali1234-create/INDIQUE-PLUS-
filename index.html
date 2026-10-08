@@ -330,6 +330,60 @@ tr.flash td{background:var(--gold-soft)}
 .relper .row2{max-width:460px}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);line-height:1.45;cursor:pointer;margin-top:6px}
 .chk input{width:18px;height:18px;margin-top:1px;flex:none;accent-color:var(--brand)}
+.mapcard{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.mapcard .sec-h{align-items:flex-start;flex-wrap:wrap;gap:8px 16px}
+.mapcard h2{margin:0}
+.maplegend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);font-weight:600}
+.maplegend span{display:inline-flex;align-items:center;gap:6px}
+.maplegend i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.lg-on{background:#1D3A5F;box-shadow:0 0 0 2px #fff,0 0 0 3px #1D3A5F}.lg-off{background:#8A97A6;box-shadow:0 0 0 2px #fff,0 0 0 3px #8A97A6}.lg-live{background:var(--lit);box-shadow:0 0 0 3px color-mix(in srgb,var(--lit) 40%,transparent)}
+.aovivo{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--s6)}
+.aovivo i{width:7px;height:7px;border-radius:50%;background:var(--s6);animation:vivo 1.6s ease-in-out infinite}
+@keyframes vivo{50%{opacity:.25}}
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:12px;align-items:stretch}
+.mapbox{position:relative;min-width:0}
+.mapslot{height:460px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center}
+.mapslot .cmap{width:100%;height:100%;place-self:stretch}
+.cmap.ajustando{cursor:crosshair}
+.mapbanner{position:absolute;z-index:500;left:10px;right:10px;top:10px;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--lit);border-radius:12px;padding:8px 8px 8px 14px;font-size:13.5px;box-shadow:0 6px 20px rgb(0 0 0/.15)}
+.maplist{display:flex;flex-direction:column;gap:4px;max-height:460px;overflow:auto;padding-right:2px}
+.mitem{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;border:1px solid transparent;background:none;border-radius:12px;padding:9px 10px;color:var(--ink);font:inherit;cursor:pointer}
+.mitem:hover{background:var(--surface-2)}.mitem.on{border-color:var(--line);background:var(--surface-2)}
+.mtx{display:flex;flex-direction:column;min-width:0}.mtx b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mtx .note{margin:0;font-size:12.5px}
+.mdot{width:10px;height:10px;border-radius:50%;background:#8A97A6}.mdot.on{background:#1D3A5F}.mdot.live{box-shadow:0 0 0 3px color-mix(in srgb,var(--lit) 55%,transparent)}
+.mcnt{font-weight:800;font-variant-numeric:tabular-nums;font-size:14px;min-width:26px;text-align:center;border-radius:999px;padding:2px 8px;background:var(--surface-2)}
+@media (max-width:900px){.mapwrap{grid-template-columns:1fr}.mapslot{height:360px}.maplist{max-height:260px}}
+[data-device="mob"] .mapwrap{grid-template-columns:1fr}[data-device="mob"] .mapslot{height:340px}[data-device="mob"] .maplist{max-height:240px}
+/* pinos */
+.cpin-w{background:none;border:0}
+.cpin{position:relative;width:40px;height:48px;filter:drop-shadow(0 3px 4px rgb(0 0 0/.3));transition:transform .15s}
+.cpin svg{width:40px;height:48px;display:block}
+.cpin .cpin-s{fill:#8A97A6;stroke:#fff;stroke-width:2}
+.cpin.on .cpin-s{fill:#1D3A5F}
+.cpin .cpin-b{fill:#fff}.cpin .cpin-w1{fill:#8A97A6}.cpin.on .cpin-w1{fill:#1D3A5F}.cpin .cpin-l{fill:#C9D0D9}.cpin.on .cpin-l{fill:#F5B83D}
+.cpin b{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#F5B83D;color:#132840;font:800 11.5px/20px var(--body,system-ui);text-align:center;border:2px solid #fff}
+.cpin.aprox .cpin-s{stroke-dasharray:3 2}
+.cpin.live::before{content:"";position:absolute;left:50%;bottom:-6px;width:22px;height:9px;margin-left:-11px;border-radius:50%;background:#F5B83D;opacity:.55;animation:pulso 1.8s ease-out infinite}
+.cpin.flash{animation:pula .6s ease-in-out 4}
+.cpin.drag{transform:scale(1.15)}.cpin.drag .cpin-s{fill:#F5B83D}
+@keyframes pulso{0%{transform:scale(.6);opacity:.7}100%{transform:scale(2.4);opacity:0}}
+@keyframes pula{50%{transform:translateY(-10px)}}
+@media (prefers-reduced-motion:reduce){.cpin.live::before,.cpin.flash,.aovivo i{animation:none}}
+/* balão */
+.leaflet-popup-content-wrapper{border-radius:14px;background:var(--surface);color:var(--ink)}
+.leaflet-popup-tip{background:var(--surface)}
+.leaflet-popup-content{margin:14px 16px;font:inherit}
+.leaflet-container{font:inherit;background:var(--surface-2)}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
+.cpop{display:flex;flex-direction:column;gap:6px}.cpop-t{font-size:15px;padding-right:14px}.cpop .note{margin:0;font-size:12.5px}
+.cpop-warn{font-size:12.5px;font-weight:700;color:var(--danger)}
+.cpop-k{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0}
+.cpop-k span{display:flex;flex-direction:column;background:var(--surface-2);border-radius:10px;padding:6px 8px;font-size:11.5px;color:var(--muted)}
+.cpop-k b{font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+.cpop-b{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.cpop-b .btn{text-decoration:none}
+.leaflet-tile-pane{filter:saturate(.7)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.5)}}
+:root[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.5)}
 .fin2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .fchart{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fchart h2{font-size:17px}
@@ -414,6 +468,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610072345"></script>
+<script src="app.js?v=202610080010"></script>
 </body>
 </html>
