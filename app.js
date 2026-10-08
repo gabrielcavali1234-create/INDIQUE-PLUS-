@@ -712,10 +712,18 @@ const act = {
   drawerClose: () => { S.drawer = null; render(); },
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   adv: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
-  close: d => openModal(`<p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2>
-     <select class="in" id="m-motivo">${MOTIVOS.map(m => `<option>${m}</option>`).join('')}</select>
-     <div class="btns" style="justify-content:center"><button class="btn danger" data-a="confirmClose" data-v="${esc(d.v)}">Encerrar indicação</button><button class="btn ghost" data-a="mclose">Cancelar</button></div>`),
-  confirmClose: d => guard(async () => { const m = $('#m-motivo')?.value; closeModal(); await rpc('mudar_status', { p_id: d.v, p_status: 8, p_motivo: m }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v} encerrada`); }),
+  close: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
+     <div><p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2></div>
+     <label class="f">Motivo<select class="in" id="m-motivo">${MOTIVOS.map(m => `<option>${m}</option>`).join('')}</select></label>
+     <label class="f">Justificativa <small>(obrigatória)</small><textarea class="in" id="m-just" maxlength="500" placeholder="Explique o que aconteceu. Ex.: proprietário informou por WhatsApp que desistiu de vender este ano."></textarea></label>
+     <p class="note">Fica registrado na linha do tempo e na auditoria. O indicador vê o motivo na indicação dele.</p>
+     <div id="m-err" class="err" hidden></div>
+     <div class="btns"><button class="btn danger" data-a="confirmClose" data-v="${esc(d.v)}">Encerrar indicação</button><button class="btn ghost" data-a="mclose">Cancelar</button></div></div>`),
+  confirmClose: d => guard(async () => {
+    const m = $('#m-motivo')?.value || '', j = ($('#m-just')?.value || '').trim();
+    if (j.length < 10) return showErr('#m-err', 'Escreva a justificativa (pelo menos 10 letras).');
+    closeModal(); await rpc('mudar_status', { p_id: d.v, p_status: 8, p_motivo: `${m}: ${j}` }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v} encerrada`);
+  }),
   rew: d => guard(async () => { await rpc('mudar_recompensa', { p_indicacao: d.v, p_estado: d.e }); await refresh(); toast(d.e === 'pago' ? 'Pagamento registrado' : 'Recompensa liberada'); }),
   ocorr: d => guard(async () => { await rpc('resolver_ocorrencia', { p_id: Number(d.v), p_estado: d.e }); await refresh(); }),
   editPix: () => { S.editPix = !S.editPix; render(); },
