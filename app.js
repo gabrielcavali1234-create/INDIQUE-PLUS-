@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610080230 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081630 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -15,7 +15,7 @@ const REW = {processamento:['proc','Em processamento'],disponivel:['disp','Dispo
 
 const params = new URLSearchParams(location.search);
 const S = {
-  novaVar: 'a', nvStep: 0, nd: null,
+  novaVar: 'a', nvStep: 0, nd: null, mapBase: loadLS('rendique-mapa') === 'sat' ? 'sat' : 'mapa',
   device: loadLS('rendique-device'),
   screen: 'loading', tab: 'home', admTab: 'geral', filter: 'todas', admFilter: 'all', admGrupo: 'novas', admView: 'lista', admQ: '', drawer: null,
   session: null, perfil: null, det: null, lastId: null,
@@ -838,6 +838,34 @@ function aRec(){
 }
 /* ---------- Condomínios: mapa ao vivo (gestor) ---------- */
 const LEAF = { css: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css', js: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js' };
+const MLIB = { css: 'https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css', js: 'https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js', ponte: 'https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js' };
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+const temWebGL = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch(e) { return false; } };
+async function camadaMapa(){
+  if (M.vec === undefined) {
+    M.vec = null;
+    if (temWebGL()) try {
+      loadCSS(MLIB.css); await loadScript(MLIB.js); await loadScript(MLIB.ponte);
+      M.vec = L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/liberty', attribution: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' });
+    } catch(e) { M.vec = null; }
+  }
+  return M.vec || (M.osm ||= L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, maxNativeZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }));
+}
+function camadaSat(){
+  return M.sat ||= L.layerGroup([
+    L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, maxNativeZoom: 19, attribution: 'Imagens &copy; Esri, Maxar, Earthstar Geographics' }),
+    L.tileLayer(ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, maxNativeZoom: 19, opacity: .9 }),
+    L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, maxNativeZoom: 19 })
+  ]);
+}
+async function trocaBase(k){
+  if (!M.map) return;
+  const nova = k === 'sat' ? camadaSat() : await camadaMapa();
+  if (M.base === nova) return;
+  if (M.base) M.map.removeLayer(M.base);
+  M.base = nova; nova.addTo(M.map);
+  M.el.classList.toggle('sat', k === 'sat'); M.el.classList.toggle('raster', k !== 'sat' && nova === M.osm);
+}
 function loadCSS(href){ if (!document.querySelector(`link[href="${href}"]`)) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); } }
 const M = { map: null, el: null, layer: null, pins: {}, aberto: null, enquadrou: false, geoBusy: false, tentou: new Set(), flash: null, avisoBanco: false };
 const temPos = c => c && c.latitude != null && c.longitude != null;
@@ -855,7 +883,7 @@ function aCondos(){
   return `<div class="card mapcard">
     <div class="sec-h"><div><h2>Mapa dos condomínios</h2><p class="note">${C.length} condomínio${C.length === 1 ? '' : 's'}${sem.length ? ` · ${sem.length} sem localização` : ' · todos no mapa'} · <span class="aovivo"><i></i>Ao vivo</span></p></div>
      <div class="maplegend"><span><i class="lg-on"></i>Indicação em aberto</span><span><i class="lg-off"></i>Sem indicação em aberto</span><span><i class="lg-live"></i>Nova nas últimas 24 h</span></div></div>
-    <div class="mapwrap"><div class="mapbox">${aj ? `<div class="mapbanner">${temPos(aj) ? 'Arraste o pino' : 'Toque no mapa'} até a entrada de <b>${esc(aj.nome)}</b>. A posição é salva na hora.<button class="btn sm ghost" data-a="mapAjusteFim">Cancelar</button></div>` : ''}<div id="cmap-slot" class="mapslot"><p class="note">Carregando mapa…</p></div></div>
+    <div class="mapwrap"><div class="mapbox"><div class="mapbase" role="group" aria-label="Tipo de mapa"><button class="${S.mapBase !== 'sat' ? 'on' : ''}" data-a="mapBase" data-v="mapa">Mapa</button><button class="${S.mapBase === 'sat' ? 'on' : ''}" data-a="mapBase" data-v="sat">Satélite</button></div>${aj ? `<div class="mapbanner">${temPos(aj) ? 'Arraste o pino' : 'Toque no mapa'} até a entrada de <b>${esc(aj.nome)}</b>. A posição é salva na hora.<button class="btn sm ghost" data-a="mapAjusteFim">Cancelar</button></div>` : ''}<div id="cmap-slot" class="mapslot"><p class="note">Carregando mapa…</p></div></div>
      <div class="maplist">${C.map(item).join('') || '<p class="note">Cadastre o primeiro condomínio abaixo.</p>'}</div></div>
    </div>
    <div class="grid2"><div class="tbl-wrap"><table><thead><tr><th>Condomínio</th><th>Bairro / cidade</th><th class="r">Indicadores</th><th class="r">Indicações</th><th></th></tr></thead><tbody>
@@ -875,7 +903,7 @@ function popCondo(c){
     ${c.geo_precisao === 'aproximada' ? '<span class="cpop-warn">Posição aproximada. Ajuste o pino.</span>' : ''}
     <div class="cpop-k"><span><b>${s.n}</b>indicações</span><span><b>${s.ab}</b>em aberto</span><span><b>${s.ind}</b>indicadores</span></div>
     ${s.ult ? `<span class="note">Última indicação ${ago(s.ult)}</span>` : ''}
-    <div class="cpop-b"><button class="btn sm" data-a="condoInds" data-v="${c.id}">Ver indicações</button><button class="btn sm ghost" data-a="cqr" data-v="${c.id}">QR Code</button><button class="btn sm ghost" data-a="mapAjustar" data-v="${c.id}">Ajustar pino</button><a class="btn sm ghost" href="${gmaps(c)}" target="_blank" rel="noopener">Google Maps</a></div></div>`;
+    <div class="cpop-b"><button class="btn sm" data-a="condoInds" data-v="${c.id}">Ver indicações</button><button class="btn sm ghost" data-a="cqr" data-v="${c.id}">QR Code</button><button class="btn sm ghost" data-a="mapAjustar" data-v="${c.id}">Ajustar pino</button><a class="btn sm ghost" href="${gmaps(c)}" target="_blank" rel="noopener">Google Maps</a><a class="btn sm ghost" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.latitude},${c.longitude}" target="_blank" rel="noopener">Ver a rua</a></div></div>`;
 }
 function iconCondo(c){
   const s = cStats(c), fl = M.flash && M.flash.id === c.id && Date.now() - M.flash.t < 60000;
@@ -892,8 +920,9 @@ async function montaMapa(){
   if (!M.el) { M.el = document.createElement('div'); M.el.className = 'cmap'; }
   alvo.innerHTML = ''; alvo.appendChild(M.el);
   if (!M.map) {
-    M.map = L.map(M.el, { scrollWheelZoom: false, zoomControl: true }).setView([-23.55, -46.70], 11);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(M.map);
+    M.map = L.map(M.el, { scrollWheelZoom: false, zoomControl: true, maxZoom: 20 }).setView([-23.55, -46.70], 11);
+    M.map.attributionControl.setPrefix(false);
+    trocaBase(S.mapBase);
     M.layer = L.layerGroup().addTo(M.map);
     M.map.on('click', e => { if (S.mapAjuste) salvaPos(S.mapAjuste, e.latlng, 'manual'); });
     M.el.addEventListener('mouseenter', () => M.map.scrollWheelZoom.enable());
@@ -1298,6 +1327,7 @@ const act = {
     if (M.map) { M.map.flyTo([c.latitude, c.longitude], 17, { duration: .8 }); setTimeout(() => M.pins[c.id]?.openPopup(), 850); } },
   mapAjustar: d => { S.mapAjuste = d.v; M.map?.closePopup(); render(); const c = condo(d.v); if (temPos(c)) M.map?.setView([c.latitude, c.longitude], Math.max(M.map.getZoom(), 18)); },
   mapAjusteFim: () => { S.mapAjuste = null; render(); },
+  mapBase: d => { S.mapBase = d.v; saveLS('rendique-mapa', d.v); document.querySelectorAll('.mapbase button').forEach(b => b.classList.toggle('on', b.dataset.v === d.v)); trocaBase(d.v); },
   condoInds: d => { const c = condo(d.v); S.admTab = 'inds'; S.admGrupo = 'todas'; S.admQ = c?.nome || ''; render(); window.scrollTo(0, 0); },
   nvPasso: d => {
     const p = S.nvStep || 0, dir = +d.v; S.nd = nvDados();
