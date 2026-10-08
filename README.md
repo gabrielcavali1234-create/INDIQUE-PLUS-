@@ -66,7 +66,11 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - [ ] **Configurar SMTP próprio** (ex.: Resend) em Authentication → SMTP Settings, para não esbarrar no limite de e-mails do Supabase. Necessário antes de religar a confirmação.
 - [ ] Trocar os modelos de e-mail para português com código (guia em `supabase/README.md`, item 3).
 - [ ] Ligar a implantação automática na Hostinger (webhook do GitHub).
-- [ ] Apontar o domínio `rendique.com.br` para a Hostinger e atualizar Site URL / Redirect URLs no Supabase.
+- [ ] **Domínio `rendique.com.br` → Hostinger** (em andamento):
+  1. Registro.br: provedor **HSTDOMAINS (127)** no titular e no domínio.
+  2. Hostinger: transferir domínio → "Alterar para os nameservers da Hostinger" → **"Usar registros padrão"** (não manter os registros do Registro.br, que bloqueiam e-mail) → Confirmar.
+  3. Quando o domínio estiver ativo: no Painel do site, **Conectar domínio** `rendique.com.br` e ativar SSL.
+  4. Supabase → URL Configuration: Site URL `https://rendique.com.br/` e adicionar `https://rendique.com.br/` e `https://www.rendique.com.br/` em Redirect URLs.
 - [ ] Aviso ao gestor por e-mail e WhatsApp a cada nova indicação.
 - [ ] Testar o fluxo completo: cadastrar condomínio, convidar corretor, porteiro fazer indicação, avançar status, liberar recompensa.
 
