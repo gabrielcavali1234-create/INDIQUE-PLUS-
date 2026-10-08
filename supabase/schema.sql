@@ -583,6 +583,62 @@ grant execute on function public.criar_convite(text), public.cancelar_convite(te
 grant execute on function public.info_convite(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- Pagamento de recompensas via Pix, com comprovante
+-- ---------------------------------------------------------------------
+alter table public.perfis add column if not exists pix_tipo text;
+alter table public.perfis add column if not exists pix_chave text;
+alter table public.recompensas add column if not exists pago_em date;
+alter table public.recompensas add column if not exists pago_por uuid references public.perfis(id) on delete set null;
+alter table public.recompensas add column if not exists comprovante_codigo text;
+alter table public.recompensas add column if not exists comprovante_arquivo text;
+alter table public.recompensas add column if not exists registrado_em timestamptz;
+
+create or replace function public.atualizar_pix(p_tipo text, p_chave text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Faça login primeiro.'; end if;
+  if p_tipo not in ('CPF','Celular','E-mail','Chave aleatória') then raise exception 'Escolha o tipo da chave Pix.'; end if;
+  if coalesce(trim(p_chave),'') = '' then raise exception 'Informe a chave Pix.'; end if;
+  update public.perfis set pix_tipo = p_tipo, pix_chave = trim(p_chave) where id = auth.uid();
+  perform public.registra('Chave Pix atualizada');
+end $$;
+
+create or replace function public.registrar_pagamento(p_indicacao text, p_data date, p_codigo text, p_arquivo text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_r public.recompensas;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select * into v_r from public.recompensas where indicacao_id = p_indicacao for update;
+  if not found then raise exception 'Recompensa não encontrada.'; end if;
+  if v_r.estado not in ('disponivel','resgate') then raise exception 'Esta recompensa não está liberada para pagamento.'; end if;
+  if coalesce(trim(p_codigo),'') = '' and coalesce(trim(p_arquivo),'') = '' then
+    raise exception 'Informe o código da transação Pix ou anexe o comprovante.';
+  end if;
+  update public.recompensas
+     set estado = 'pago', atualizado_em = now(), registrado_em = now(),
+         pago_em = coalesce(p_data, current_date), pago_por = auth.uid(),
+         comprovante_codigo = nullif(trim(p_codigo),''), comprovante_arquivo = nullif(trim(p_arquivo),'')
+   where id = v_r.id;
+  insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+  values (v_r.indicador_id, 'recompensa', 'Recompensa paga', 'R$ ' || v_r.valor || ' · ' || p_indicacao, p_indicacao);
+  perform public.registra('Pagamento registrado: ' || p_indicacao || ' (R$ ' || v_r.valor || ')');
+end $$;
+
+revoke execute on function public.atualizar_pix(text,text), public.registrar_pagamento(text,date,text,text) from public, anon;
+grant execute on function public.atualizar_pix(text,text), public.registrar_pagamento(text,date,text,text) to authenticated;
+
+-- Pasta privada para os comprovantes (Supabase Storage)
+insert into storage.buckets (id, name, public) values ('comprovantes', 'comprovantes', false)
+on conflict (id) do nothing;
+drop policy if exists comprovantes_enviar on storage.objects;
+create policy comprovantes_enviar on storage.objects for insert to authenticated
+  with check (bucket_id = 'comprovantes' and public.is_admin());
+drop policy if exists comprovantes_ver on storage.objects;
+create policy comprovantes_ver on storage.objects for select to authenticated
+  using (bucket_id = 'comprovantes' and (public.is_admin()
+         or exists (select 1 from public.recompensas r where r.comprovante_arquivo = name and r.indicador_id = auth.uid())));
+
+-- ---------------------------------------------------------------------
 -- Tempo real: o sininho do gestor acende na hora
 -- ---------------------------------------------------------------------
 do $$ begin

@@ -433,9 +433,22 @@ function vCarteira(){
    <div class="split"><div class="col"><div class="wallet"><span class="l">Saldo disponível</span><span class="v">${money(w.disp)}</span><span class="l">Programa de Incentivos Rendique</span></div>
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
+   ${cardPix()}
    <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.D.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate. O valor não depende do preço do imóvel nem do resultado da negociação.</p></div></div>
    <div class="col"><div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].map(r => { const i = S.D.inds.find(x => x.id === r.indicacao_id);
-     return `<div><div><div class="mono" style="font-size:13px">${r.indicacao_id}</div><div class="note">${esc(i?.proprietario_nome||'')} · ${fd(r.criado_em)}</div></div><div style="text-align:right"><div class="a">${money(r.valor)}</div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span></div></div>`; }).join('') || '<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
+     return `<div><div><div class="mono" style="font-size:13px">${r.indicacao_id}</div><div class="note">${esc(i?.proprietario_nome||'')} · ${fd(r.criado_em)}</div></div><div style="text-align:right"><div class="a">${money(r.valor)}</div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span>${r.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`; }).join('') || '<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
+}
+const PIX_TIPOS = ['CPF','Celular','E-mail','Chave aleatória'];
+function cardPix(){
+  const u = S.perfil;
+  if (u.pix_chave && !S.editPix) return `<div class="card"><div class="sec-h"><h3>Sua chave Pix</h3><button class="link" data-a="editPix">Alterar</button></div>
+     <dl class="kv"><dt>${esc(u.pix_tipo)}</dt><dd class="mono">${esc(u.pix_chave)}</dd></dl><p class="note">É para esta chave que a equipe envia suas recompensas.</p></div>`;
+  return `<form data-f="pix" class="card" novalidate><h3>${u.pix_chave ? 'Alterar chave Pix' : 'Cadastre sua chave Pix'}</h3>
+     <p class="note">Precisamos dela para pagar suas recompensas.</p>
+     <div class="chips" role="radiogroup">${PIX_TIPOS.map(t => `<label><input type="radio" name="tipo" value="${t}" ${(u.pix_tipo||'Celular')===t?'checked':''}><span>${t}</span></label>`).join('')}</div>
+     <label class="f">Chave Pix<input class="in mono" id="x-chave" name="chave" value="${esc(u.pix_chave||'')}" autocomplete="off"></label>
+     <div id="x-err" class="err" hidden></div>
+     <div class="btns"><button class="btn" type="submit">Salvar chave Pix</button>${u.pix_chave?'<button type="button" class="btn ghost" data-a="editPix">Cancelar</button>':''}</div></form>`;
 }
 function vMais(){
   const u = S.perfil, it = (v,i,t,d,a='go') => `<button class="qbtn" style="width:100%" data-a="${a}" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
@@ -586,7 +599,7 @@ function aRec(){
   return `<p class="note">Os valores não podem ser editados manualmente. Cada mudança fica registrada na auditoria.</p>
    <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Gerada em</th><th class="r">Valor</th><th>Estado</th><th>Ação</th></tr></thead><tbody>
    ${S.D.rewards.map(r => `<tr><td class="mono">${r.indicacao_id}</td><td>${esc(perfil(r.indicador_id)?.nome || '—')}</td><td class="num">${fdt(r.criado_em)}</td><td class="r num"><b>${money(r.valor)}</b></td><td>${REW[r.estado][1]}</td>
-    <td>${r.estado==='processamento' ? `<button class="btn sm" data-a="rew" data-v="${r.indicacao_id}" data-e="disponivel">Liberar</button>` : ['disponivel','resgate'].includes(r.estado) ? `<button class="btn sm gold" data-a="rew" data-v="${r.indicacao_id}" data-e="pago">Registrar pagamento</button>` : '<span class="note">—</span>'}</td></tr>`).join('') || '<tr><td colspan="6" class="note">Nenhuma recompensa ainda.</td></tr>'}
+    <td><div class="btns" style="flex-wrap:nowrap">${r.estado==='processamento' ? `<button class="btn sm" data-a="rew" data-v="${r.indicacao_id}" data-e="disponivel">Liberar</button>` : ['disponivel','resgate'].includes(r.estado) ? `<button class="btn sm gold" data-a="pagarPix" data-v="${r.indicacao_id}">Pagar via Pix</button>` : r.estado==='pago' ? `<button class="btn sm ghost" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button>` : ''}<button class="btn sm ghost" data-a="openInd" data-v="${r.indicacao_id}">Ver indicação</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="note">Nenhuma recompensa ainda.</td></tr>'}
    </tbody></table></div>`;
 }
 function aCondos(){
@@ -704,7 +717,35 @@ const act = {
   confirmClose: d => guard(async () => { const m = $('#m-motivo')?.value; closeModal(); await rpc('mudar_status', { p_id: d.v, p_status: 8, p_motivo: m }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v} encerrada`); }),
   rew: d => guard(async () => { await rpc('mudar_recompensa', { p_indicacao: d.v, p_estado: d.e }); await refresh(); toast(d.e === 'pago' ? 'Pagamento registrado' : 'Recompensa liberada'); }),
   ocorr: d => guard(async () => { await rpc('resolver_ocorrencia', { p_id: Number(d.v), p_estado: d.e }); await refresh(); }),
-  resgatar: () => guard(async () => { const v = await rpc('solicitar_resgate', {}); await refresh(); toast(`Resgate de ${money(v)} solicitado`); }),
+  editPix: () => { S.editPix = !S.editPix; render(); },
+  pagarPix: d => {
+    const r = S.D.rewards.find(x => x.indicacao_id === d.v), u = perfil(r.indicador_id), t0 = new Date(), hoje = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}-${String(t0.getDate()).padStart(2,'0')}`;
+    const pix = u?.pix_chave ? `<div class="paybox"><span class="eyebrow">Chave Pix · ${esc(u.pix_tipo)}</span><div class="copyrow"><span>${esc(u.pix_chave)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(u.pix_chave)}">${ic('copy',16)}Copiar</button></div></div>`
+      : `<div class="alert"><b>${esc(u?.nome || 'O indicador')} ainda não cadastrou a chave Pix.</b><p class="note">Peça para ele cadastrar em Carteira → Sua chave Pix.</p>${u?.telefone ? `<a class="btn sm wa" href="${waLink(u.telefone)}?text=${encodeURIComponent('Oi! Para receber sua recompensa do Rendique, cadastre sua chave Pix no app: Carteira → Sua chave Pix.')}" target="_blank" rel="noopener">${ic('chat',16)}Avisar pelo WhatsApp</a>` : ''}</div>`;
+    openModal(`<form data-f="pagamento" class="cards" style="gap:14px;text-align:left" novalidate>
+      <input type="hidden" name="ind" value="${esc(d.v)}">
+      <div><p class="eyebrow">Pagar recompensa · ${esc(d.v)}</p><h2>${money(r.valor)} para ${esc(u?.nome || '—')}</h2></div>
+      ${pix}
+      <p class="note">1. Faça o Pix no app do seu banco. 2. Volte aqui e registre o comprovante.</p>
+      <label class="f">Data do pagamento<input class="in" type="date" id="pg-data" name="data" value="${hoje}"></label>
+      <label class="f">Código da transação Pix <small>(ID / E2E, opcional se anexar a foto)</small><input class="in mono" id="pg-cod" name="codigo" placeholder="E1234567820261007…"></label>
+      <label class="f">Foto ou PDF do comprovante <small>(opcional se informar o código)</small><input class="in" type="file" id="pg-arq" name="arquivo" accept="image/*,application/pdf"></label>
+      <div id="pg-err" class="err" hidden></div>
+      <div class="btns"><button class="btn gold" type="submit">Confirmar pagamento</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
+  },
+  verComp: d => guard(async () => {
+    const r = S.D.rewards.find(x => x.indicacao_id === d.v); if (!r) return;
+    let link = '';
+    if (r.comprovante_arquivo) { const { data, error } = await sb.storage.from('comprovantes').createSignedUrl(r.comprovante_arquivo, 600); if (!error && data?.signedUrl) link = data.signedUrl; }
+    const quem = perfil(r.pago_por)?.nome;
+    openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:12px"><p class="eyebrow">Comprovante · ${esc(r.indicacao_id)}</p><h2>${money(r.valor)} pago</h2>
+      <dl class="kv"><dt>Data</dt><dd>${r.pago_em ? new Date(r.pago_em + 'T12:00').toLocaleDateString('pt-BR') : '—'}</dd>${quem?`<dt>Registrado por</dt><dd>${esc(quem)}</dd>`:''}${r.comprovante_codigo?`<dt>Código Pix</dt><dd class="mono">${esc(r.comprovante_codigo)}</dd>`:''}</dl>
+      ${link ? (/\.pdf(\?|$)/i.test(r.comprovante_arquivo) ? `<a class="btn ghost" href="${esc(link)}" target="_blank" rel="noopener">Abrir comprovante (PDF)</a>` : `<a href="${esc(link)}" target="_blank" rel="noopener"><img src="${esc(link)}" alt="Comprovante do Pix" style="max-width:100%;border-radius:12px;border:1px solid var(--line)"></a>`) : (r.comprovante_arquivo ? '<p class="note">Não foi possível abrir o arquivo agora.</p>' : '')}
+      ${!r.comprovante_codigo && !r.comprovante_arquivo ? '<p class="note">Pagamento registrado antes do comprovante existir no sistema.</p>' : ''}
+      <button class="btn ghost" data-a="mclose">Fechar</button></div>`);
+  }),
+  resgatar: () => guard(async () => {
+    if (!S.perfil.pix_chave) { S.editPix = true; render(); return toast('Cadastre sua chave Pix antes de pedir o resgate.'); } const v = await rpc('solicitar_resgate', {}); await refresh(); toast(`Resgate de ${money(v)} solicitado`); }),
   lgpd: d => guard(async () => { await rpc('solicitar_lgpd', { p_tipo: d.v }); toast(`Pedido de ${d.v} registrado. Resposta em até 15 dias.`); }),
   copy: d => { try { navigator.clipboard.writeText(d.v).then(() => toast('Link copiado'), () => toast('Selecione o link e copie manualmente')); } catch(e) { toast('Selecione o link e copie manualmente'); } },
   novoConvite: d => guard(async () => {
@@ -865,6 +906,25 @@ const forms = {
     if (!g('nome')) return toast('Informe o nome do condomínio');
     const rows = await q(sb.from('condominios').insert({ nome: g('nome'), endereco: g('end'), bairro: g('bairro'), cidade: g('cidade'), regiao: g('reg') || null }).select());
     await refresh(); toast('Condomínio cadastrado'); act.cqr({ v: rows[0].id });
+  }),
+  pix: fd => guard(async () => {
+    try { await rpc('atualizar_pix', { p_tipo: String(fd.get('tipo')||''), p_chave: String(fd.get('chave')||'') }); } catch(e) { return showErr('#x-err', msg(e)); }
+    S.editPix = false; await loadPerfil(); render(); toast('Chave Pix salva');
+  }),
+  pagamento: fd => guard(async () => {
+    const ind = String(fd.get('ind')), codigo = String(fd.get('codigo')||'').trim(), file = fd.get('arquivo');
+    let caminho = null;
+    if (!codigo && !(file && file.size)) return showErr('#pg-err', 'Informe o código da transação Pix ou anexe o comprovante.');
+    if (file && file.size) {
+      if (file.size > 8 * 1024 * 1024) return showErr('#pg-err', 'O arquivo passa de 8 MB. Envie uma foto menor.');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
+      caminho = `${ind}/${Date.now()}.${ext}`;
+      const { error } = await sb.storage.from('comprovantes').upload(caminho, file, { upsert: false, contentType: file.type || undefined });
+      if (error) return showErr('#pg-err', 'Não foi possível enviar o comprovante: ' + msg(error));
+    }
+    try { await rpc('registrar_pagamento', { p_indicacao: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); }
+    catch(e) { return showErr('#pg-err', msg(e)); }
+    closeModal(); await refresh(); toast('Pagamento registrado');
   }),
   cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round(Number(fd.get('valor')) || 0)) }); await refresh(); toast('Valor salvo'); })
 };
