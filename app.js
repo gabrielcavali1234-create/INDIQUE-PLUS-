@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610141955 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142010 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -471,6 +471,11 @@ function nvDados(){
   const f = $('form[data-f=nova]'); if (!f) return S.nd || {};
   const o = {}; new FormData(f).forEach((v, k) => o[k] = String(v)); return o;
 }
+function nvImovelP(d){
+  const onde = d.onde || nvOnde(), cid = onde === 'meu' ? S.perfil.condominio_id : onde === 'lista' ? (d.condo || null) : null, g = k => String(d[k] || '').trim();
+  return { condominio_id: cid, end_rua: onde === 'novo' ? g('end') : null, end_numero: onde === 'novo' ? g('numero') : null, end_cep: onde === 'novo' ? dig(g('cep')) : null,
+    apto: g('apto'), bloco: d.tipo === 'Casa' ? '' : g('bloco'), unidade: nvUnidade(d) };
+}
 function nvUnidade(d){
   const a = String(d.apto||'').trim(), b = String(d.bloco||'').trim(); if (!a) return '';
   const pre = d.tipo === 'Casa' ? 'Casa' : d.tipo === 'Sala comercial' ? 'Sala' : d.tipo === 'Cobertura' ? 'Cobertura' : 'Apto';
@@ -532,7 +537,7 @@ async function nvCep(v){
 function vOk(){ return `<div class="card result"><div class="badge">${ic('check',36)}</div><h1>Indicação recebida!</h1>
    <p class="muted">Nossa equipe irá analisar a oportunidade e você poderá acompanhar tudo por aqui.</p><span class="idtag">${esc(S.lastId)}</span>
    <div class="btns" style="justify-content:center"><button class="btn" data-a="det" data-v="${esc(S.lastId)}">Acompanhar indicação</button><button class="btn ghost" data-a="go" data-v="home">Voltar ao início</button></div></div>`; }
-function vDup(){ return `<div class="card result"><div class="badge warn">${ic('alert',36)}</div><h1>Esta oportunidade já foi registrada anteriormente.</h1>
+function vDup(){ return `<div class="card result"><div class="badge warn">${ic('alert',36)}</div><h1>Este imóvel já está cadastrado na Rendique.</h1>
    <p class="muted">Enviamos o caso para análise da equipe. Você não precisa fazer mais nada.</p><button class="btn ghost" data-a="go" data-v="home">Voltar ao início</button></div>`; }
 function vLista(){
   const f = { todas:()=>true, andamento:i=>i.status<6, concluidas:i=>i.status===6||i.status===7, encerradas:i=>i.status===8 };
@@ -1502,9 +1507,14 @@ const act = {
   mapAjusteFim: () => { S.mapAjuste = null; render(); },
   mapBase: d => { S.mapBase = d.v; saveLS('rendique-mapa', d.v); document.querySelectorAll('.mapbase button').forEach(b => b.classList.toggle('on', b.dataset.v === d.v)); trocaBase(d.v); },
   condoInds: d => { const c = condo(d.v); S.admTab = 'inds'; S.admGrupo = 'todas'; S.admQ = c?.nome || ''; render(); window.scrollTo(0, 0); },
-  nvPasso: d => {
+  nvPasso: async d => {
     const p = S.nvStep || 0, dir = +d.v; S.nd = nvDados();
     if (dir > 0) { const e = nvErro(p, S.nd); if (e) return showErr('#f-err-p', e); }
+    if (dir > 0 && p === 1) {
+      let existe = false;
+      try { busy(true); existe = await rpc('imovel_existe', { p: nvImovelP(S.nd) }); } catch(e) { existe = false; } finally { busy(false); }
+      if (existe) return showErr('#f-err-p', 'Este imóvel já está cadastrado na Rendique (mesmo endereço, unidade e bloco/torre). Não é possível indicar de novo.');
+    }
     $('#f-err-p') && ($('#f-err-p').hidden = true);
     S.nvStep = Math.max(0, Math.min(4, p + dir)); render(); window.scrollTo(0, 0);
   },
@@ -1735,7 +1745,7 @@ const forms = {
     try {
       r = await rpc('enviar_indicacao', { p: {
         proprietario_nome: g('owner'), telefone: dig(g('phone')), whatsapp: d.samewa ? dig(g('phone')) : dig(g('wa')) || dig(g('phone')), horario: g('horario'),
-        condominio_id: cid, unidade: nvUnidade(d), endereco: end,
+        ...nvImovelP(d), condominio_id: cid, unidade: nvUnidade(d), endereco: end,
         tipo: g('tipo'), dormitorios: g('dorms'), interesse: g('interesse'), quando: g('quando'), como: g('como'), observacoes: g('obs'), consentimento: true } });
     } catch(e) { return showErr('#f-err', msg(e)); }
     S.nd = null; S.nvStep = 0;
@@ -1755,6 +1765,7 @@ const forms = {
     try {
       const r = await rpc('indicacao_publica', { p_codigo: S.pub.q || null, p_condominio: S.pub.k || null,
         p: { proprietario_nome: g('owner'), telefone: dig(g('phone')), whatsapp: dig(g('phone')), unidade: nvUnidade(d), endereco: end, fora_condominio: fora,
+             end_rua: fora ? g('end') : null, end_numero: fora ? g('numero') : null, end_cep: fora ? dig(g('cep')) : null, apto: g('apto'), bloco: g('tipo') === 'Casa' ? '' : g('bloco'),
              tipo: g('tipo'), dormitorios: g('dorms'), horario: g('horario'), interesse: g('interesse'), como: 'QR Code (o próprio proprietário)', observacoes: g('obs'), consentimento: true } });
       S.pub.done = { dup: r.duplicada, id: r.id }; render();
     } catch(e) { showErr('#p-err', msg(e)); }
