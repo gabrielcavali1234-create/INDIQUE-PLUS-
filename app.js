@@ -797,7 +797,7 @@ function vDrawer(){
    </div></aside></div>`;
 }
 function aOcorr(){
-  return `<p class="note">Tentativas bloqueadas por duplicidade (telefone ou imóvel já cadastrado). Nenhuma recompensa é gerada nesses casos.</p>
+  return `<p class="note">Tentativas bloqueadas por duplicidade (mesmo endereço, unidade e bloco/torre). Nenhuma recompensa é gerada. Ao resolver, o indicador recebe um aviso no sininho.</p>
    <div class="cards">${S.D.ocorr.map(o => { const orig = S.D.inds.find(i => i.id === o.indicacao_original); return `<div class="${o.estado==='aberta'?'alert':'card'}">
     <div class="sec-h"><b>${esc(o.motivo)}</b><span class="note">${fdt(o.criado_em)}</span></div>
     <dl class="kv"><dt>Tentativa de</dt><dd>${esc(perfil(o.tentativa_por)?.nome || 'QR Code')}</dd><dt>Proprietário</dt><dd>${esc(o.proprietario_nome)} · <span class="mono">${fph(o.telefone)}</span></dd><dt>Imóvel</dt><dd>${esc(o.unidade)} · ${esc(condoNome(o.condominio_id))}</dd><dt>Registro original</dt><dd class="mono">${esc(o.indicacao_original||'—')}${orig?` (${esc(perfil(orig.indicador_id)?.nome || orig.origem)})`:''}</dd></dl>

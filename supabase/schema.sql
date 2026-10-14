@@ -308,6 +308,10 @@ begin
     perform public.notifica_admins('duplicidade', 'Tentativa de indicação duplicada',
             coalesce(p_autor_nome,'Alguém') || ' tentou indicar ' || (p->>'proprietario_nome') || ', já registrado em ' || v_dup.id, v_dup.id);
     perform public.registra('Duplicidade bloqueada: tentativa sobre ' || v_dup.id);
+    if p_indicador is not null then
+      insert into public.notificacoes (destinatario_id, tipo, titulo, corpo)
+      values (p_indicador, 'ocorrencia', 'Imóvel já cadastrado', 'A indicação de ' || trim(p->>'proprietario_nome') || ' (' || coalesce(p->>'unidade','') || ') foi para análise da equipe: esse imóvel já está cadastrado na Rendique.');
+    end if;
     return jsonb_build_object('duplicada', true);
   end if;
 
@@ -552,10 +556,21 @@ end $$;
 
 create or replace function public.resolver_ocorrencia(p_id bigint, p_estado text) returns void
 language plpgsql security definer set search_path = public as $$
+declare v_o public.ocorrencias;
 begin
   if not public.is_admin() then raise exception 'Sem permissão.'; end if;
   if p_estado not in ('mantida','suspeita') then raise exception 'Estado inválido.'; end if;
+  select * into v_o from public.ocorrencias where id = p_id;
+  if not found then raise exception 'Ocorrência não encontrada.'; end if;
   update public.ocorrencias set estado = p_estado where id = p_id;
+  if v_o.tentativa_por is not null then
+    insert into public.notificacoes (destinatario_id, tipo, titulo, corpo)
+    values (v_o.tentativa_por, 'ocorrencia',
+      case when p_estado = 'suspeita' then 'Indicação marcada como suspeita' else 'Imóvel já cadastrado' end,
+      case when p_estado = 'suspeita'
+        then 'A tentativa de indicar ' || coalesce(v_o.proprietario_nome,'o proprietário') || ' (' || coalesce(v_o.unidade,'') || ') foi analisada e marcada como suspeita pela equipe. Não gera recompensa. Em caso de dúvida, fale com o gestor.'
+        else 'A indicação de ' || coalesce(v_o.proprietario_nome,'o proprietário') || ' (' || coalesce(v_o.unidade,'') || ') não foi registrada: esse imóvel já estava cadastrado na Rendique. Não gera recompensa.' end);
+  end if;
   perform public.registra('Ocorrência ' || p_id || ' → ' || p_estado);
 end $$;
 
