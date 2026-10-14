@@ -876,7 +876,7 @@ begin
     insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, 6, auth.uid(), v_nome);
   end if;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bônus de R$ ' || v_val || ' será liberado quando a comissão for recebida.', p_id);
+  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bonificação de R$ ' || v_val || ' em processamento.', p_id);
   perform public.registra('Venda registrada ' || p_id || ': R$ ' || p_valor_venda || ' · bônus R$ ' || v_val);
   return v_val;
 end $$;
@@ -895,7 +895,7 @@ begin
    where indicacao_id = p_id;
   if p_estado = 'disponivel' then
     insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-    values (v_b.indicador_id, 'bonus', 'Bônus de venda liberado', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
+    values (v_b.indicador_id, 'bonus', 'Bonificação liberada', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
   end if;
   perform public.registra('Bônus de ' || p_id || ' → ' || p_estado);
 end $$;
@@ -912,7 +912,7 @@ begin
   update public.bonus_venda set estado = 'pago', pago_em = coalesce(p_data, current_date), pago_por = auth.uid(), atualizado_em = now(),
     comprovante_codigo = nullif(trim(p_codigo),''), comprovante_arquivo = nullif(trim(p_arquivo),'') where indicacao_id = p_id;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-  values (v_b.indicador_id, 'bonus', 'Bônus de venda pago', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
+  values (v_b.indicador_id, 'bonus', 'Bonificação paga', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
   perform public.registra('Bônus pago: ' || p_id || ' (R$ ' || v_b.valor || ')');
 end $$;
 
@@ -920,3 +920,9 @@ revoke execute on function public.definir_bonus(text,numeric,numeric), public.re
   public.mudar_bonus(text,text,date), public.pagar_bonus(text,date,text,text) from public, anon;
 grant execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text),
   public.mudar_bonus(text,text,date), public.pagar_bonus(text,date,text,text) to authenticated;
+
+-- Avisos antigos ao indicador: trocar a palavra comissão por bonificação
+update public.notificacoes set corpo = replace(replace(corpo, 'bônus de R$', 'bonificação de R$'), ' será liberado quando a comissão for recebida.', ' em processamento.')
+ where tipo = 'bonus' and corpo like '%comissão%';
+update public.notificacoes set titulo = 'Bonificação liberada' where tipo = 'bonus' and titulo = 'Bônus de venda liberado';
+update public.notificacoes set titulo = 'Bonificação paga' where tipo = 'bonus' and titulo = 'Bônus de venda pago';

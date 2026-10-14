@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610081930 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610141930 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -545,7 +545,7 @@ function vCarteira(){
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
    ${cardPix()}
-   ${(S.D.bonus||[]).length ? `<div class="card"><h2>Bônus de venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe um bônus. Ele é liberado depois que a imobiliária recebe a comissão.</p><div class="hist">${S.D.bonus.map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${b.estado==='disponivel'?'Liberado':BON[b.estado][1]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`).join('')}</div></div>` : ''}
+   ${(S.D.bonus||[]).length ? `<div class="card bonifl"><h2>Bonificação por venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe uma bonificação. Ela fica em processamento até a conclusão da venda e depois é liberada para pagamento via Pix.</p><div class="hist">${S.D.bonus.map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${BON_IND[b.estado]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`).join('')}</div></div>` : ''}
    <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.D.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate.</p></div></div>
    <div class="col"><div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].map(r => { const i = S.D.inds.find(x => x.id === r.indicacao_id);
      return `<div><div><div class="mono" style="font-size:13px">${r.indicacao_id}</div><div class="note">${esc(i?.proprietario_nome||'')} · ${fd(r.criado_em)}</div></div><div style="text-align:right"><div class="a">${money(r.valor)}</div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span>${r.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`; }).join('') || '<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
@@ -902,6 +902,7 @@ function cStats(c){
     nova: L.some(i => Date.now() - new Date(i.criado_em) < DAY), ult: L.map(i => i.criado_em).sort().pop() };
 }
 /* ---------- Bônus de venda (gestor) ---------- */
+const BON_IND = { aguardando: 'Bonificação em processamento', disponivel: 'Bonificação liberada', pago: 'Bonificação paga', cancelado: 'Cancelada' };
 const BON = { aguardando: ['proc','Aguardando comissão'], disponivel: ['disp','A pagar'], pago: ['pago','Pago'], cancelado: ['pago','Cancelado'] };
 const pctBR = v => `${Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
 const brlK = v => { v = Number(v || 0); return v >= 1e6 ? `R$ ${(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})} mi` : v >= 1e3 ? `R$ ${(v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:0})} mil` : money(v); };
