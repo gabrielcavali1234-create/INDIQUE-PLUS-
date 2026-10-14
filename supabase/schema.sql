@@ -73,6 +73,53 @@ create table if not exists public.indicacoes (
   atualizado_em       timestamptz not null default now()
 );
 create index if not exists indicacoes_tel_idx on public.indicacoes (telefone_norm);
+-- Identificação do imóvel (duplicidade por endereço + unidade + bloco/torre)
+alter table public.indicacoes add column if not exists end_rua      text;
+alter table public.indicacoes add column if not exists end_numero   text;
+alter table public.indicacoes add column if not exists end_cep      text;
+alter table public.indicacoes add column if not exists apto         text;
+alter table public.indicacoes add column if not exists bloco        text;
+alter table public.indicacoes add column if not exists imovel_chave text;
+create index if not exists indicacoes_imovel_idx on public.indicacoes (imovel_chave);
+
+create or replace function public.norm_txt(t text) returns text
+language sql immutable as $$
+  select regexp_replace(lower(translate(coalesce(t,''), 'ÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇÑáàãâäéèêëíìîïóòõôöúùûüçñºª°', 'AAAAAEEEEIIIIOOOOOUUUUCNaaaaaeeeeiiiiooooouuuucnoao')), '\s+', ' ', 'g')
+$$;
+-- "Av. Doná Blandina Ignêz Júlio, 461" e "Avenida Dona Blandina Ignez Julio 461" geram a mesma chave
+create or replace function public.chave_endereco(t text) returns text
+language sql immutable as $$
+  select nullif(regexp_replace(regexp_replace(
+           regexp_replace(public.norm_txt(t), '[^a-z0-9]+', ' ', 'g'),
+           '\m(rua|r|avenida|av|alameda|al|travessa|tv|estrada|estr|praca|pca|rodovia|rod|largo|lgo|via|de|da|do|das|dos|e|n|no|numero|num)\M', '', 'g'),
+         '[^a-z0-9]', '', 'g'), '')
+$$;
+create or replace function public.chave_unidade(t text) returns text
+language sql immutable as $$
+  select nullif(regexp_replace(regexp_replace(public.norm_txt(t), '(apartamento|apto|ap|casa|sala|cobertura|cob|unidade|un|conjunto|cj|n)', '', 'g'), '[^a-z0-9]', '', 'g'), '')
+$$;
+create or replace function public.chave_bloco(t text) returns text
+language sql immutable as $$
+  select coalesce(regexp_replace(regexp_replace(public.norm_txt(t), '(bloco|bl|torre|tr|edificio|ed|predio)', '', 'g'), '[^a-z0-9]', '', 'g'), '')
+$$;
+create or replace function public.chave_imovel(p_condo uuid, p_rua text, p_numero text, p_endereco text, p_unidade text, p_bloco text) returns text
+language plpgsql stable set search_path = public as $$
+declare v_end text; v_un text; v_bl text; v_u text := coalesce(p_unidade,''); v_b text := p_bloco;
+begin
+  if p_condo is not null then
+    select coalesce(public.chave_endereco(endereco), 'cond' || id::text) into v_end from public.condominios where id = p_condo;
+  elsif coalesce(trim(p_rua),'') <> '' then
+    v_end := public.chave_endereco(p_rua || ' ' || coalesce(p_numero,''));
+  else
+    -- texto livre: "Nome do condomínio · Rua X, 123 – Bairro, Cidade" → usa "Rua X, 123"
+    v_end := public.chave_endereco(split_part(regexp_replace(coalesce(p_endereco,''), '^[^·]*·\s*(?=.*\d)', ''), ' – ', 1));
+  end if;
+  -- unidade no formato antigo "Apto 52 · Bloco B"
+  if v_b is null and position('·' in v_u) > 0 then v_b := split_part(v_u, '·', 2); v_u := split_part(v_u, '·', 1); end if;
+  v_un := public.chave_unidade(v_u); v_bl := public.chave_bloco(v_b);
+  if v_end is null or v_un is null then return null; end if;
+  return v_end || '|' || v_un || '|' || v_bl;
+end $$;
 
 -- Ficha do imóvel: dados levantados pelo gestor/corretor depois da qualificação.
 -- Fica separada da indicação para o indicador não ver valores e documentação.
@@ -241,20 +288,23 @@ declare
   v_dup public.indicacoes;
   v_id text;
   v_condo_nome text;
+  v_chave text;
 begin
   if coalesce(trim(p->>'proprietario_nome'),'') = '' then raise exception 'Informe o nome do proprietário.'; end if;
   if length(v_tel) < 10 then raise exception 'Informe um telefone com DDD.'; end if;
   if coalesce(trim(p->>'unidade'),'') = '' then raise exception 'Informe a unidade.'; end if;
   if coalesce((p->>'consentimento')::boolean, false) is not true then raise exception 'É preciso confirmar a autorização do proprietário.'; end if;
 
+  -- Duplicidade: o imóvel é identificado por endereço + unidade + bloco/torre.
+  v_chave := public.chave_imovel(v_condo, p->>'end_rua', p->>'end_numero', p->>'endereco', coalesce(p->>'apto', p->>'unidade'), p->>'bloco');
   select * into v_dup from public.indicacoes
-   where status <> 8 and (telefone_norm = v_tel or (v_condo is not null and condominio_id = v_condo and v_un <> '' and unidade_norm = v_un))
+   where status <> 8 and imovel_chave is not null and imovel_chave = v_chave
    order by criado_em limit 1;
 
   if found then
     insert into public.ocorrencias (tentativa_por, proprietario_nome, telefone, unidade, condominio_id, indicacao_original, motivo)
     values (p_indicador, p->>'proprietario_nome', v_tel, p->>'unidade', v_condo, v_dup.id,
-            case when v_dup.telefone_norm = v_tel then 'Telefone já cadastrado' else 'Imóvel já cadastrado' end);
+            'Imóvel já cadastrado (mesmo endereço, unidade e bloco)');
     perform public.notifica_admins('duplicidade', 'Tentativa de indicação duplicada',
             coalesce(p_autor_nome,'Alguém') || ' tentou indicar ' || (p->>'proprietario_nome') || ', já registrado em ' || v_dup.id, v_dup.id);
     perform public.registra('Duplicidade bloqueada: tentativa sobre ' || v_dup.id);
@@ -262,10 +312,13 @@ begin
   end if;
 
   insert into public.indicacoes (indicador_id, condominio_id, proprietario_nome, telefone, whatsapp, horario, unidade, endereco,
-                                 tipo, dormitorios, interesse, quando, como, observacoes, origem, consentimento)
+                                 tipo, dormitorios, interesse, quando, como, observacoes, origem, consentimento,
+                                 end_rua, end_numero, end_cep, apto, bloco, imovel_chave)
   values (p_indicador, v_condo, trim(p->>'proprietario_nome'), v_tel, nullif(regexp_replace(coalesce(p->>'whatsapp',''),'\D','','g'),''),
           p->>'horario', trim(p->>'unidade'), nullif(p->>'endereco',''), p->>'tipo', p->>'dormitorios', p->>'interesse',
-          p->>'quando', p->>'como', nullif(p->>'observacoes',''), p_origem, true)
+          p->>'quando', p->>'como', nullif(p->>'observacoes',''), p_origem, true,
+          nullif(trim(p->>'end_rua'),''), nullif(trim(p->>'end_numero'),''), nullif(regexp_replace(coalesce(p->>'end_cep',''),'\D','','g'),''),
+          nullif(trim(p->>'apto'),''), nullif(trim(p->>'bloco'),''), v_chave)
   returning id into v_id;
 
   insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (v_id, 0, p_indicador, coalesce(p_autor_nome, 'Proprietário via QR Code'));
@@ -945,3 +998,20 @@ update public.notificacoes set corpo = replace(replace(corpo, 'bônus de R$', 'b
  where tipo = 'bonus' and corpo like '%comissão%';
 update public.notificacoes set titulo = 'Bonificação liberada' where tipo = 'bonus' and titulo = 'Bônus de venda liberado';
 update public.notificacoes set titulo = 'Bonificação paga' where tipo = 'bonus' and titulo = 'Bônus de venda pago';
+
+-- ---------------------------------------------------------------------
+-- Duplicidade por imóvel: preencher a chave das indicações antigas e checagem prévia
+-- ---------------------------------------------------------------------
+update public.indicacoes set imovel_chave = public.chave_imovel(condominio_id, end_rua, end_numero, endereco, coalesce(apto, unidade), bloco)
+ where imovel_chave is null;
+
+create or replace function public.imovel_existe(p jsonb) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare v_chave text;
+begin
+  if auth.uid() is null then raise exception 'Sem permissão.'; end if;
+  v_chave := public.chave_imovel(nullif(p->>'condominio_id','')::uuid, p->>'end_rua', p->>'end_numero', p->>'endereco', coalesce(p->>'apto', p->>'unidade'), p->>'bloco');
+  return v_chave is not null and exists (select 1 from public.indicacoes where status <> 8 and imovel_chave = v_chave);
+end $$;
+revoke execute on function public.imovel_existe(jsonb) from public, anon;
+grant execute on function public.imovel_existe(jsonb) to authenticated;
