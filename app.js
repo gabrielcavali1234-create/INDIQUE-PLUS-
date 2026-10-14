@@ -372,10 +372,24 @@ function wallet(){
   const sum = e => r.filter(x => e.includes(x.estado)).reduce((a,b) => a + Number(b.valor), 0);
   return { disp: sum(['disponivel']), proc: sum(['processamento','resgate']), pago: sum(['pago']), list: r };
 }
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const mesDe = d => d ? String(d).slice(0, 7) : '';
+const mesNome = m => `${MESES[Number(m.slice(5, 7)) - 1]} de ${m.slice(0, 4)}`;
+function bonusMes(){
+  const hoje = isoDia(new Date()).slice(0, 7);
+  if (!S.bonMes) S.bonMes = hoje;
+  const B = (S.D.bonus || []).filter(b => b.estado !== 'cancelado');
+  const meses = [...new Set([hoje, ...B.flatMap(b => [mesDe(b.data_venda), mesDe(b.pago_em)]).filter(Boolean)])].sort().reverse();
+  return { B, meses, m: S.bonMes };
+}
 function bonusTotais(){
-  const B = (S.D.bonus || []).filter(b => b.estado !== 'cancelado'), soma = L => L.reduce((t, b) => t + Number(b.valor), 0);
-  const pagos = B.filter(b => b.estado === 'pago'), pago = soma(pagos), lib = soma(B.filter(b => b.estado === 'disponivel')), proc = soma(B.filter(b => b.estado === 'aguardando'));
-  return `<div class="wsplit bontot"><div class="tile"><div class="l">Já recebido</div><div class="v">${money(pago)}</div><div class="note">${pagos.length} bonificaç${pagos.length === 1 ? 'ão paga' : 'ões pagas'}</div></div><div class="tile"><div class="l">A receber</div><div class="v">${money(lib + proc)}</div><div class="note">${lib ? `${money(lib)} liberado` : ''}${lib && proc ? ' · ' : ''}${proc ? `${money(proc)} em processamento` : ''}${!lib && !proc ? 'Nada pendente' : ''}</div></div></div>`;
+  const { B, meses, m } = bonusMes(), soma = L => L.reduce((t, b) => t + Number(b.valor), 0);
+  const todos = m === 'todos', ano = todos ? isoDia(new Date()).slice(0, 4) : m.slice(0, 4);
+  const pagos = B.filter(b => b.estado === 'pago'), noMes = todos ? pagos : pagos.filter(b => mesDe(b.pago_em) === m), noAno = pagos.filter(b => String(b.pago_em || '').startsWith(ano));
+  const lib = soma(B.filter(b => b.estado === 'disponivel')), proc = soma(B.filter(b => b.estado === 'aguardando'));
+  return `<label class="bonmes"><span>Mês</span><select class="in" id="bon-mes" aria-label="Escolher mês">${meses.map(x => `<option value="${x}" ${x===m?'selected':''}>${mesNome(x)}</option>`).join('')}<option value="todos" ${todos?'selected':''}>Todos os meses</option></select></label>
+   <div class="wsplit bontot"><div class="tile"><div class="l">${todos ? 'Já recebido' : 'Recebido no mês'}</div><div class="v">${money(soma(noMes))}</div><div class="note">${noMes.length} bonificaç${noMes.length === 1 ? 'ão paga' : 'ões pagas'}</div></div><div class="tile"><div class="l">A receber</div><div class="v">${money(lib + proc)}</div><div class="note">${lib ? `${money(lib)} liberado` : ''}${lib && proc ? ' · ' : ''}${proc ? `${money(proc)} em processamento` : ''}${!lib && !proc ? 'Nada pendente' : ''}</div></div></div>
+   <div class="bonano"><span>Total recebido em ${ano}</span><b>${money(soma(noAno))}</b></div>`;
 }
 function vHome(){
   const u = S.perfil, mine = S.D.inds.filter(i => i.indicador_id === u.id), w = wallet();
@@ -551,7 +565,7 @@ function vCarteira(){
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
    ${cardPix()}
-   ${(S.D.bonus||[]).length ? `<div class="card bonifl"><h2>Bonificação por venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe uma bonificação. Ela fica em processamento até a conclusão da venda e depois é liberada para pagamento via Pix.</p>${bonusTotais()}<div class="hist">${S.D.bonus.map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${BON_IND[b.estado]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`).join('')}</div></div>` : ''}
+   ${(S.D.bonus||[]).length ? `<div class="card bonifl"><h2>Bonificação por venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe uma bonificação. Ela fica em processamento até a conclusão da venda e depois é liberada para pagamento via Pix.</p>${bonusTotais()}<div class="hist">${(S.bonMes && S.bonMes !== 'todos' ? S.D.bonus.filter(b => mesDe(b.data_venda) === S.bonMes || mesDe(b.pago_em) === S.bonMes) : S.D.bonus).map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${BON_IND[b.estado]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`).join('') || '<p class="muted">Nenhuma bonificação neste mês.</p>'}</div></div>` : ''}
    <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.D.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate.</p></div></div>
    <div class="col"><div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].map(r => { const i = S.D.inds.find(x => x.id === r.indicacao_id);
      return `<div><div><div class="mono" style="font-size:13px">${r.indicacao_id}</div><div class="note">${esc(i?.proprietario_nome||'')} · ${fd(r.criado_em)}</div></div><div style="text-align:right"><div class="a">${money(r.valor)}</div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span>${r.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`; }).join('') || '<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
@@ -1601,6 +1615,7 @@ document.addEventListener('change', e => {
   if (t.form?.dataset.f === 'ficha') fichaCalc();
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
+  if (t.id === 'bon-mes') { S.bonMes = t.value; render(); }
   if (t.id === 'r-de' || t.id === 'r-ate') { S[t.id === 'r-de' ? 'relDe' : 'relAte'] = t.value; render(); }
   if (t.id === 'r-pess') S.relPess = t.checked;
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
