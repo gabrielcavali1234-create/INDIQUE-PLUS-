@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142040 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142045 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -786,6 +786,15 @@ function filtraInds(){
   const q = (S.admQ || '').trim().toLowerCase(), qd = dig(q);
   return S.D.inds.filter(i => !q || [i.id, i.proprietario_nome, i.unidade, condoNome(i.condominio_id), i.endereco, perfil(i.indicador_id)?.nome].some(v => String(v||'').toLowerCase().includes(q)) || (qd.length >= 4 && dig(i.telefone).includes(qd)));
 }
+function recBox(i, grande){
+  if (i.status < 4 || i.status === 8 || !i.indicador_id) return '';
+  const r = S.D.rewards.find(x => x.indicacao_id === i.id && x.estado !== 'cancelada'); if (!r) return '';
+  const est = r.estado === 'processamento' ? 'Em processamento' : r.estado === 'disponivel' ? 'Liberada · aguardando pagamento' : r.estado === 'resgate' ? 'Resgate pedido pelo indicador' : 'Paga';
+  const bt = r.estado === 'processamento' ? `<button class="btn sm green" data-a="rew" data-v="${i.id}" data-e="disponivel">${ic('check',16)}Liberar recompensa</button>`
+    : ['disponivel','resgate'].includes(r.estado) ? `<button class="btn sm gold" data-a="pagarPix" data-v="${i.id}">Pagar via Pix</button>`
+    : `<button class="btn sm ghost" data-a="verComp" data-v="${i.id}">Ver comprovante</button>`;
+  return `<div class="recbox ${r.estado} ${grande ? 'big' : ''}"><span><b>Recompensa ${money(r.valor)}</b><small>${est}</small></span>${bt}</div>`;
+}
 function cardAdm(i, compact){
   const nx = PROX[i.status], ind = perfil(i.indicador_id)?.nome;
   return `<article class="lcard ${S.flash===i.id?'flash':''} ${i.status===0?'needs':''}" id="row-${i.id}" data-a="openInd" data-v="${i.id}" tabindex="0">
@@ -795,6 +804,7 @@ function cardAdm(i, compact){
     <h3>${esc(i.proprietario_nome)}</h3>
     <p class="lc-sub">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p>
     ${compact ? '' : `<p class="lc-sub">Indicado por <b>${esc(ind || 'QR Code')}</b></p>`}
+    ${compact ? '' : recBox(i)}
    </div>
    <div class="lc-act">
     <div class="btns" style="flex-wrap:nowrap;gap:6px">${i.status >= 1 && i.status <= 7 ? `<button class="iconbtn" data-a="back1" data-v="${i.id}" aria-label="Voltar para ${ST[i.status-1]}" title="Voltar para ${ST[i.status-1]}">${ic('undo',18)}</button>` : ''}<a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a></div>
@@ -823,6 +833,7 @@ function vDrawer(){
     ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
     ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div></section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
     ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
+    ${recBox(i, true) ? `<section><p class="eyebrow">Recompensa do indicador</p>${recBox(i, true)}</section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
     <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}${bonusDe(i.id)?`<dt>Bônus de venda</dt><dd>${money(bonusDe(i.id).valor)} · ${BON[bonusDe(i.id).estado][1]}${bonusDe(i.id).estado!=='pago'?` · <button class="link" data-a="registrarVenda" data-v="${i.id}">editar venda</button>`:''}</dd>`:(i.status===6||i.status===7)&&i.indicador_id?`<dt>Bônus de venda</dt><dd><button class="link" data-a="registrarVenda" data-v="${i.id}">Registrar valor da venda</button></dd>`:''}</dl></section>
     <section><p class="eyebrow">Linha do tempo</p>${timeline(i)}</section>
@@ -1592,7 +1603,7 @@ const act = {
     if (j.length < 10) return showErr('#m-err', 'Escreva a justificativa (pelo menos 10 letras).');
     closeModal(); await rpc('mudar_status', { p_id: d.v, p_status: 8, p_motivo: `${m}: ${j}` }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v} encerrada`);
   }),
-  rew: d => guard(async () => { await rpc('mudar_recompensa', { p_indicacao: d.v, p_estado: d.e }); await refresh(); toast(d.e === 'pago' ? 'Pagamento registrado' : 'Recompensa liberada'); }),
+  rew: d => guard(async () => { await rpc('mudar_recompensa', { p_indicacao: d.v, p_estado: d.e }); await refresh(); toast(d.e === 'pago' ? 'Pagamento registrado' : 'Recompensa liberada: o indicador já pode pedir o resgate'); }),
   ocorr: d => guard(async () => { await rpc('resolver_ocorrencia', { p_id: Number(d.v), p_estado: d.e }); await refresh(); }),
   editPix: () => { S.editPix = !S.editPix; render(); },
   anexarComp: d => act.pagarPix({ v: d.v, modo: 'anexar' }),
