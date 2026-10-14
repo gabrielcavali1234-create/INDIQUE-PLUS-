@@ -98,7 +98,7 @@ main.pro{padding-bottom:48px}
 .tile .l{font-size:13px;color:var(--muted)}
 .tile .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
 
-.reward{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);background:var(--gold-soft);border-radius:14px;padding:14px 16px}
+.reward{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid color-mix(in srgb,var(--s6) 35%,transparent);background:color-mix(in srgb,var(--s6) 12%,var(--surface));border-radius:14px;padding:14px 16px}
 .reward .v{font-family:var(--display);font-weight:800;font-size:26px;font-variant-numeric:tabular-nums}
 .reward .l{font-size:13px;color:var(--muted)}
 
@@ -474,11 +474,11 @@ tr.flash td{background:var(--gold-soft)}
 .alert.lite{margin-top:12px}
 .bonifl .tag{white-space:nowrap}
 .bonifl .hist>div>div:first-child{min-width:0}
-.bontot{margin:4px 0 6px}.bontot .v{font-size:22px}.bontot .note{margin:2px 0 0;font-size:12.5px}
+.bontot{margin:4px 0 6px}.bontot .tile:first-child .v,.bonano b{color:var(--s7)}.bontot .v{font-size:22px}.bontot .note{margin:2px 0 0;font-size:12.5px}
 .bonhome{gap:6px}.bonhome .sec-h{margin:0}.bonhome h3{margin:0}
 .bonmes{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--muted);margin:2px 0}
 .bonmes select{min-height:38px;width:auto;flex:1;max-width:260px;padding:6px 10px;font-weight:600}
-.bonano{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--surface-2);font-size:14px;font-weight:600}
+.bonano{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,var(--s6) 13%,var(--surface));font-size:14px;font-weight:600}
 .bonano b{font-family:var(--display);font-size:18px;font-variant-numeric:tabular-nums}
 .vdgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .vdbox{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2)}
@@ -491,13 +491,13 @@ tr.flash td{background:var(--gold-soft)}
 .rklist{display:flex;flex-direction:column}
 .rkrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid var(--line)}
 .rklist .rkrow:first-child{border-top:0}
-.rkrow.eu{background:color-mix(in srgb,var(--gold) 16%,var(--surface));border-radius:12px;border-top-color:transparent;padding-inline:8px}
+.rkrow.eu{background:color-mix(in srgb,var(--s6) 13%,var(--surface));border-radius:12px;border-top-color:transparent;padding-inline:8px}
 .rkpos{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:14px;background:var(--surface-2);color:var(--ink)}
 .rkpos.med1{background:#F5B83D;color:#132840}.rkpos.med2{background:#C9D1DB;color:#15233A}.rkpos.med3{background:#D99A6C;color:#2A1606}
 .rkn{display:flex;flex-direction:column;min-width:0}.rkn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rkn em{font-style:normal;color:var(--muted);font-weight:600}.rkn .note{margin:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rkq{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}.rkq b{font-family:var(--display);font-size:18px}.rkq small{color:var(--muted);font-size:11.5px}
 .rkme{display:flex;gap:14px;align-items:center;padding:4px 0 8px}.rkme span{display:flex;flex-direction:column}.rkme .note{margin:0}
-.rkbig{font-family:var(--display);font-weight:800;font-size:34px;color:var(--brand);min-width:64px;height:64px;border-radius:18px;display:grid!important;place-items:center;background:color-mix(in srgb,var(--gold) 22%,var(--surface))}
+.rkbig{font-family:var(--display);font-weight:800;font-size:34px;color:var(--s7);min-width:64px;height:64px;border-radius:18px;display:grid!important;place-items:center;background:color-mix(in srgb,var(--s6) 16%,var(--surface))}
 .rkhome{gap:6px}.rkhome .sec-h{margin:0}.rkhome h3{margin:0}
 .rkhero{display:flex;flex-direction:row;gap:16px;align-items:center}.rkhero h2{margin:2px 0}.rkhero .note{margin:0}
 .rksep{text-align:center;color:var(--muted);padding:4px 0}
@@ -585,6 +585,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610142030"></script>
+<script src="app.js?v=202610142035"></script>
 </body>
 </html>
