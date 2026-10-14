@@ -1030,3 +1030,39 @@ begin
 end $$;
 revoke execute on function public.imovel_existe(jsonb) from public, anon;
 grant execute on function public.imovel_existe(jsonb) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Ranking entre indicadores (posição por indicações qualificadas)
+-- ---------------------------------------------------------------------
+create or replace function public.ranking_indicadores(p_periodo text default 'mes') returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare v_ini timestamptz; v_out jsonb;
+begin
+  if auth.uid() is null then raise exception 'Sem permissão.'; end if;
+  v_ini := case p_periodo
+    when 'mes' then (date_trunc('month', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo'
+    when 'ano' then (date_trunc('year',  now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo'
+    else '-infinity'::timestamptz end;
+  with base as (
+    select p.id, p.nome, coalesce(c.nome, p.condominio_texto, '') as condo,
+           count(i.id) as total,
+           count(i.id) filter (where i.status >= 3 and i.status <> 8) as qualif,
+           count(i.id) filter (where i.status in (6,7)) as vendas
+      from public.perfis p
+      left join public.condominios c on c.id = p.condominio_id
+      left join public.indicacoes i on i.indicador_id = p.id and i.criado_em >= v_ini
+     where p.papel = 'indicador' and p.ativo
+     group by p.id, p.nome, c.nome, p.condominio_texto),
+  r as (select *, rank() over (order by qualif desc, vendas desc, total desc) as pos from base),
+  apelido as (select r.*, split_part(trim(nome), ' ', 1) || coalesce(' ' || left(nullif(split_part(trim(nome), ' ', 2), ''), 1) || '.', '') as curto from r)
+  select jsonb_build_object(
+    'periodo', p_periodo,
+    'total', (select count(*) from apelido),
+    'eu', (select jsonb_build_object('pos', pos, 'total', total, 'qualif', qualif, 'vendas', vendas) from apelido where id = auth.uid()),
+    'lista', coalesce((select jsonb_agg(jsonb_build_object('pos', pos, 'nome', curto, 'condo', condo, 'qualif', qualif, 'vendas', vendas, 'total', total, 'eu', id = auth.uid()) order by pos, curto)
+                         from (select * from apelido order by pos, curto limit 10) t), '[]'::jsonb)
+  ) into v_out;
+  return v_out;
+end $$;
+revoke execute on function public.ranking_indicadores(text) from public, anon;
+grant execute on function public.ranking_indicadores(text) to authenticated;

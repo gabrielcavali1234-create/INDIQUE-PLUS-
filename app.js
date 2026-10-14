@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142010 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142030 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -75,6 +75,7 @@ const I = {
   chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
+  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
 };
@@ -100,6 +101,7 @@ async function loadData(){
     q(sb.from('notificacoes').select('*').order('criado_em',{ascending:false}).limit(60)).then(r => S.D.notifs = r),
     q(sb.from('indicacoes').select('*').order('criado_em',{ascending:false}).limit(1000)).then(r => S.D.inds = r)
   ];
+  if (p === 'indicador') jobs.push(loadRanking('mes'));
   if (p === 'indicador') jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('recompensas').select('*').order('criado_em',{ascending:false})).then(r => S.D.rewards = r));
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
@@ -373,6 +375,35 @@ function wallet(){
   const sum = e => r.filter(x => e.includes(x.estado)).reduce((a,b) => a + Number(b.valor), 0);
   return { disp: sum(['disponivel']), proc: sum(['processamento','resgate']), pago: sum(['pago']), list: r };
 }
+/* ---------- Ranking entre indicadores ---------- */
+const RANK_PER = [['mes','Este mês'],['ano','Este ano'],['geral','Geral']];
+async function loadRanking(per){
+  try { S.D.rank = Object.assign(S.D.rank || {}, { [per]: await rpc('ranking_indicadores', { p_periodo: per }) }); }
+  catch(e) { S.D.rank = Object.assign(S.D.rank || {}, { [per]: { erro: true } }); }
+}
+const ordinal = n => `${n}º`;
+function rankLinha(x){
+  const med = x.pos <= 3 ? `med${x.pos}` : '';
+  return `<div class="rkrow ${x.eu ? 'eu' : ''}"><span class="rkpos ${med}">${ordinal(x.pos)}</span><span class="rkn"><b>${esc(x.nome)}${x.eu ? ' <em>(você)</em>' : ''}</b><span class="note">${esc(x.condo || '')}</span></span><span class="rkq"><b>${x.qualif}</b><small>qualificada${x.qualif === 1 ? '' : 's'}</small></span></div>`;
+}
+function rankHome(){
+  const r = S.D.rank?.mes; if (!r || r.erro || !r.eu) return '';
+  const top = (r.lista || []).slice(0, 3);
+  return `<div class="card rkhome"><div class="sec-h"><h3>Ranking do mês</h3><button class="link" data-a="go" data-v="ranking">Ver ranking</button></div>
+    <div class="rkme"><span class="rkbig">${ordinal(r.eu.pos)}</span><span><b>Você está em ${ordinal(r.eu.pos)} lugar</b><span class="note">entre ${r.total} indicador${r.total === 1 ? '' : 'es'} · ${r.eu.qualif} qualificada${r.eu.qualif === 1 ? '' : 's'} este mês</span></span></div>
+    <div class="rklist">${top.map(rankLinha).join('')}</div></div>`;
+}
+function vRanking(){
+  const per = S.rankPer || 'mes', r = S.D.rank?.[per];
+  const corpo = !r ? '<p class="muted">Carregando ranking…</p>' : r.erro ? '<p class="muted">Não foi possível carregar o ranking agora.</p>' : `
+    ${r.eu ? `<div class="card rkhero"><span class="rkbig">${ordinal(r.eu.pos)}</span><div><p class="eyebrow">Sua posição</p><h2>${ordinal(r.eu.pos)} lugar de ${r.total}</h2><p class="note">${r.eu.qualif} qualificada${r.eu.qualif === 1 ? '' : 's'} · ${r.eu.vendas} venda${r.eu.vendas === 1 ? '' : 's'} · ${r.eu.total} indicaç${r.eu.total === 1 ? 'ão' : 'ões'}</p></div></div>` : ''}
+    <div class="card"><h2>Top 10</h2><div class="rklist">${(r.lista || []).map(rankLinha).join('') || '<p class="muted">Ainda não há indicações neste período.</p>'}</div>
+     ${r.eu && !(r.lista || []).some(x => x.eu) ? `<div class="rksep">…</div><div class="rklist">${rankLinha({ pos: r.eu.pos, nome: S.perfil.nome.split(' ')[0], condo: condo(S.perfil.condominio_id)?.nome || S.perfil.condominio_texto || '', qualif: r.eu.qualif, eu: true })}</div>` : ''}</div>`;
+  return `${ph('Ranking','mais')}
+   <div class="filters">${RANK_PER.map(([k,l]) => `<button class="chipbtn ${per===k?'on':''}" data-a="rankPer" data-v="${k}">${l}</button>`).join('')}</div>
+   ${corpo}
+   <p class="note">A posição conta as indicações qualificadas no período. Em caso de empate, vale quem tem mais vendas e, depois, mais indicações.</p>`;
+}
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const mesDe = d => d ? String(d).slice(0, 7) : '';
 const mesNome = m => `${MESES[Number(m.slice(5, 7)) - 1]} de ${m.slice(0, 4)}`;
@@ -403,6 +434,7 @@ function vHome(){
    <div class="stats">${tile(n.tot,'Suas indicações',0)}${tile(n.at,'Em atendimento',1)}${tile(n.q,'Oportunidades qualificadas',3)}${tile(n.v,'Vendas concluídas',6)}</div>
    <button class="reward" data-a="go" data-v="carteira"><div><div class="l">Recompensas acumuladas</div><div class="v">${money(w.disp+w.proc+w.pago)}</div></div>
     <div style="text-align:right"><div class="l">Disponível</div><b class="num">${money(w.disp)}</b></div></button>
+   ${rankHome()}
    ${(S.D.bonus || []).some(b => b.estado !== 'cancelado') ? `<div class="card bonifl bonhome"><div class="sec-h"><h3>Bonificação por venda</h3><button class="link" data-a="go" data-v="carteira">Ver detalhes</button></div>${bonusTotais()}</div>` : ''}
    <div class="quick">
     <button class="qbtn" data-a="go" data-v="lista">${ic('list')}Minhas indicações</button>
@@ -591,7 +623,7 @@ function cardPix(){
 function vMais(){
   const u = S.perfil, it = (v,i,t,d,a='go') => `<button class="qbtn" style="width:100%" data-a="${a}" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
   return `<section class="hello"><p class="eyebrow">Código ${esc(u.codigo)}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '')}</p></section>
-   <div class="cards">${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
+   <div class="cards">${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
 }
 function vQR(){ const u = S.perfil, url = `${SITE}?q=${u.codigo}`;
   return `${ph('Meu QR Code','mais')}
@@ -1432,8 +1464,8 @@ function render(){
     if (p === 'admin') { html = vAdm(); cls = desk ? 'wide' : 'adm'; }
     else if (p === 'corretor') { html = vPro(); cls = 'pro'; }
     else {
-      html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos}[S.tab] || vHome)();
-      if (['ok','dup','mais','qr','convite','privacidade','termos'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
+      html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking}[S.tab] || vHome)();
+      if (['ok','dup','mais','qr','convite','privacidade','termos','ranking'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
     }
   } else {
     html = ({setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
@@ -1451,6 +1483,7 @@ function render(){
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
   S.tab = t; S.bell = false; render(); window.scrollTo(0,0);
+  if (t === 'ranking') { const per = S.rankPer || 'mes'; if (!S.D.rank?.[per]) loadRanking(per).then(render); }
   if (t === 'convite' && S.D.convidados === null) rpc('meus_convidados', {}).then(r => { S.D.convidados = r; render(); }).catch(() => { S.D.convidados = []; render(); });
 }
 function showErr(sel, m){ const e = $(sel); if (!e) return toast(m); e.textContent = m; e.hidden = false; e.scrollIntoView({ block:'center', behavior:'smooth' }); }
@@ -1518,6 +1551,7 @@ const act = {
     $('#f-err-p') && ($('#f-err-p').hidden = true);
     S.nvStep = Math.max(0, Math.min(4, p + dir)); render(); window.scrollTo(0, 0);
   },
+  rankPer: d => { S.rankPer = d.v; render(); if (!S.D.rank?.[d.v]) loadRanking(d.v).then(render); },
   admView: d => { S.admView = d.v; render(); },
   noop: () => {},
   openInd: async d => { S.drawer = d.v; render(); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) {} } },
