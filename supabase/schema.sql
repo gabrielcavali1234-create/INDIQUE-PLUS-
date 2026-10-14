@@ -408,7 +408,7 @@ declare
   v_papel text := public.meu_papel();
   v_nome text;
   v_valor numeric;
-  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Recompensa liberada','Encerrada'];
+  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Bonificação liberada','Encerrada'];
 begin
   if v_papel not in ('admin','corretor') then raise exception 'Sem permissão.'; end if;
   select * into v_ind from public.indicacoes where id = p_id for update;
@@ -459,7 +459,7 @@ declare
   v_ind public.indicacoes;
   v_prev smallint;
   v_nome text;
-  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Recompensa liberada','Encerrada'];
+  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Bonificação liberada','Encerrada'];
 begin
   if not public.is_admin() then raise exception 'Só o gestor pode reabrir uma indicação.'; end if;
   select * into v_ind from public.indicacoes where id = p_id for update;
@@ -493,7 +493,7 @@ declare
   v_novo smallint;
   v_rew public.recompensas;
   v_nome text;
-  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Recompensa liberada','Encerrada'];
+  v_rotulo text[] := array['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Bonificação liberada','Encerrada'];
 begin
   if not public.is_admin() then raise exception 'Só o gestor pode voltar etapas.'; end if;
   select * into v_ind from public.indicacoes where id = p_id for update;
@@ -1066,3 +1066,6 @@ begin
 end $$;
 revoke execute on function public.ranking_indicadores(text) from public, anon;
 grant execute on function public.ranking_indicadores(text) to authenticated;
+
+-- Etapa 7 renomeada: avisos antigos
+update public.notificacoes set corpo = replace(corpo, 'Recompensa liberada', 'Bonificação liberada') where corpo like '%Recompensa liberada%';

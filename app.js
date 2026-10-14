@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142030 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142040 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -8,7 +8,7 @@ const sb = (CFG.supabaseUrl && CFG.supabaseKey && window.supabase)
   : null;
 const SITE = location.origin + location.pathname.replace(/index\.html$/, '');
 
-const ST = ['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Recompensa liberada','Encerrada'];
+const ST = ['Enviada','Em validação','Contato realizado','Oportunidade qualificada','Anúncio ativo','Em negociação','Venda realizada','Bonificação liberada','Encerrada'];
 const MOTIVOS = ['Proprietário desistiu da venda','Não foi possível falar com o proprietário','Dados incorretos','Imóvel já anunciado com outra imobiliária','Outro motivo'];
 const FUNCOES = ['Porteiro','Zelador','Síndico','Funcionário do condomínio','Outro parceiro'];
 const REW = {processamento:['proc','Em processamento'],disponivel:['disp','Disponível'],resgate:['resg','Resgate solicitado'],pago:['pago','Pago'],cancelada:['pago','Cancelada']};
@@ -780,7 +780,7 @@ const GRUPOS = [
   ['encerr','Encerradas', i => i.status === 8],
   ['todas','Todas', () => true]
 ];
-const PROX = { 0:'Validar', 1:'Contato feito', 2:'Qualificar', 3:'Publicar anúncio', 4:'Iniciar negociação', 5:'Venda realizada', 6:'Liberar recompensa' };
+const PROX = { 0:'Validar', 1:'Contato feito', 2:'Qualificar', 3:'Publicar anúncio', 4:'Iniciar negociação', 5:'Venda realizada', 6:'Liberar bonificação' };
 const waLink = t => `https://wa.me/55${dig(t)}`;
 function filtraInds(){
   const q = (S.admQ || '').trim().toLowerCase(), qd = dig(q);
