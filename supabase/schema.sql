@@ -846,7 +846,21 @@ begin
   perform public.registra('Regra de bônus por venda: ' || p_modo || ' (' || coalesce(p_percentual::text,'-') || '% / R$ ' || coalesce(p_fixo::text,'-') || ')');
 end $$;
 
-create or replace function public.registrar_venda(p_id text, p_valor_venda numeric, p_data date, p_percentual numeric default null, p_obs text default null) returns numeric
+-- Bonificação Rendique (só o gestor vê)
+create table if not exists public.receitas_venda (
+  indicacao_id  text primary key references public.indicacoes(id) on delete cascade,
+  percentual    numeric not null check (percentual >= 0 and percentual <= 100),
+  valor         numeric not null check (valor >= 0),
+  atualizado_em timestamptz not null default now()
+);
+alter table public.receitas_venda enable row level security;
+drop policy if exists receitas_ler on public.receitas_venda;
+create policy receitas_ler on public.receitas_venda for select to authenticated using (public.is_admin());
+revoke all on public.receitas_venda from anon;
+grant select on public.receitas_venda to authenticated;
+
+drop function if exists public.registrar_venda(text,numeric,date,numeric,text);
+create or replace function public.registrar_venda(p_id text, p_valor_venda numeric, p_data date, p_percentual numeric default null, p_obs text default null, p_rendique_pct numeric default null) returns numeric
 language plpgsql security definer set search_path = public as $$
 declare v_ind public.indicacoes; v_cfg public.configuracoes; v_b public.bonus_venda; v_pct numeric; v_val numeric; v_nome text;
 begin
@@ -877,6 +891,11 @@ begin
   end if;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
   values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bonificação de R$ ' || v_val || ' em processamento.', p_id);
+  if p_rendique_pct is not null then
+    if p_rendique_pct < 0 or p_rendique_pct > 100 then raise exception 'Percentual da Rendique inválido.'; end if;
+    insert into public.receitas_venda (indicacao_id, percentual, valor) values (p_id, p_rendique_pct, round(p_valor_venda * p_rendique_pct / 100, 2))
+    on conflict (indicacao_id) do update set percentual = excluded.percentual, valor = excluded.valor, atualizado_em = now();
+  end if;
   perform public.registra('Venda registrada ' || p_id || ': R$ ' || p_valor_venda || ' · bônus R$ ' || v_val);
   return v_val;
 end $$;
@@ -916,9 +935,9 @@ begin
   perform public.registra('Bônus pago: ' || p_id || ' (R$ ' || v_b.valor || ')');
 end $$;
 
-revoke execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text),
+revoke execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text,numeric),
   public.mudar_bonus(text,text,date), public.pagar_bonus(text,date,text,text) from public, anon;
-grant execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text),
+grant execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text,numeric),
   public.mudar_bonus(text,text,date), public.pagar_bonus(text,date,text,text) to authenticated;
 
 -- Avisos antigos ao indicador: trocar a palavra comissão por bonificação

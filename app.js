@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610141930 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610141955 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -108,6 +108,7 @@ async function loadData(){
     jobs.push(q(sb.from('ocorrencias').select('*').order('criado_em',{ascending:false}).limit(200)).then(r => S.D.ocorr = r));
     jobs.push(q(sb.from('convites_acesso').select('*').order('criado_em',{ascending:false}).limit(50)).then(r => S.D.convites = r).catch(() => S.D.convites = []));
     jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
+    jobs.push(q(sb.from('receitas_venda').select('*')).then(r => S.D.receitas = Object.fromEntries(r.map(x => [x.indicacao_id, x]))).catch(() => S.D.receitas = {}));
     jobs.push(q(sb.from('configuracoes').select('bonus_modo,bonus_percentual,bonus_fixo').eq('id',1)).then(r => S.D.bonusCfg = r[0] || null).catch(() => S.D.bonusCfg = null));
     jobs.push(q(sb.from('auditoria').select('*').order('criado_em',{ascending:false}).limit(150)).then(r => S.D.audit = r));
   }
@@ -928,6 +929,7 @@ const pctBR = v => `${Number(v || 0).toLocaleString('pt-BR', { maximumFractionDi
 const brlK = v => { v = Number(v || 0); return v >= 1e6 ? `R$ ${(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})} mi` : v >= 1e3 ? `R$ ${(v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:0})} mil` : money(v); };
 const bonusCfg = () => S.D.bonusCfg || { bonus_modo: 'percentual', bonus_percentual: 0.3, bonus_fixo: 300 };
 const bonusDe = id => (S.D.bonus || []).find(b => b.indicacao_id === id);
+const receitaDe = id => (S.D.receitas || {})[id];
 const dataBon = (b, campo) => b[campo] ? new Date(b[campo] + 'T12:00') : null;
 function bonusCalc(){
   const B = S.D.bonus || [], k = S.bonPer || 'ano', em = d => d && noPeriodo(d, k), sum = (L, f='valor') => L.reduce((a, b) => a + Number(b[f] || 0), 0);
@@ -965,11 +967,11 @@ function aBonus(){
   return `<div class="filters">${PERIODOS.map(([k,l]) => `<button class="chipbtn ${F.k===k?'on':''}" data-a="bonPer" data-v="${k}">${l}</button>`).join('')}</div>
    <div class="ftiles">
     ${tile(`Vendas (${per})`, String(F.vendasPer.length), `${brlK(F.sum(F.vendasPer,'valor_venda'))} em vendas (VGV)`)}
-    ${tile(`Bônus gerado (${per})`, money(F.sum(F.vendasPer)), F.vendasPer.length ? `média de ${money(F.sum(F.vendasPer) / F.vendasPer.length)} por venda` : 'nenhuma venda no período')}
+    ${tile(`Bonificação indicador (${per})`, money(F.sum(F.vendasPer)), F.vendasPer.length ? `média de ${money(F.sum(F.vendasPer) / F.vendasPer.length)} por venda` : 'nenhuma venda no período')}
     ${tile('Aguardando comissão', money(F.sum(F.aguard)), `${F.aguard.length} venda${F.aguard.length===1?'':'s'} sem comissão recebida`)}
     ${tile('A pagar agora', money(F.sum(F.apagar)), `${F.apagar.length} bônus liberado${F.apagar.length===1?'':'s'}`, F.apagar.length ? 'warn' : '')}
     ${tile(`Pago (${per})`, money(F.sum(F.pagosPer)), `${F.pagosPer.length} pagamento${F.pagosPer.length===1?'':'s'}`)}
-    ${tile('Prazo médio', F.prazo == null ? '—' : `${Math.round(F.prazo)} dia${Math.round(F.prazo)===1?'':'s'}`, 'da venda até o Pix')}
+    ${tile(`Bonificação Rendique (${per})`, money(F.vendasPer.reduce((t, b) => t + Number(receitaDe(b.indicacao_id)?.valor || 0), 0)), F.prazo == null ? 'só o gestor vê' : `prazo médio do Pix: ${Math.round(F.prazo)} dia${Math.round(F.prazo)===1?'':'s'}`)}
    </div>
    <div class="grid2 fin2">
     ${graficoMeses('Bônus por mês', itensG, 'Gerado', 'Pago', 'Gerado: bônus das vendas fechadas no mês. Pago: bônus pagos no mês.')}
@@ -993,8 +995,8 @@ function aBonus(){
    </tbody></table></div></div>
    <div class="card"><div class="sec-h"><h2>Extrato de bônus</h2></div>
     <div class="filters">${EST.map(([k,l]) => `<button class="chipbtn ${est===k?'on':''}" data-a="bonEst" data-v="${k}">${l}<span class="cnum">${k==='todos'?F.B.length:F.B.filter(b=>b.estado===k).length}</span></button>`).join('')}</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Venda em</th><th class="r">Valor da venda</th><th class="r">Regra</th><th class="r">Bônus</th><th>Estado</th><th>Ação</th></tr></thead><tbody>
-    ${ext.map(b => `<tr><td class="mono">${b.indicacao_id}</td><td>${esc(nomeI(b.indicador_id))}</td><td class="num">${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</td><td class="r num">${money(b.valor_venda)}</td><td class="r num">${b.modo === 'fixo' ? 'fixo' : pctBR(b.percentual)}</td><td class="r num"><b>${money(b.valor)}</b></td><td><span class="tag ${BON[b.estado][0]}">${BON[b.estado][1]}</span>${b.pago_em ? `<div class="note">${dataBon(b,'pago_em').toLocaleDateString('pt-BR')}</div>` : ''}</td>
+    <div class="tbl-wrap"><table><thead><tr><th>Indicação</th><th>Indicador</th><th>Venda em</th><th class="r">Valor da venda</th><th class="r">Rendique</th><th class="r">Indicador</th><th>Estado</th><th>Ação</th></tr></thead><tbody>
+    ${ext.map(b => `<tr><td class="mono">${b.indicacao_id}</td><td>${esc(nomeI(b.indicador_id))}</td><td class="num">${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</td><td class="r num">${money(b.valor_venda)}</td><td class="r num">${receitaDe(b.indicacao_id) ? `${money(receitaDe(b.indicacao_id).valor)}<div class="note">${pctBR(receitaDe(b.indicacao_id).percentual)}</div>` : '—'}</td><td class="r num"><b>${money(b.valor)}</b><div class="note">${b.modo === 'fixo' ? 'fixo' : pctBR(b.percentual)}</div></td><td><span class="tag ${BON[b.estado][0]}">${BON[b.estado][1]}</span>${b.pago_em ? `<div class="note">${dataBon(b,'pago_em').toLocaleDateString('pt-BR')}</div>` : ''}</td>
      <td><div class="btns" style="flex-wrap:nowrap">${b.estado === 'aguardando' ? `<button class="btn sm" data-a="bonEstado" data-v="${b.indicacao_id}" data-e="disponivel">Comissão recebida</button>` : b.estado === 'disponivel' ? `<button class="btn sm gold" data-a="bonPagar" data-v="${b.indicacao_id}">Pagar via Pix</button>` : b.estado === 'pago' ? `<button class="btn sm ghost" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button>` : ''}<button class="btn sm ghost" data-a="openInd" data-v="${b.indicacao_id}">Ver indicação</button></div></td></tr>`).join('') || '<tr><td colspan="8" class="note">Nenhum lançamento.</td></tr>'}
     </tbody></table></div></div>`;
 }
@@ -1006,17 +1008,23 @@ function vendaModal(id){
     <div><p class="eyebrow">${esc(id)} · ${esc(i.proprietario_nome)}</p><h2>Registrar venda</h2><p class="note">Indicado por <b>${esc(perfil(i.indicador_id)?.nome || '—')}</b>.</p></div>
     <label class="f">Valor final da venda<span class="insuf"><input class="in" name="valor" inputmode="decimal" placeholder="Ex.: 450.000" value="${valor ? fmtN(valor) : ''}"><em>R$</em></span></label>
     <label class="f">Data da venda (escritura ou contrato)<input class="in" type="date" name="data" value="${b?.data_venda || hoje}"></label>
-    ${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value="">` : `<label class="f">Percentual do bônus<span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${b?.percentual != null ? fmtN(b.percentual) : ''}" placeholder="Ex.: 0,5"><em>%</em></span></label>`}
-    <div class="bonusprev"><span class="l">Bônus do indicador</span><b id="vd-bonus">—</b><span class="note" id="vd-det"></span><span class="note">Fica aguardando até você marcar que a comissão foi recebida.</span></div>
+    <div class="vdgrid">
+     <div class="vdbox"><span class="l">Bonificação Rendique</span><label class="f"><span class="sr">Percentual da Rendique</span><span class="insuf"><input class="in" name="rpct" inputmode="decimal" value="${receitaDe(id)?.percentual != null ? fmtN(receitaDe(id).percentual) : ''}" placeholder="Ex.: 6"><em>%</em></span></label><b id="vd-rend">—</b></div>
+     <div class="vdbox ind"><span class="l">Bonificação Indicador</span>${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value=""><p class="note">Valor fixo por venda</p>` : `<label class="f"><span class="sr">Percentual do indicador</span><span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${b?.percentual != null ? fmtN(b.percentual) : ''}" placeholder="Ex.: 0,3"><em>%</em></span></label>`}<b id="vd-bonus">—</b></div>
+    </div>
+    <p class="note" id="vd-det">Informe o valor da venda e os percentuais.</p>
+    <p class="note">A bonificação do indicador fica aguardando até você marcar que a comissão foi recebida. A da Rendique não aparece para o indicador.</p>
     <label class="f">Observação <small>(opcional)</small><input class="in" name="obs" value="${esc(b?.observacao || '')}" placeholder="Ex.: venda financiada, escritura em 15/11"></label>
     <div id="vd-err" class="err" hidden></div>
     <div class="btns"><button class="btn gold" type="submit">Registrar venda</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
   vendaCalc();
 }
 function vendaCalc(){
-  const f = $('form[data-f=venda]'); if (!f) return; const cfg = bonusCfg(), v = Number(numBR(f.valor.value)), p = Number(numBR(f.pct?.value));
-  const bonus = cfg.bonus_modo === 'fixo' ? Number(cfg.bonus_fixo) : v * p / 100;
-  $('#vd-bonus').textContent = v > 0 ? money(bonus) : '—'; $('#vd-det').textContent = v > 0 ? (cfg.bonus_modo === 'fixo' ? 'Valor fixo por venda' : `${pctBR(p)} de ${money(v)}`) : 'Informe o valor da venda';
+  const f = $('form[data-f=venda]'); if (!f) return; const cfg = bonusCfg(), v = Number(numBR(f.valor.value)), p = Number(numBR(f.pct?.value)), rp = Number(numBR(f.rpct?.value));
+  const bonus = cfg.bonus_modo === 'fixo' ? Number(cfg.bonus_fixo) : v * p / 100, rend = v * rp / 100;
+  $('#vd-bonus').textContent = v > 0 && (cfg.bonus_modo === 'fixo' || f.pct.value.trim()) ? money(bonus) : '—';
+  $('#vd-rend').textContent = v > 0 && f.rpct.value.trim() ? money(rend) : '—';
+  $('#vd-det').textContent = v > 0 ? `Venda de ${money(v)}${f.rpct.value.trim() ? ` · Rendique ${pctBR(rp)}` : ''}${cfg.bonus_modo === 'fixo' ? ' · indicador valor fixo' : f.pct.value.trim() ? ` · indicador ${pctBR(p)}` : ''}${f.rpct.value.trim() && (cfg.bonus_modo === 'fixo' || f.pct.value.trim()) ? ` · fica para a Rendique: ${money(rend - bonus)}` : ''}` : 'Informe o valor da venda e os percentuais.';
 }
 function aCondos(){
   const C = S.D.condos, sem = C.filter(c => !temPos(c)), aj = S.mapAjuste && condo(S.mapAjuste);
@@ -1273,11 +1281,11 @@ function relTabelas(k, D, audit){
     rows: D.fichas.map(f => { const i = S.D.inds.find(x => x.id === f.indicacao_id) || {}, d = f.dados || {}, num = v => v === undefined || v === '' ? '' : Number(v);
       return [f.indicacao_id, i.proprietario_nome || '', [i.unidade, i.endereco || condoNome(i.condominio_id)].filter(Boolean).join(' · '), num(d.area_util), d.dormitorios || '', d.suites || '', d.banheiros || '', d.vagas || '',
         num(d.valor_venda), Number(d.valor_venda) > 0 && Number(d.area_util) > 0 ? d.valor_venda / d.area_util : '', num(d.condominio), num(d.iptu), d.ocupacao || '', d.documentacao || '', f.completa ? 'Completa' : 'Incompleta']; }) });
-  if (k === 'completo' || k === 'bonus') T.push({ id:'bonus', titulo:'Bônus de venda', aba:'Bônus de venda', larg:[15,20,11,14,7,12,15,12,11,15].concat(pess?[24]:[]),
-    cols:['Indicação','Indicador','Venda em','Valor da venda','%','Bônus','Estado','Comissão recebida','Pago em','Comprovante Pix'].concat(pess?['Chave Pix']:[]),
-    tipos:['t','t','d','m','t','m','t','d','d','t'].concat(pess?['t']:[]),
+  if (k === 'completo' || k === 'bonus') T.push({ id:'bonus', titulo:'Bônus de venda', aba:'Bônus de venda', larg:[14,18,10,13,8,13,8,13,14,11,10,14].concat(pess?[22]:[]),
+    cols:['Indicação','Indicador','Venda em','Valor da venda','% Rendique','Bonificação Rendique','% Indicador','Bonificação Indicador','Estado','Comissão recebida','Pago em','Comprovante Pix'].concat(pess?['Chave Pix']:[]),
+    tipos:['t','t','d','m','t','m','t','m','t','d','d','t'].concat(pess?['t']:[]),
     rows: D.bonLanc.map(b => { const u = perfil(b.indicador_id), dt = v => v ? new Date(v + 'T12:00') : null;
-      return [b.indicacao_id, u?.nome || '—', dt(b.data_venda), Number(b.valor_venda), b.modo === 'fixo' ? 'fixo' : pctBR(b.percentual), Number(b.valor), BON[b.estado][1], dt(b.comissao_recebida_em), dt(b.pago_em), b.comprovante_codigo || (b.comprovante_arquivo ? 'Arquivo anexado' : '')].concat(pess?[u?.pix_chave ? `${u.pix_tipo}: ${u.pix_chave}` : 'Não cadastrada']:[]); }) });
+      const rc = receitaDe(b.indicacao_id); return [b.indicacao_id, u?.nome || '—', dt(b.data_venda), Number(b.valor_venda), rc ? pctBR(rc.percentual) : '', rc ? Number(rc.valor) : '', b.modo === 'fixo' ? 'fixo' : pctBR(b.percentual), Number(b.valor), BON[b.estado][1], dt(b.comissao_recebida_em), dt(b.pago_em), b.comprovante_codigo || (b.comprovante_arquivo ? 'Arquivo anexado' : '')].concat(pess?[u?.pix_chave ? `${u.pix_tipo}: ${u.pix_chave}` : 'Não cadastrada']:[]); }) });
   if (k === 'completo' || k === 'indicadores') T.push({ id:'indicadores', titulo:'Indicadores', larg:[22,14,24,11,12,9,12,13,13,14],
     cols:['Indicador','Função','Condomínio','Indicações','Qualificadas','Vendas','Encerradas','Recebido no período','A pagar agora','Recebido (total)'],
     tipos:['t','t','t','n','n','n','n','m','m','m'],
@@ -1296,8 +1304,9 @@ function relResumo(D){
     ['Conversão indicação → venda', D.inds.length ? D.vendas / D.inds.length : 0, 'p'], ['Encerradas', D.encerr, 'n'], ['Ocorrências de duplicidade', D.ocorr, 'n'],
     ['Novos indicadores', D.novos, 'n'], ['Recompensas geradas', D.sum(D.gerados), 'm'], ['Recompensas pagas', D.sum(D.pagos), 'm'],
     ['A pagar agora', D.sum(D.aPagar), 'm'], ['Em processamento', D.sum(D.proc), 'm'], ['Valor por indicação qualificada', Number(S.D.valor), 'm'],
-    ['Vendas registradas', D.bonVendas.length, 'n'], ['Valor vendido (VGV)', D.sum(D.bonVendas.map(x => ({ valor: x.valor_venda }))), 'm'], ['Bônus gerado', D.sum(D.bonVendas), 'm'],
-    ['Bônus pago', D.sum(D.bonPagos), 'm'], ['Bônus a pagar agora', D.sum(D.bonApagar), 'm'], ['Bônus aguardando comissão', D.sum(D.bonAguard), 'm']
+    ['Vendas registradas', D.bonVendas.length, 'n'], ['Valor vendido (VGV)', D.sum(D.bonVendas.map(x => ({ valor: x.valor_venda }))), 'm'], ['Bonificação indicador gerada', D.sum(D.bonVendas), 'm'],
+    ['Bônus pago', D.sum(D.bonPagos), 'm'], ['Bônus a pagar agora', D.sum(D.bonApagar), 'm'], ['Bônus aguardando comissão', D.sum(D.bonAguard), 'm'],
+    ['Bonificação Rendique', D.bonVendas.reduce((t, x) => t + Number(receitaDe(x.indicacao_id)?.valor || 0), 0), 'm']
   ];
 }
 const pct = v => `${(v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
@@ -1329,7 +1338,7 @@ async function relPDF(k){
   let y = 42;
   // indicadores-chave
   if (k !== 'aud') {
-    const R = relResumo(D), sel = k === 'fin' ? R.slice(7, 12) : k === 'bonus' ? R.slice(12, 18) : k === 'fichas' ? [R[0], R[1], R[2]] : k === 'condos' || k === 'indicadores' ? [R[0], R[1], R[2], R[3], R[6]] : k === 'inds' ? [R[0], R[1], R[2], R[3], R[4], R[5]] : R;
+    const R = relResumo(D), sel = k === 'fin' ? R.slice(7, 12) : k === 'bonus' ? [R[12], R[13], R[18], R[14], R[15], R[16]] : k === 'fichas' ? [R[0], R[1], R[2]] : k === 'condos' || k === 'indicadores' ? [R[0], R[1], R[2], R[3], R[6]] : k === 'inds' ? [R[0], R[1], R[2], R[3], R[4], R[5]] : R;
     const por = Math.min(6, sel.length), gap = 4, bw = (W - 2*M - gap*(por-1)) / por, bh = 18;
     sel.forEach(([l, v, t], n) => {
       const cx = M + (n % por) * (bw + gap), cy = y + Math.floor(n / por) * (bh + gap);
@@ -1759,12 +1768,15 @@ const forms = {
   venda: fd => guard(async () => {
     const id = String(fd.get('id')), v = Number(numBR(fd.get('valor'))), p = String(fd.get('pct') || '').trim() ? Number(numBR(fd.get('pct'))) : null;
     if (!(v > 0)) return showErr('#vd-err', 'Informe o valor final da venda.');
-    if (bonusCfg().bonus_modo !== 'fixo' && p == null) return showErr('#vd-err', 'Informe o percentual do bônus desta venda.');
+    if (bonusCfg().bonus_modo !== 'fixo' && p == null) return showErr('#vd-err', 'Informe o percentual da Bonificação Indicador.');
+    const rp = String(fd.get('rpct') || '').trim() ? Number(numBR(fd.get('rpct'))) : null;
+    if (rp == null) return showErr('#vd-err', 'Informe o percentual da Bonificação Rendique.');
+    if (isNaN(rp) || rp < 0 || rp > 100) return showErr('#vd-err', 'O percentual da Rendique deve ficar entre 0 e 100%.');
     if (p != null && (isNaN(p) || p < 0 || p > 10)) return showErr('#vd-err', 'O percentual deve ficar entre 0 e 10%.');
     let bonus;
-    try { bonus = await rpc('registrar_venda', { p_id: id, p_valor_venda: v, p_data: String(fd.get('data') || '') || null, p_percentual: p, p_obs: String(fd.get('obs') || '') }); }
+    try { bonus = await rpc('registrar_venda', { p_id: id, p_valor_venda: v, p_data: String(fd.get('data') || '') || null, p_percentual: p, p_obs: String(fd.get('obs') || ''), p_rendique_pct: rp }); }
     catch(e) { return showErr('#vd-err', /registrar_venda|function|schema cache/i.test(e.message || '') ? 'O banco ainda não tem o bônus de venda. Rode o schema.sql atualizado no Supabase.' : msg(e)); }
-    delete S.D.hist[id]; closeModal(); await refresh(); toast(`Venda registrada · bônus de ${money(bonus)} aguardando comissão`);
+    delete S.D.hist[id]; closeModal(); await refresh(); toast(`Venda registrada · indicador ${money(bonus)} · Rendique ${money(Number(numBR(fd.get('valor'))) * rp / 100)}`);
   }),
   bonusCfg: fd => guard(async () => {
     const modo = String(fd.get('modo')), fixo = Number(numBR(fd.get('fixo')));

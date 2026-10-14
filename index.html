@@ -480,6 +480,14 @@ tr.flash td{background:var(--gold-soft)}
 .bonmes select{min-height:38px;width:auto;flex:1;max-width:260px;padding:6px 10px;font-weight:600}
 .bonano{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--surface-2);font-size:14px;font-weight:600}
 .bonano b{font-family:var(--display);font-size:18px;font-variant-numeric:tabular-nums}
+.vdgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vdbox{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2)}
+.vdbox.ind{background:color-mix(in srgb,var(--s6) 12%,var(--surface));border-color:color-mix(in srgb,var(--s6) 35%,var(--line))}
+.vdbox .l{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.vdbox b{font-family:var(--display);font-size:20px;font-variant-numeric:tabular-nums}.vdbox.ind b{color:var(--s6)}
+.vdbox .in{background:var(--surface)}.vdbox .note{margin:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:420px){.vdgrid{grid-template-columns:1fr}}
 .fin2{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
 .fchart{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fchart h2{font-size:17px}
@@ -564,6 +572,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610141950"></script>
+<script src="app.js?v=202610141955"></script>
 </body>
 </html>
