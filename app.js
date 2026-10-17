@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610170020 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610170950 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -1718,7 +1718,7 @@ async function loadConquistas(){
     if (nv.length) {
       const nomes = nv.map(c => SELOS.find(d => d[0] === c)?.[3]).filter(Boolean);
       if (nv.length === (S.D.conq.lista || []).length && nv.length > 2) toast(`Você tem ${nv.length} selos! Veja sua coleção em Mais › Meus selos.`);
-      else if (nomes.length) toast(nomes.length > 1 ? `Novos selos: ${nomes.join(', ')}` : `Novo selo: ${nomes[0]}!`);
+      else if (nomes.length) { const venda = comemoraPendente() || S.comemorando; S.selosNovos = [...new Set([...(S.selosNovos || []), ...nv.filter(c => !(venda && c.startsWith('venda_')))])]; }
     }
   } catch(e) { S.D.conq = null; }
 }
@@ -1753,13 +1753,76 @@ function comemora(){
     P.forEach(p => { p.vy += .25; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.a += p.va; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.globalAlpha = Math.max(0, 1 - t/3800); ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); ctx.restore(); });
     if (t < 3900 && document.getElementById('festa')) requestAnimationFrame(frame); else ctx.clearRect(0,0,W,H); })(t0);
 }
+/* ---------- Outras comemorações: recompensa liberada e selo conquistado ---------- */
+function festaConfete(el, n = 120){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'), dpr = window.devicePixelRatio || 1, W = innerWidth, H = innerHeight, t0 = performance.now();
+  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+  const cols = ['#F5B83D','#FFE29A','#1E7A48','#3FBF7F','#FFFFFF'];
+  const P = Array.from({ length: n }, () => ({ x: W/2 + (Math.random()-.5)*60, y: H*0.3, vx: (Math.random()-.5)*12, vy: -Math.random()*12-3, s: Math.random()*7+4, c: cols[Math.random()*5|0], a: Math.random()*6, va: (Math.random()-.5)*.3 }));
+  (function frame(now){ const t = now - t0; ctx.clearRect(0,0,W,H);
+    P.forEach(p => { p.vy += .25; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.a += p.va; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.globalAlpha = Math.max(0, 1 - t/3200); ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); ctx.restore(); });
+    if (t < 3300 && document.getElementById('festa')) requestAnimationFrame(frame); else ctx.clearRect(0,0,W,H); })(t0);
+}
+function festaConta(el, end){
+  const fv = el.querySelector('.fv'); if (!fv) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { fv.textContent = money(end); return; }
+  const t0 = performance.now();
+  (function f(now){ const k = Math.min(1, (now - t0 - 600) / 1000), e = k < 0 ? 0 : 1 - Math.pow(1 - k, 3); fv.textContent = money(end * e); if (k < 1 && document.getElementById('festa')) requestAnimationFrame(f); })(t0);
+}
+function somMoedas(){
+  const a = audioCtx(); if (!a || !somLigado()) return;
+  if (a.state !== 'running') { a.resume().then(() => { if (a.state === 'running') somMoedas(); }).catch(() => {}); return; }
+  const t = a.currentTime + 0.03, tom = (f, t0, d, g) => { const o = a.createOscillator(), v = a.createGain(); o.type = 'square'; o.frequency.setValueAtTime(f, t0); v.gain.setValueAtTime(0, t0); v.gain.linearRampToValueAtTime(g, t0 + 0.005); v.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(v).connect(a.destination); o.start(t0); o.stop(t0 + d + 0.05); };
+  tom(988, t, 0.12, 0.08); tom(1319, t + 0.09, 0.45, 0.08); tom(1319, t + 0.32, 0.12, 0.05); tom(1760, t + 0.4, 0.4, 0.05);
+}
+function somSelo(){
+  const a = audioCtx(); if (!a || !somLigado()) return;
+  if (a.state !== 'running') { a.resume().then(() => { if (a.state === 'running') somSelo(); }).catch(() => {}); return; }
+  const t = a.currentTime + 0.03;
+  [784, 988, 1175, 1568].forEach((f, i) => { const o = a.createOscillator(), v = a.createGain(); o.type = 'triangle'; o.frequency.value = f; v.gain.setValueAtTime(0, t + i*0.09); v.gain.linearRampToValueAtTime(0.09, t + i*0.09 + 0.01); v.gain.exponentialRampToValueAtTime(0.0001, t + i*0.09 + (i === 3 ? 1.1 : 0.35)); o.connect(v).connect(a.destination); o.start(t + i*0.09); o.stop(t + i*0.09 + 1.2); });
+}
+const recPendente = () => papel() === 'indicador' ? (S.D.rewards || []).filter(r => r.indicador_id === S.perfil.id && r.comemorado === false && ['disponivel','resgate','pago'].includes(r.estado)).sort((a, b) => new Date(a.atualizado_em || a.criado_em) - new Date(b.atualizado_em || b.criado_em))[0] || null : null;
+function festaAbre(html, label){
+  const el = document.createElement('div'); el.className = 'festa'; el.id = 'festa'; el.setAttribute('role','dialog'); el.setAttribute('aria-label', label);
+  el.innerHTML = `<canvas aria-hidden="true"></canvas><div class="festa-in">${html}</div>`; document.body.appendChild(el); return el;
+}
+function festaRecompensa(r){
+  const i = S.D.inds.find(x => x.id === r.indicacao_id); S.festaAtual = { tipo: 'rec', id: r.indicacao_id };
+  const el = festaAbre(`<div class="moeda"><span>R$</span></div><h2>Recompensa liberada!</h2>
+    <p>${i ? `A indicação de ${esc(i.proprietario_nome.split(' ')[0])} (${esc(i.unidade)}) está com anúncio ativo.` : 'Sua indicação está com anúncio ativo.'}</p>
+    <span class="fl">${r.estado === 'pago' ? 'Pago na sua chave Pix' : 'Disponível na sua carteira'}</span><b class="fv">${money(0)}</b>
+    <button class="btn gold big" data-a="festaOk" data-v="carteira">${r.estado === 'pago' ? 'Ver comprovante' : 'Ver minha carteira'}</button><button class="link festa-x" data-a="festaOk">Fechar</button>`, 'Recompensa liberada');
+  somMoedas(); festaConfete(el, 90); festaConta(el, Number(r.valor));
+}
+function festaSelo(lista){
+  const defs = lista.map(c => SELOS.find(d => d[0] === c)).filter(Boolean); if (!defs.length) { S.selosNovos = []; return proximaFesta(); }
+  const d = defs[0], resto = defs.slice(1); S.festaAtual = { tipo: 'selo', lista };
+  const el = festaAbre(`<div class="selobig">${badgeSVG(d, true)}</div><span class="fl">Novo selo conquistado</span><h2>${d[3]}</h2><p>${d[4]}</p>
+    ${resto.length ? `<div class="fmais">${resto.map(x => `<span>${badgeSVG(x, true)}<small>${x[3]}</small></span>`).join('')}</div>` : ''}
+    <button class="btn gold big" data-a="festaOk" data-v="selos">Ver meus selos</button><button class="link festa-x" data-a="festaOk">Fechar</button>`, 'Novo selo conquistado');
+  somSelo(); festaConfete(el, 110);
+}
+function proximaFesta(){
+  if (S.screen !== 'app' || papel() !== 'indicador' || termosPendente() || document.getElementById('festa') || S.comemorando) return;
+  if (comemoraPendente()) return comemora();
+  const r = recPendente(); if (r) return festaRecompensa(r);
+  if ((S.selosNovos || []).length) return festaSelo(S.selosNovos);
+}
+function festaOk(destino){
+  const f = S.festaAtual; S.festaAtual = null; document.getElementById('festa')?.remove();
+  if (f?.tipo === 'rec') { const r = (S.D.rewards || []).find(x => x.indicacao_id === f.id); if (r) r.comemorado = true; rpc('recompensa_comemorada', { p_id: f.id }).catch(() => {}); }
+  if (f?.tipo === 'selo') S.selosNovos = [];
+  if (destino) go(destino); else render();
+  setTimeout(proximaFesta, 400);
+}
 function festaFim(ver){
   const id = S.comemorando; S.comemorando = null;
   document.getElementById('festa')?.remove();
   const b = (S.D.bonus || []).find(x => x.indicacao_id === id); if (b) b.comemorado = true;
   rpc('venda_comemorada', { p_id: id }).catch(() => {});
   if (ver) { S.det = id; S.carimbo = id; go('det'); setTimeout(() => { S.carimbo = null; }, 1500); if (!S.D.hist[id]) loadHist(id).then(render).catch(() => {}); }
-  else setTimeout(comemora, 400);
+  setTimeout(proximaFesta, ver ? 2200 : 400);
 }
 
 /* ---------- Venda realizada: etapa travada ---------- */
@@ -1888,7 +1951,7 @@ function render(){
   if (S.screen === 'app' && S.tab === 'nova' && papel() === 'indicador') nvRestaura();
   if (S.screen === 'publico') pubSync();
   if (termosPendente()) termosModal(); else document.getElementById('termos-novo')?.remove();
-  if (S.screen === 'app' && papel() === 'indicador' && !termosPendente() && !S.comemorando && !S.festaAg && comemoraPendente()) { S.festaAg = true; setTimeout(() => { S.festaAg = false; comemora(); }, 300); }
+  if (S.screen === 'app' && papel() === 'indicador' && !termosPendente() && !S.comemorando && !S.festaAtual && !S.festaAg && !document.getElementById('festa') && (comemoraPendente() || recPendente() || (S.selosNovos || []).length)) { S.festaAg = true; setTimeout(() => { S.festaAg = false; proximaFesta(); }, 300); }
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -1971,6 +2034,7 @@ const act = {
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
   festaVer: () => festaFim(true),
+  festaOk: d => festaOk(d.v),
   termosAceitar: async () => {
     if (!$('#t-aceite')?.checked) return showErr('#t-err', 'Marque a caixa para aceitar os termos.');
     try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); S.perfil.termos_versao = TERMOS_VERSAO; document.getElementById('termos-novo')?.remove(); render(); toast('Termos aceitos. Obrigado!'); }

@@ -1439,3 +1439,19 @@ begin
 end $$;
 revoke execute on function public.salvar_cpf(text) from public, anon;
 grant execute on function public.salvar_cpf(text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Comemoração da recompensa liberada (uma vez por recompensa)
+-- ---------------------------------------------------------------------
+do $$ begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'recompensas' and column_name = 'comemorado') then
+    alter table public.recompensas add column comemorado boolean not null default false;
+    update public.recompensas set comemorado = true;  -- recompensas antigas não disparam a comemoração
+  end if;
+end $$;
+create or replace function public.recompensa_comemorada(p_id text) returns void
+language sql security definer set search_path = public as $$
+  update public.recompensas set comemorado = true where indicacao_id = p_id and indicador_id = auth.uid();
+$$;
+revoke execute on function public.recompensa_comemorada(text) from public, anon;
+grant execute on function public.recompensa_comemorada(text) to authenticated;

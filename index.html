@@ -645,7 +645,7 @@ nav.bottom button{position:relative}
 @keyframes dust{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(9)}}
 .festa{position:fixed;inset:0;z-index:1000;background:radial-gradient(120% 80% at 50% 30%,#24507F 0%,#1D3A5F 45%,#132840 100%);color:#fff;display:flex;align-items:center;justify-content:center;padding:24px max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:ffade .3s ease both}
 .festa canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.festa-in{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;max-width:360px}
+.festa-in{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;width:min(360px,100%)}
 .festa .medal{position:relative;width:150px;height:150px;animation:fpop .9s cubic-bezier(.2,1.6,.4,1) both .15s}
 .festa .ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,#F5B83D,#FFE29A,#F5B83D,#C98E1E,#F5B83D);box-shadow:0 0 0 8px rgba(245,184,61,.18),0 0 60px rgba(245,184,61,.45);animation:fspin 6s linear infinite}
 .festa .core{position:absolute;inset:15px;border-radius:50%;background:#1E7A48;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;line-height:1;gap:4px}
@@ -682,6 +682,13 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 .tsec{display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid var(--line)}.tsec:first-of-type{border-top:0}
 .tsec h3{margin:0;font-size:15.5px}.tsec p{margin:0;color:var(--ink);line-height:1.55;font-size:14.5px;max-width:68ch}
 .tdet{border:1px solid var(--line);border-radius:12px;padding:10px 12px}.tdet summary{cursor:pointer;font-weight:700;color:var(--navy)}.tdet .termos{margin-top:8px;max-height:40vh;overflow:auto}
+.festa .moeda{width:140px;height:140px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FFE9A8,#F5B83D 55%,#C98E1E);box-shadow:0 0 0 8px rgba(245,184,61,.18),0 0 60px rgba(245,184,61,.45),inset 0 -6px 0 rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;animation:fpop .9s cubic-bezier(.2,1.6,.4,1) both .1s,fflip 1.2s ease .9s}
+.festa .moeda span{font-weight:800;font-size:46px;color:#7A5208;letter-spacing:-1px}
+@keyframes fflip{0%{transform:rotateY(0)}100%{transform:rotateY(360deg)}}
+.festa .selobig{width:170px;height:170px;position:relative;animation:fpop .9s cubic-bezier(.2,1.6,.4,1) both .1s}.festa .selobig svg{width:100%;height:100%;filter:drop-shadow(0 0 30px rgba(245,184,61,.5))}
+.festa .selobig::after{content:"";position:absolute;inset:-20px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 20deg,rgba(255,226,154,.35) 30deg,transparent 40deg 80deg,rgba(255,226,154,.35) 90deg,transparent 100deg 140deg,rgba(255,226,154,.35) 150deg,transparent 160deg 200deg,rgba(255,226,154,.35) 210deg,transparent 220deg 260deg,rgba(255,226,154,.35) 270deg,transparent 280deg 320deg,rgba(255,226,154,.35) 330deg,transparent 340deg);z-index:-1;animation:fspin 8s linear infinite}
+.festa .fmais{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:frise .6s ease both 1s}.festa .fmais span{display:flex;flex-direction:column;align-items:center;gap:4px;width:74px}.festa .fmais svg{width:52px;height:52px}.festa .fmais small{font-size:11px;opacity:.85;line-height:1.2}
+.festa .selobig + .fl{margin-top:4px}
 </style>
 </head>
 <body>
@@ -695,6 +702,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610170020"></script>
+<script src="app.js?v=202610170950"></script>
 </body>
 </html>
