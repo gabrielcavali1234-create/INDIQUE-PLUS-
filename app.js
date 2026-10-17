@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162250 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162300 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -376,7 +376,11 @@ const ph = (t, back='home', upd) => `<div class="ph"><button class="back" data-a
 
 /* ---------- indicador ---------- */
 const lastT = i => i.atualizado_em || i.criado_em;
-const cardInd = i => `<button class="icard" data-a="det" data-v="${i.id}"><span class="id mono">${i.id}</span>${pill(i.status)}
+const SEAL_SVG = (dt) => `<svg viewBox="0 0 100 100" aria-label="Selo Vendido"><circle cx="50" cy="50" r="46" fill="#1E7A48"/><circle cx="50" cy="50" r="41" fill="none" stroke="#F5B83D" stroke-width="2.5"/><circle cx="50" cy="50" r="27" fill="none" stroke="#F5B83D" stroke-width="1.5" stroke-dasharray="2 3"/><text x="50" y="47" text-anchor="middle" font-size="12.5" font-weight="800" fill="#F5B83D" letter-spacing=".5">VENDIDO</text><text x="50" y="60" text-anchor="middle" font-size="8.5" font-weight="700" fill="#FFFFFF">${dt}</text><text x="50" y="22" text-anchor="middle" font-size="7" font-weight="800" fill="#FFFFFF" letter-spacing="1.6">RENDIQUE</text><text x="50" y="83" text-anchor="middle" font-size="5.6" font-weight="800" fill="#FFFFFF" letter-spacing="1.2">VENDA REALIZADA</text></svg>`;
+const vendaDe = id => (S.D.bonus || []).find(b => b.indicacao_id === id && b.estado !== 'cancelado');
+const seloData = i => { const b = vendaDe(i.id), d = b ? dataBon(b,'data_venda') : new Date(lastT(i)); return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
+const vendido = i => i.status === 6 || i.status === 7;
+const cardInd = i => `<button class="icard ${vendido(i) ? 'sold' : ''}" data-a="det" data-v="${i.id}">${vendido(i) ? `<span class="seal mini">${SEAL_SVG(seloData(i))}</span>` : ''}<span class="id mono">${i.id}</span>${pill(i.status)}
   <span class="who">${esc(i.proprietario_nome)}</span><span class="id">${fd(lastT(i))}</span><span class="where">${esc(i.unidade)} · ${esc(condoNome(i.condominio_id))}</span></button>`;
 function wallet(){
   const r = S.D.rewards.filter(x => x.indicador_id === S.perfil.id && x.estado !== 'cancelada');
@@ -445,6 +449,7 @@ function vHome(){
     <div style="text-align:right"><div class="l">Disponível</div><b class="num">${money(w.disp)}</b></div></button>
    ${rankHome()}
    ${(S.D.bonus || []).some(b => b.estado !== 'cancelado') ? `<div class="card bonifl bonhome"><div class="sec-h"><h3>Bonificação por venda</h3><button class="link" data-a="go" data-v="carteira">Ver detalhes</button></div>${bonusTotais()}</div>` : ''}
+   ${selosCard()}
    <div class="quick">
     <button class="qbtn" data-a="go" data-v="lista">${ic('list')}Minhas indicações</button>
     <button class="qbtn" data-a="go" data-v="carteira">${ic('wallet')}Minha carteira</button>
@@ -599,7 +604,7 @@ function vDet(){
   const i = S.D.inds.find(x => x.id === S.det); if (!i) return vLista();
   const r = S.D.rewards.find(x => x.indicacao_id === i.id && x.estado !== 'cancelada'), b = (S.D.bonus || []).find(x => x.indicacao_id === i.id && x.estado !== 'cancelado');
   return `${ph(`<span class="mono" style="font-size:18px">${i.id}</span>`,'lista')}
-   <div class="split"><div class="col"><div class="card"><div class="sec-h"><h2>${esc(i.proprietario_nome)}</h2>${pill(i.status)}</div>
+   <div class="split"><div class="col"><div class="card ${vendido(i) ? 'soldcard' : ''}">${vendido(i) ? `<span class="seal big ${S.carimbo === i.id ? 'stamp' : ''}">${SEAL_SVG(seloData(i))}</span>${S.carimbo === i.id ? '<span class="sdust"></span>' : ''}` : ''}<div class="sec-h"><h2>${esc(i.proprietario_nome)}</h2>${pill(i.status)}</div>
     <dl class="kv"><dt>Imóvel</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(condoNome(i.condominio_id))}</dd><dt>Enviada</dt><dd>${fdt(i.criado_em)}</dd>${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></div>
    ${r ? `<div class="reward" style="cursor:default"><div><div class="l">Recompensa por indicação qualificada</div><div class="v">${money(r.valor)}</div></div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span></div>` :
      i.status < 3 ? `<p class="principle">${ic('wallet')}<span>Quando a oportunidade for qualificada pela equipe, você recebe ${money(S.D.valor)} na carteira, conforme as regras do programa.</span></p>` : ''}
@@ -1528,6 +1533,55 @@ async function relXLSX(k){
   baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
 }
 
+/* ---------- Comemoração de venda (indicador) ---------- */
+const SELOS = [[1,'1ª venda','1ª'],[3,'3 vendas','3'],[5,'5 vendas','5'],[10,'10 vendas','10']];
+function minhasVendas(){ return S.D.inds.filter(i => i.indicador_id === S.perfil.id && vendido(i)).length; }
+function selosCard(){
+  const n = minhasVendas(); if (!n) return '';
+  const prox = SELOS.find(([k]) => n < k);
+  return `<div class="card selos"><div class="sec-h"><h3>Seus selos</h3><span class="note">${n} venda${n>1?'s':''}</span></div>
+    <div class="badges">${SELOS.map(([k,l,t]) => `<div class="bd ${n >= k ? 'on' : ''}" title="${n >= k ? 'Conquistado' : `Faltam ${k-n}`}"><i>${t}</i>${l}</div>`).join('')}</div>
+    ${prox ? `<p class="note">Faltam ${prox[0]-n} venda${prox[0]-n>1?'s':''} para o selo de ${prox[1]}.</p>` : '<p class="note">Você conquistou todos os selos. Parabéns!</p>'}</div>`;
+}
+function comemoraPendente(){
+  if (papel() !== 'indicador' || S.comemorando) return null;
+  return (S.D.bonus || []).filter(b => b.estado !== 'cancelado' && b.comemorado === false && b.indicador_id === S.perfil.id)
+    .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em))[0] || null;
+}
+function comemora(){
+  const b = comemoraPendente(); if (!b || document.getElementById('festa')) return;
+  const i = S.D.inds.find(x => x.id === b.indicacao_id), n = minhasVendas(), selo = SELOS.find(([k]) => k === n);
+  S.comemorando = b.indicacao_id;
+  const el = document.createElement('div'); el.className = 'festa'; el.id = 'festa'; el.setAttribute('role','dialog'); el.setAttribute('aria-label','Venda realizada');
+  el.innerHTML = `<canvas aria-hidden="true"></canvas><div class="festa-in">
+    <div class="medal"><div class="ring"></div><div class="core"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#F5B83D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><small>VENDIDO</small></div></div>
+    <h2>Venda realizada!</h2>
+    <p>${i ? `O imóvel de ${esc(i.proprietario_nome.split(' ')[0])} (${esc(i.unidade)}) que você indicou foi vendido.` : 'Um imóvel que você indicou foi vendido.'}</p>
+    <span class="fl">Sua bonificação</span><b class="fv">${money(0)}</b>
+    ${selo ? `<span class="fselo">Você ganhou o selo <b>${selo[1]}</b></span>` : ''}
+    <button class="btn gold big" data-a="festaVer">Ver minha bonificação</button><button class="link festa-x" data-a="festaFechar">Fechar</button></div>`;
+  document.body.appendChild(el);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, fv = el.querySelector('.fv'), end = Number(b.valor);
+  if (reduce) { fv.textContent = money(end); return; }
+  const t0 = performance.now();
+  (function f(now){ const k = Math.min(1, (now - t0 - 700) / 1400), e = k < 0 ? 0 : 1 - Math.pow(1 - k, 3); fv.textContent = money(end * e); if (k < 1 && document.getElementById('festa')) requestAnimationFrame(f); })(t0);
+  const cv = el.querySelector('canvas'), ctx = cv.getContext('2d'), dpr = window.devicePixelRatio || 1, W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.scale(dpr, dpr);
+  const cols = ['#F5B83D','#FFE29A','#1E7A48','#3FBF7F','#FFFFFF'];
+  const P = Array.from({ length: 180 }, () => ({ x: W/2 + (Math.random()-.5)*60, y: H*0.32, vx: (Math.random()-.5)*14, vy: -Math.random()*13-4, s: Math.random()*7+4, c: cols[Math.random()*5|0], a: Math.random()*6, va: (Math.random()-.5)*.3 }));
+  (function frame(now){ const t = now - t0; ctx.clearRect(0,0,W,H);
+    P.forEach(p => { p.vy += .25; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.a += p.va; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.globalAlpha = Math.max(0, 1 - t/3800); ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); ctx.restore(); });
+    if (t < 3900 && document.getElementById('festa')) requestAnimationFrame(frame); else ctx.clearRect(0,0,W,H); })(t0);
+}
+function festaFim(ver){
+  const id = S.comemorando; S.comemorando = null;
+  document.getElementById('festa')?.remove();
+  const b = (S.D.bonus || []).find(x => x.indicacao_id === id); if (b) b.comemorado = true;
+  rpc('venda_comemorada', { p_id: id }).catch(() => {});
+  if (ver) { S.det = id; S.carimbo = id; go('det'); setTimeout(() => { S.carimbo = null; }, 1500); if (!S.D.hist[id]) loadHist(id).then(render).catch(() => {}); }
+  else setTimeout(comemora, 400);
+}
+
 /* ---------- Venda realizada: etapa travada ---------- */
 function vendaBloq(i, acao){
   openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
@@ -1653,6 +1707,7 @@ function render(){
   if (S.screen === 'app' && papel() === 'admin' && S.admTab === 'condos') montaMapa();
   if (S.screen === 'app' && S.tab === 'nova' && papel() === 'indicador') nvRestaura();
   if (S.screen === 'publico') pubSync();
+  if (S.screen === 'app' && papel() === 'indicador' && !S.comemorando && !S.festaAg && comemoraPendente()) { S.festaAg = true; setTimeout(() => { S.festaAg = false; comemora(); }, 300); }
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -1734,6 +1789,8 @@ const act = {
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
+  festaVer: () => festaFim(true),
+  festaFechar: () => festaFim(false),
   chatEnviar: () => chatEnviar(),
   chatSel: d => { S.chatSel = d.v; S.chatSobre = null; render(); chatLer(); },
   chatVoltar: () => { S.chatSel = null; render(); },

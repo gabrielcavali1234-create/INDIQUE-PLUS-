@@ -1232,3 +1232,19 @@ begin
 end $$;
 revoke execute on function public.tentativa_alterar_venda(text,text) from public, anon;
 grant execute on function public.tentativa_alterar_venda(text,text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Comemoração de venda: o indicador vê a tela de comemoração uma vez por venda
+-- ---------------------------------------------------------------------
+do $$ begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'bonus_venda' and column_name = 'comemorado') then
+    alter table public.bonus_venda add column comemorado boolean not null default false;
+    update public.bonus_venda set comemorado = true;  -- vendas antigas não disparam a comemoração
+  end if;
+end $$;
+create or replace function public.venda_comemorada(p_id text) returns void
+language sql security definer set search_path = public as $$
+  update public.bonus_venda set comemorado = true where indicacao_id = p_id and indicador_id = auth.uid();
+$$;
+revoke execute on function public.venda_comemorada(text) from public, anon;
+grant execute on function public.venda_comemorada(text) to authenticated;
