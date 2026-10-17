@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162310 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162320 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -753,7 +753,7 @@ function fichaModal(id, liberar){
   const i = S.D.inds.find(x => x.id === id); if (!i) return;
   const d = Object.assign({ tipo: i.tipo, dormitorios: /^\d/.test(i.dormitorios || '') ? String(i.dormitorios).replace('+', '') : '' }, ficha(id) || {});
   const opt = (name, opts) => `<div class="chips sm" role="radiogroup">${opts.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${String(d[name] ?? '') === o ? 'checked' : ''}><span>${o}</span></label>`).join('')}</div>`;
-  const num = (name, label, ph, suf, req) => `<label class="f"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><span class="insuf"><input class="in" name="${name}" inputmode="decimal" placeholder="${ph}" value="${esc(d[name] ? fmtN(d[name]) : '')}" autocomplete="off">${suf ? `<em>${suf}</em>` : ''}</span></label>`;
+  const num = (name, label, ph, suf, req) => `<label class="f"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><span class="insuf">${suf && suf.startsWith('R$') ? '<b class="pre">R$</b>' : ''}<input class="in" name="${name}" inputmode="decimal" placeholder="${ph}" value="${esc(d[name] ? fmtN(d[name]) : '')}" autocomplete="off" ${suf && suf.startsWith('R$') ? 'data-brl' : ''}>${suf && suf !== 'R$' ? `<em>${suf.replace(/^R\$/, '')}</em>` : ''}</span></label>`;
   const cnt = (name, label, opts, req) => `<div class="f"><span class="qlabel">${label}${req ? ' <i class="req">*</i>' : ''}</span>${opt(name, opts)}</div>`;
   openModal(`<form data-f="ficha" class="fichaf" novalidate><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="liberar" value="">
     <header class="fh"><div><p class="eyebrow">${esc(i.id)} · ${esc(i.proprietario_nome)}</p><h2>Ficha do imóvel</h2><p class="note">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p></div><button type="button" class="back" data-a="closeX" aria-label="Fechar">${ic('x',20)}</button></header>
@@ -1081,7 +1081,7 @@ function aBonus(){
     <div class="card"><div class="sec-h"><h2>Regra do bônus</h2><span class="tag ${cfg.bonus_modo==='fixo'?'disp':'proc'}">${cfg.bonus_modo === 'fixo' ? 'Valor fixo' : 'Percentual'}</span></div>
      <form data-f="bonusCfg" class="cards" style="gap:12px" novalidate>
       <div class="chips sm" role="radiogroup"><label><input type="radio" name="modo" value="percentual" ${cfg.bonus_modo!=='fixo'?'checked':''}><span>% do valor da venda</span></label><label><input type="radio" name="modo" value="fixo" ${cfg.bonus_modo==='fixo'?'checked':''}><span>Valor fixo por venda</span></label></div>
-      <label class="f">Valor fixo <small>(usado só no modo valor fixo)</small><span class="insuf"><input class="in" name="fixo" inputmode="decimal" value="${fmtN(cfg.bonus_fixo)}"><em>R$</em></span></label>
+      <label class="f">Valor fixo <small>(usado só no modo valor fixo)</small><span class="insuf"><b class="pre">R$</b><input class="in" name="fixo" inputmode="decimal" value="${fmtN(cfg.bonus_fixo)}" data-brl></span></label>
       <p class="note">${cfg.bonus_modo === 'fixo' ? `Cada venda gera um bônus de <b>${money(cfg.bonus_fixo)}</b>.` : 'No modo percentual, você informa o % de cada venda na hora de registrar a venda.'}</p>
       <button class="btn ghost" type="submit">Salvar regra</button></form>
      <div class="alert lite"><b>Valide com o jurídico.</b><p class="note">Pagamento em percentual sobre a venda a quem não tem CRECI pode ser entendido como corretagem. O valor fixo por venda é a opção mais segura.</p></div></div>
@@ -1109,7 +1109,7 @@ function vendaModal(id){
   const valor = b?.valor_venda || fi?.valor_venda || '';
   openModal(`<form data-f="venda" class="cards" style="gap:14px;text-align:left" novalidate><input type="hidden" name="id" value="${esc(id)}">
     <div><p class="eyebrow">${esc(id)} · ${esc(i.proprietario_nome)}</p><h2>Registrar venda</h2><p class="note">Indicado por <b>${esc(perfil(i.indicador_id)?.nome || '—')}</b>.</p></div>
-    <label class="f">Valor final da venda<span class="insuf"><input class="in" name="valor" inputmode="decimal" placeholder="Ex.: 450.000" value="${valor ? fmtN(valor) : ''}"><em>R$</em></span></label>
+    <label class="f">Valor final da venda<span class="insuf"><b class="pre">R$</b><input class="in" name="valor" inputmode="decimal" placeholder="Ex.: 450.000" value="${valor ? fmtN(valor) : ''}" data-brl></span></label>
     <label class="f">Data da venda (escritura ou contrato)<input class="in" type="date" name="data" value="${b?.data_venda || hoje}"></label>
     <div class="vdgrid">
      <div class="vdbox"><span class="l">Bonificação Rendique</span><label class="f"><span class="sr">Percentual da Rendique</span><span class="insuf"><input class="in" name="rpct" inputmode="decimal" value="${receitaDe(id)?.percentual != null ? fmtN(receitaDe(id).percentual) : ''}" placeholder="Ex.: 6"><em>%</em></span></label><b id="vd-rend">—</b></div>
@@ -1289,7 +1289,7 @@ function delUserModal(id){
 }
 function aProg(){
   return `<div class="grid2"><form data-f="cfg" class="card" novalidate><h2>Recompensa por indicação qualificada</h2>
-    <label class="f">Valor fixo (R$)<input class="in num" id="g-valor" name="valor" type="number" min="0" step="1" value="${Number(S.D.valor)}"></label>
+    <label class="f">Valor fixo<span class="insuf"><b class="pre">R$</b><input class="in num" id="g-valor" name="valor" inputmode="decimal" value="${fmtN(S.D.valor)}" data-brl autocomplete="off"></span></label>
     <p class="note">Vale para novas indicações qualificadas. Recompensas já geradas mantêm o valor original.</p>
     <button class="btn" type="submit">Salvar valor</button></form>
    <div class="card"><h2>Alertas para o gestor</h2>
@@ -1534,6 +1534,15 @@ async function relXLSX(k){
   });
   const buf = await wb.xlsx.writeBuffer();
   baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
+}
+
+/* ---------- Campos de valor em reais: 1.440.000,50 enquanto digita ---------- */
+function maskBRL(el){
+  const v = el.value, fim = el.selectionStart === v.length;
+  let [int, dec] = v.replace(/[^\d,]/g, '').split(/,(.*)/s);
+  int = (int || '').replace(/^0+(?=\d)/, '');
+  const out = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (dec !== undefined ? ',' + dec.replace(/,/g, '').slice(0, 2) : '');
+  if (out !== v) { el.value = out; if (fim) el.setSelectionRange(out.length, out.length); }
 }
 
 /* ---------- Links do anúncio ---------- */
@@ -1964,6 +1973,7 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.matches?.('input[data-brl]')) maskBRL(e.target);
   if (e.target.form?.dataset.f === 'anuncio' && e.target.name === 'url') { const t = e.target.parentElement.querySelector('.adtag'); if (t) t.textContent = e.target.value.trim() ? portalDe(e.target.value) : 'Portal'; return; }
   if (e.target.id === 'chat-in') { S.chatDraft = e.target.value; chatAltura(e.target); return; }
   if (e.target.id === 'chat-q') { S.chatQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#chat-q'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
@@ -2162,7 +2172,7 @@ const forms = {
     catch(e) { return showErr('#pg-err', msg(e)); }
     closeModal(); await refresh(); toast(fn === 'anexar_comprovante' ? 'Comprovante salvo' : fn === 'pagar_bonus' ? 'Bônus pago e registrado' : 'Pagamento registrado');
   }),
-  cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round(Number(fd.get('valor')) || 0)) }); await refresh(); toast('Valor salvo'); })
+  cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round((Number(numBR(fd.get('valor'))) || 0) * 100) / 100) }); await refresh(); toast('Valor salvo'); })
 };
 document.addEventListener('submit', e => { e.preventDefault(); if (e.target.dataset.f === 'ficha') S.fichaLib = !!e.submitter?.dataset.lib; forms[e.target.dataset.f]?.(new FormData(e.target), e.target); });
 

@@ -39,6 +39,16 @@ create table if not exists public.perfis (
 
 create sequence if not exists public.indicacao_seq start 1;
 
+-- Valor em reais no formato brasileiro: R$ 1.440,00
+create or replace function public.brl(v numeric) returns text
+language sql immutable as $$
+  select 'R$ ' || translate(to_char(coalesce(v,0), 'FM999,999,999,990.00'), ',.', '.,')
+$$;
+create or replace function public.pct_br(v numeric) returns text
+language sql immutable as $$
+  select replace(regexp_replace(to_char(v, 'FM999990.99'), '\.$', ''), '.', ',') || '%'
+$$;
+
 create or replace function public.normaliza_unidade(t text) returns text
 language sql immutable as $$
   select regexp_replace(
@@ -437,7 +447,7 @@ begin
     if not exists (select 1 from public.recompensas where indicacao_id = p_id) then
       select valor_recompensa into v_valor from public.configuracoes where id = 1;
       insert into public.recompensas (indicacao_id, indicador_id, valor) values (p_id, v_ind.indicador_id, v_valor);
-      perform public.registra('Recompensa de R$ ' || v_valor || ' gerada para ' || p_id);
+      perform public.registra('Recompensa de ' || public.brl(v_valor) || ' gerada para ' || p_id);
     else
       update public.recompensas set estado = 'processamento', atualizado_em = now() where indicacao_id = p_id and estado = 'cancelada';
     end if;
@@ -537,7 +547,7 @@ begin
   update public.recompensas set estado = p_estado, atualizado_em = now() where id = v_r.id;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
   values (v_r.indicador_id, 'recompensa', case when p_estado = 'pago' then 'Recompensa paga' else 'Recompensa disponível' end,
-          'R$ ' || v_r.valor || ' · ' || p_indicacao, p_indicacao);
+          public.brl(v_r.valor) || ' · ' || p_indicacao, p_indicacao);
   perform public.registra('Recompensa de ' || p_indicacao || ' → ' || p_estado);
 end $$;
 
@@ -549,8 +559,8 @@ begin
   if v_total = 0 then raise exception 'Não há saldo disponível.'; end if;
   update public.recompensas set estado = 'resgate', atualizado_em = now() where indicador_id = auth.uid() and estado = 'disponivel';
   select nome into v_nome from public.perfis where id = auth.uid();
-  perform public.notifica_admins('resgate', 'Pedido de resgate', v_nome || ' pediu R$ ' || v_total, null);
-  perform public.registra('Resgate solicitado: R$ ' || v_total);
+  perform public.notifica_admins('resgate', 'Pedido de resgate', v_nome || ' pediu ' || public.brl(v_total), null);
+  perform public.registra('Resgate solicitado: ' || public.brl(v_total));
   return v_total;
 end $$;
 
@@ -590,7 +600,7 @@ begin
   if not public.is_admin() then raise exception 'Sem permissão.'; end if;
   if p_valor < 0 then raise exception 'Valor inválido.'; end if;
   update public.configuracoes set valor_recompensa = p_valor where id = 1;
-  perform public.registra('Valor da recompensa → R$ ' || p_valor);
+  perform public.registra('Valor da recompensa → ' || public.brl(p_valor));
 end $$;
 
 create or replace function public.solicitar_lgpd(p_tipo text) returns void
@@ -811,8 +821,8 @@ begin
          comprovante_codigo = nullif(trim(p_codigo),''), comprovante_arquivo = nullif(trim(p_arquivo),'')
    where id = v_r.id;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-  values (v_r.indicador_id, 'recompensa', 'Recompensa paga', 'R$ ' || v_r.valor || ' · ' || p_indicacao, p_indicacao);
-  perform public.registra('Pagamento registrado: ' || p_indicacao || ' (R$ ' || v_r.valor || ')');
+  values (v_r.indicador_id, 'recompensa', 'Recompensa paga', public.brl(v_r.valor) || ' · ' || p_indicacao, p_indicacao);
+  perform public.registra('Pagamento registrado: ' || p_indicacao || ' (' || public.brl(v_r.valor) || ')');
 end $$;
 
 revoke execute on function public.atualizar_pix(text,text), public.registrar_pagamento(text,date,text,text) from public, anon;
@@ -911,7 +921,7 @@ begin
   if not public.is_admin() then raise exception 'Sem permissão.'; end if;
   if p_modo not in ('percentual','fixo') then raise exception 'Modo inválido.'; end if;
   update public.configuracoes set bonus_modo = p_modo, bonus_percentual = coalesce(p_percentual, bonus_percentual), bonus_fixo = coalesce(p_fixo, bonus_fixo) where id = 1;
-  perform public.registra('Regra de bônus por venda: ' || p_modo || ' (' || coalesce(p_percentual::text,'-') || '% / R$ ' || coalesce(p_fixo::text,'-') || ')');
+  perform public.registra('Regra de bônus por venda: ' || p_modo || ' (' || coalesce(public.pct_br(p_percentual),'-') || ' / ' || coalesce(public.brl(p_fixo),'-') || ')');
 end $$;
 
 -- Bonificação Rendique (só o gestor vê)
@@ -958,14 +968,14 @@ begin
     insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, 6, auth.uid(), v_nome);
   end if;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bonificação de R$ ' || v_val || ' em processamento.'
+  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bonificação de ' || public.brl(v_val) || ' em processamento.'
           || coalesce(' Observação: ' || nullif(trim(p_obs),''), ''), p_id);
   if p_rendique_pct is not null then
     if p_rendique_pct < 0 or p_rendique_pct > 100 then raise exception 'Percentual da Rendique inválido.'; end if;
     insert into public.receitas_venda (indicacao_id, percentual, valor) values (p_id, p_rendique_pct, round(p_valor_venda * p_rendique_pct / 100, 2))
     on conflict (indicacao_id) do update set percentual = excluded.percentual, valor = excluded.valor, atualizado_em = now();
   end if;
-  perform public.registra('Venda registrada ' || p_id || ': R$ ' || p_valor_venda || ' · bônus R$ ' || v_val);
+  perform public.registra('Venda registrada ' || p_id || ': ' || public.brl(p_valor_venda) || ' · bônus ' || public.brl(v_val));
   return v_val;
 end $$;
 
@@ -983,7 +993,7 @@ begin
    where indicacao_id = p_id;
   if p_estado = 'disponivel' then
     insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-    values (v_b.indicador_id, 'bonus', 'Bonificação liberada', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
+    values (v_b.indicador_id, 'bonus', 'Bonificação liberada', public.brl(v_b.valor) || ' · ' || p_id, p_id);
   end if;
   perform public.registra('Bônus de ' || p_id || ' → ' || p_estado);
 end $$;
@@ -1000,8 +1010,8 @@ begin
   update public.bonus_venda set estado = 'pago', pago_em = coalesce(p_data, current_date), pago_por = auth.uid(), atualizado_em = now(),
     comprovante_codigo = nullif(trim(p_codigo),''), comprovante_arquivo = nullif(trim(p_arquivo),'') where indicacao_id = p_id;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-  values (v_b.indicador_id, 'bonus', 'Bonificação paga', 'R$ ' || v_b.valor || ' · ' || p_id, p_id);
-  perform public.registra('Bônus pago: ' || p_id || ' (R$ ' || v_b.valor || ')');
+  values (v_b.indicador_id, 'bonus', 'Bonificação paga', public.brl(v_b.valor) || ' · ' || p_id, p_id);
+  perform public.registra('Bônus pago: ' || p_id || ' (' || public.brl(v_b.valor) || ')');
 end $$;
 
 revoke execute on function public.definir_bonus(text,numeric,numeric), public.registrar_venda(text,numeric,date,numeric,text,numeric),
@@ -1279,3 +1289,25 @@ begin
 end $$;
 revoke execute on function public.salvar_anuncio(text,jsonb) from public, anon;
 grant execute on function public.salvar_anuncio(text,jsonb) to authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- Corrige valores antigos em avisos e auditoria para o formato R$ 1.440,00
+-- ---------------------------------------------------------------------
+create or replace function public._brl_fix(t text) returns text
+language plpgsql immutable as $$
+declare m text[]; saida text := ''; resto text := t; pos int;
+begin
+  if t is null then return t; end if;
+  loop
+    m := regexp_match(resto, 'R\$ (\d+(?:\.\d+)?)(?![\d,.])');
+    exit when m is null;
+    pos := position(('R$ ' || m[1]) in resto);
+    saida := saida || substr(resto, 1, pos - 1) || public.brl(m[1]::numeric);
+    resto := substr(resto, pos + length('R$ ' || m[1]));
+  end loop;
+  return saida || resto;
+end $$;
+update public.notificacoes set corpo = public._brl_fix(corpo) where corpo ~ 'R\$ \d';
+update public.notificacoes set titulo = public._brl_fix(titulo) where titulo ~ 'R\$ \d';
+update public.auditoria set acao = public._brl_fix(acao) where acao ~ 'R\$ \d';
