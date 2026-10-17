@@ -1248,3 +1248,34 @@ language sql security definer set search_path = public as $$
 $$;
 revoke execute on function public.venda_comemorada(text) from public, anon;
 grant execute on function public.venda_comemorada(text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Links do anúncio (a partir de Anúncio ativo)
+-- ---------------------------------------------------------------------
+alter table public.indicacoes add column if not exists anuncio_links jsonb not null default '[]'::jsonb;
+
+create or replace function public.salvar_anuncio(p_id text, p_links jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_ind public.indicacoes; v_l jsonb := '[]'::jsonb; e jsonb; v_url text;
+begin
+  if public.meu_papel() not in ('admin','corretor') then raise exception 'Sem permissão.'; end if;
+  select * into v_ind from public.indicacoes where id = p_id for update;
+  if not found then raise exception 'Indicação não encontrada.'; end if;
+  if v_ind.status < 4 or v_ind.status = 8 then raise exception 'O link do anúncio entra a partir de "Anúncio ativo".'; end if;
+  if jsonb_typeof(coalesce(p_links,'[]'::jsonb)) <> 'array' then raise exception 'Formato inválido.'; end if;
+  if jsonb_array_length(coalesce(p_links,'[]'::jsonb)) > 8 then raise exception 'Use no máximo 8 links.'; end if;
+  for e in select * from jsonb_array_elements(coalesce(p_links,'[]'::jsonb)) loop
+    v_url := trim(coalesce(e->>'url',''));
+    if v_url = '' then continue; end if;
+    if v_url !~* '^https?://[^\s/]+\.[^\s]+' then raise exception 'Link inválido: %. Cole o endereço completo, começando com https://', v_url; end if;
+    v_l := v_l || jsonb_build_array(jsonb_build_object('url', v_url, 'portal', left(coalesce(nullif(trim(e->>'portal'),''),'Anúncio'), 40)));
+  end loop;
+  update public.indicacoes set anuncio_links = v_l where id = p_id;
+  if jsonb_array_length(v_ind.anuncio_links) = 0 and jsonb_array_length(v_l) > 0 and v_ind.indicador_id is not null then
+    insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
+    values (v_ind.indicador_id, 'status', 'Seu imóvel está anunciado!', p_id || ': o anúncio já está no ar. Veja e compartilhe.', p_id);
+  end if;
+  perform public.registra('Links do anúncio de ' || p_id || ': ' || jsonb_array_length(v_l));
+end $$;
+revoke execute on function public.salvar_anuncio(text,jsonb) from public, anon;
+grant execute on function public.salvar_anuncio(text,jsonb) to authenticated;

@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162300 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162310 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -77,6 +77,7 @@ const I = {
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
   chat2:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4"/>',
   send:'<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
@@ -608,6 +609,7 @@ function vDet(){
     <dl class="kv"><dt>Imóvel</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(condoNome(i.condominio_id))}</dd><dt>Enviada</dt><dd>${fdt(i.criado_em)}</dd>${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></div>
    ${r ? `<div class="reward" style="cursor:default"><div><div class="l">Recompensa por indicação qualificada</div><div class="v">${money(r.valor)}</div></div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span></div>` :
      i.status < 3 ? `<p class="principle">${ic('wallet')}<span>Quando a oportunidade for qualificada pela equipe, você recebe ${money(S.D.valor)} na carteira, conforme as regras do programa.</span></p>` : ''}
+   ${anuncioIndCard(i)}
    ${b ? `<div class="card vendabox"><div class="sec-h"><h3>${ic('check',18)}Venda realizada</h3><span class="tag nw ${BON[b.estado][0]}">${BON_IND[b.estado]}</span></div>
      <dl class="kv"><dt>Data da venda</dt><dd>${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</dd><dt>Sua bonificação</dt><dd><b>${money(b.valor)}</b></dd></dl>
      ${b.observacao ? `<div class="obsbox"><p class="eyebrow">Observação da equipe</p><p>${esc(b.observacao)}</p></div>` : ''}</div>` : ''}
@@ -851,7 +853,7 @@ function cardAdm(i, compact){
   return `<article class="lcard ${S.flash===i.id?'flash':''} ${i.status===0?'needs':''}" id="row-${i.id}" data-a="openInd" data-v="${i.id}" tabindex="0">
    <div class="lc-main">
     <div class="lc-top"><span class="mono lc-id">${i.id}</span><span class="lc-ago">${ago(i.criado_em)}</span></div>
-    ${compact ? slaChip(i) : `<div class="lc-pills">${pill(i.status)}${fichaTag(i)}${slaChip(i)}</div>`}
+    ${compact ? slaChip(i) : `<div class="lc-pills">${pill(i.status)}${fichaTag(i)}${slaChip(i)}${temAnuncio(i) && i.status <= 5 ? (linksDe(i).length ? `<span class="ftag ok">${ic('link',12)}Anúncio</span>` : `<button class="ftag adfalta" data-a="anuncioAbrir" data-v="${i.id}">${ic('link',12)}Sem link</button>`) : ''}</div>`}
     <h3>${esc(i.proprietario_nome)}</h3>
     <p class="lc-sub">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p>
     ${compact ? '' : `<p class="lc-sub">Indicado por <b>${esc(ind || 'QR Code')}</b></p>`}
@@ -882,6 +884,7 @@ function vDrawer(){
     <section><p class="eyebrow">Proprietário</p><h2>${esc(i.proprietario_nome)}</h2><p class="mono" style="margin-top:4px">${fph(i.telefone)}</p>
      <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
     ${slaBox(i)}
+    ${anuncioBoxAdm(i)}
     ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
     ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button>${i.status === 6 ? `<button class="lockl" data-a="back1" data-v="${i.id}">${ic('lock',16)}<span><b>Venda realizada: etapa travada.</b> Não dá para voltar etapa nem encerrar.</span></button>` : `<div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div>`}</section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
     ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
@@ -1533,6 +1536,46 @@ async function relXLSX(k){
   baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
 }
 
+/* ---------- Links do anúncio ---------- */
+const PORTAIS = [[/zapimoveis\./i,'ZAP Imóveis'],[/vivareal\./i,'Viva Real'],[/olx\./i,'OLX'],[/imovelweb\./i,'Imovelweb'],[/quintoandar\./i,'QuintoAndar'],[/chavesnamao\./i,'Chaves na Mão'],[/instagram\./i,'Instagram'],[/facebook\.|fb\.com/i,'Facebook'],[/youtube\.|youtu\.be/i,'YouTube']];
+const normUrl = u => { u = String(u || '').trim(); if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u; return u; };
+const portalDe = u => { const p = PORTAIS.find(([re]) => re.test(u)); if (p) return p[1]; try { return new URL(normUrl(u)).hostname.replace(/^www\./,''); } catch(e) { return 'Anúncio'; } };
+const linksDe = i => Array.isArray(i.anuncio_links) ? i.anuncio_links : [];
+const temAnuncio = i => i.status >= 4 && i.status !== 8;
+function anuncioLista(i, adm){
+  const L = linksDe(i);
+  if (!L.length) return '';
+  return `<div class="adlinks">${L.map(l => `<div class="adl"><span class="adp">${ic('link',15)}<b>${esc(l.portal || portalDe(l.url))}</b><span class="adu">${esc(l.url.replace(/^https?:\/\/(www\.)?/,''))}</span></span><span class="btns" style="flex-wrap:nowrap;gap:6px"><a class="btn sm ${adm ? 'ghost' : ''}" href="${esc(l.url)}" target="_blank" rel="noopener">Abrir</a><button class="btn sm ghost" data-a="copy" data-v="${esc(l.url)}" aria-label="Copiar link">${ic('copy',15)}</button></span></div>`).join('')}</div>`;
+}
+function anuncioBoxAdm(i){
+  if (!temAnuncio(i)) return '';
+  const L = linksDe(i);
+  return `<section class="adbox ${L.length ? '' : 'falta'}"><div class="sec-h"><p class="eyebrow">Anúncio</p>${L.length ? `<span class="ftag ok">${ic('check',13)}${L.length} link${L.length>1?'s':''}</span>` : '<span class="ftag">Sem link</span>'}</div>
+    ${L.length ? anuncioLista(i, true) : '<p class="note">Cole o link do anúncio (ZAP, Viva Real, OLX, site da imobiliária…). O indicador vê o anúncio no painel dele e pode compartilhar.</p>'}
+    <button class="btn ghost" data-a="anuncioAbrir" data-v="${i.id}">${ic('link',18)}${L.length ? 'Editar links' : 'Adicionar link do anúncio'}</button></section>`;
+}
+function anuncioModal(id, recem){
+  const i = S.D.inds.find(x => x.id === id); if (!i) return;
+  const L = linksDe(i).length ? linksDe(i) : [{ url:'', portal:'' }];
+  const row = (l, k) => `<div class="adrow"><input class="in" name="url" id="ad-url-${k}" inputmode="url" autocomplete="off" placeholder="https://www.zapimoveis.com.br/imovel/…" value="${esc(l.url)}"><span class="adtag" id="ad-tag-${k}">${l.url ? esc(l.portal || portalDe(l.url)) : 'Portal'}</span><button type="button" class="iconbtn" data-a="adRem" data-v="${k}" aria-label="Remover link">${ic('x',16)}</button></div>`;
+  openModal(`<form data-f="anuncio" data-id="${id}" novalidate style="text-align:left;display:flex;flex-direction:column;gap:14px">
+    <div><p class="eyebrow">${esc(i.id)} · ${esc(i.proprietario_nome)}</p><h2>${recem ? 'Anúncio publicado! Cole o link' : 'Links do anúncio'}</h2></div>
+    <p class="note">Pode colocar mais de um, um por portal. O portal é reconhecido pelo link. O indicador recebe um aviso e vê os links no painel dele.</p>
+    <div class="adrows" id="ad-rows">${L.map(row).join('')}</div>
+    <button type="button" class="link" style="align-self:flex-start" data-a="adMais">+ Adicionar outro link</button>
+    <p class="note err" id="ad-err" hidden></p>
+    <div class="btns" style="justify-content:flex-end"><button type="button" class="btn ghost" data-a="mclose">${recem ? 'Colocar depois' : 'Cancelar'}</button><button class="btn" type="submit">Salvar links</button></div></form>`);
+  S.adRow = L.length;
+}
+function anuncioIndCard(i){
+  if (!temAnuncio(i) || !linksDe(i).length) return '';
+  const L = linksDe(i), txt = `Olha esse imóvel à venda: ${L[0].url}`;
+  return `<div class="card adind"><div class="sec-h"><h3>${ic('link',18)}Seu imóvel está anunciado</h3></div>
+    <p class="note">Compartilhe com moradores e conhecidos. Quanto mais gente vê, mais rápido vende.</p>
+    ${anuncioLista(i, false)}
+    <a class="btn wa" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${ic('chat',18)}Compartilhar no WhatsApp</a></div>`;
+}
+
 /* ---------- Comemoração de venda (indicador) ---------- */
 const SELOS = [[1,'1ª venda','1ª'],[3,'3 vendas','3'],[5,'5 vendas','5'],[10,'10 vendas','10']];
 function minhasVendas(){ return S.D.inds.filter(i => i.indicador_id === S.perfil.id && vendido(i)).length; }
@@ -1808,7 +1851,10 @@ const act = {
   bonPagar: d => act.pagarPix({ v: d.v, tipo: 'bonus' }),
   bonComp: d => act.verComp({ v: d.v, tipo: 'bonus' }),
   registrarVenda: d => vendaModal(d.v),
-  advOk: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
+  advOk: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); if (Number(d.s) === 4 && papel() === 'admin') anuncioModal(d.v, true); }),
+  anuncioAbrir: d => anuncioModal(d.v, false),
+  adMais: () => { const box = $('#ad-rows'); if (!box || box.children.length >= 8) return; const k = S.adRow++; box.insertAdjacentHTML('beforeend', `<div class="adrow"><input class="in" name="url" id="ad-url-${k}" inputmode="url" autocomplete="off" placeholder="https://…"><span class="adtag" id="ad-tag-${k}">Portal</span><button type="button" class="iconbtn" data-a="adRem" data-v="${k}" aria-label="Remover link">${ic('x',16)}</button></div>`); $('#ad-url-' + k)?.focus(); },
+  adRem: (d, el) => { const row = el.closest('.adrow'); const box = $('#ad-rows'); if (box.children.length > 1) row.remove(); else { row.querySelector('input').value = ''; row.querySelector('.adtag').textContent = 'Portal'; } },
   close: d => { const i = S.D.inds.find(x => x.id === d.v); if (i && (i.status === 6 || i.status === 7)) return vendaBloq(i, 'encerrar'); act.closeAsk(d); },
   closeAsk: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
      <div><p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2></div>
@@ -1918,6 +1964,7 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.form?.dataset.f === 'anuncio' && e.target.name === 'url') { const t = e.target.parentElement.querySelector('.adtag'); if (t) t.textContent = e.target.value.trim() ? portalDe(e.target.value) : 'Portal'; return; }
   if (e.target.id === 'chat-in') { S.chatDraft = e.target.value; chatAltura(e.target); return; }
   if (e.target.id === 'chat-q') { S.chatQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#chat-q'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.form?.dataset.f === 'ficha') fichaCalc();
@@ -1938,6 +1985,15 @@ function authErr(e){
   return msg(e);
 }
 const forms = {
+  anuncio: (fd, f) => guard(async () => {
+    const id = f.dataset.id, urls = fd.getAll('url').map(normUrl).filter(Boolean);
+    const bad = urls.find(u => { try { const h = new URL(u).hostname; return !h.includes('.'); } catch(e) { return true; } });
+    if (bad) return showErr('#ad-err', `Link inválido: ${bad}. Cole o endereço completo do anúncio.`);
+    const links = urls.map(u => ({ url: u, portal: portalDe(u) }));
+    try { await rpc('salvar_anuncio', { p_id: id, p_links: links }); }
+    catch(e) { return showErr('#ad-err', /salvar_anuncio|function|schema cache/i.test(e.message || '') ? 'O banco ainda não tem os links do anúncio. Rode o schema.sql atualizado no Supabase.' : msg(e)); }
+    closeModal(); await refresh(); toast(links.length ? `Link${links.length>1?'s':''} do anúncio salvo${links.length>1?'s':''}` : 'Links removidos');
+  }),
   login: fd => guard(async () => {
     const m = S.authMode, g = k => String(fd.get(k)||'');
     const email = g('email').trim().toLowerCase(), pass = g('l-pass'), pass2 = g('l-pass2');
@@ -2084,6 +2140,7 @@ const forms = {
     catch(e) { return showErr('#fi-err', /salvar_ficha|function|schema cache/i.test(e.message || '') ? 'O banco ainda não tem a ficha do imóvel. Rode o schema.sql atualizado no Supabase.' : msg(e)); }
     if (lib) { await rpc('mudar_status', { p_id: id, p_status: 4, p_motivo: null }); delete S.D.hist[id]; }
     closeModal(); await refresh(); toast(lib ? `${id}: anúncio liberado` : ok ? 'Ficha completa salva' : `Ficha salva. Falta: ${falta.join(', ').toLowerCase()}`);
+    if (lib && papel() === 'admin') anuncioModal(id, true);
   }),
   pix: fd => guard(async () => {
     try { await rpc('atualizar_pix', { p_tipo: String(fd.get('tipo')||''), p_chave: String(fd.get('chave')||'') }); } catch(e) { return showErr('#x-err', msg(e)); }
