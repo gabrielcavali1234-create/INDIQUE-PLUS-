@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162320 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162330 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -107,7 +107,7 @@ async function loadData(){
     q(sb.from('notificacoes').select('*').order('criado_em',{ascending:false}).limit(60)).then(r => S.D.notifs = r),
     q(sb.from('indicacoes').select('*').order('criado_em',{ascending:false}).limit(1000)).then(r => S.D.inds = r)
   ];
-  if (p === 'indicador') jobs.push(loadRanking('mes'));
+  if (p === 'indicador') jobs.push(loadRanking('mes').then(() => loadConquistas()));
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('mensagens').select('*').order('criado_em',{ascending:false}).limit(p === 'admin' ? 2000 : 300)).then(r => S.D.msgs = r.reverse()).catch(() => S.D.msgs = null));
   if (p === 'indicador') jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('recompensas').select('*').order('criado_em',{ascending:false})).then(r => S.D.rewards = r));
@@ -377,7 +377,8 @@ const ph = (t, back='home', upd) => `<div class="ph"><button class="back" data-a
 
 /* ---------- indicador ---------- */
 const lastT = i => i.atualizado_em || i.criado_em;
-const SEAL_SVG = (dt) => `<svg viewBox="0 0 100 100" aria-label="Selo Vendido"><circle cx="50" cy="50" r="46" fill="#1E7A48"/><circle cx="50" cy="50" r="41" fill="none" stroke="#F5B83D" stroke-width="2.5"/><circle cx="50" cy="50" r="27" fill="none" stroke="#F5B83D" stroke-width="1.5" stroke-dasharray="2 3"/><text x="50" y="47" text-anchor="middle" font-size="12.5" font-weight="800" fill="#F5B83D" letter-spacing=".5">VENDIDO</text><text x="50" y="60" text-anchor="middle" font-size="8.5" font-weight="700" fill="#FFFFFF">${dt}</text><text x="50" y="22" text-anchor="middle" font-size="7" font-weight="800" fill="#FFFFFF" letter-spacing="1.6">RENDIQUE</text><text x="50" y="83" text-anchor="middle" font-size="5.6" font-weight="800" fill="#FFFFFF" letter-spacing="1.2">VENDA REALIZADA</text></svg>`;
+let sealN = 0;
+const SEAL_SVG = (dt) => { const id = 'sl' + (++sealN); return `<svg viewBox="0 0 100 100" aria-label="Selo Vendido"><defs><path id="${id}" d="M50 50 m-34 0 a34 34 0 1 1 68 0 a34 34 0 1 1 -68 0"/></defs><circle cx="50" cy="50" r="47" fill="#1E7A48"/><circle cx="50" cy="50" r="42" fill="none" stroke="#F5B83D" stroke-width="2.2"/><circle cx="50" cy="50" r="26.5" fill="none" stroke="#F5B83D" stroke-width="1.4" stroke-dasharray="2 2.6"/><text font-size="7.4" font-weight="800" fill="#FFFFFF" letter-spacing="1.1" dominant-baseline="central"><textPath href="#${id}" textLength="211" lengthAdjust="spacing">RENDIQUE ★ VENDA REALIZADA ★ </textPath></text><text x="50" y="48" text-anchor="middle" font-size="10.5" font-weight="800" fill="#F5B83D" textLength="42" lengthAdjust="spacingAndGlyphs">VENDIDO</text><text x="50" y="59" text-anchor="middle" font-size="7.5" font-weight="700" fill="#FFFFFF">${dt}</text></svg>`; };
 const vendaDe = id => (S.D.bonus || []).find(b => b.indicacao_id === id && b.estado !== 'cancelado');
 const seloData = i => { const b = vendaDe(i.id), d = b ? dataBon(b,'data_venda') : new Date(lastT(i)); return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const vendido = i => i.status === 6 || i.status === 7;
@@ -644,7 +645,7 @@ function cardPix(){
 function vMais(){
   const u = S.perfil, it = (v,i,t,d,a='go') => `<button class="qbtn" style="width:100%" data-a="${a}" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
   return `<section class="hello"><p class="eyebrow">Código ${esc(u.codigo)}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '')}</p></section>
-   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
+   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('selos','chart','Meus selos',`${Object.keys(conqGanhas()).length} de ${SELOS.length} conquistados`)}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('som','bell','Som das comemorações', somLigado() ? 'Ligado · toque para desligar' : 'Desligado · toque para ligar', 'somToggle')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
 }
 function vQR(){ const u = S.perfil, url = `${SITE}?q=${u.codigo}`;
   return `${ph('Meu QR Code','mais')}
@@ -1586,14 +1587,85 @@ function anuncioIndCard(i){
 }
 
 /* ---------- Comemoração de venda (indicador) ---------- */
-const SELOS = [[1,'1ª venda','1ª'],[3,'3 vendas','3'],[5,'5 vendas','5'],[10,'10 vendas','10']];
+const TIERS = { b:['#B8733A','#E6B58A'], s:['#8E9BAA','#D9E0E8'], g:['#D99A1E','#FFE29A'], d:['#2C8FB2','#A8E6F5'], x:['#C3CBD6','#E8ECF1'] };
+// [código, grupo, nível, nome, descrição, símbolo, [métrica, alvo]]
+const SELOS = [
+  ['venda_1','Vendas','b','1ª venda','A primeira de muitas','1ª',['vendas',1]],
+  ['venda_3','Vendas','s','3 vendas','Imóveis vendidos','3',['vendas',3]],
+  ['venda_5','Vendas','g','5 vendas','Imóveis vendidos','5',['vendas',5]],
+  ['venda_10','Vendas','g','10 vendas','Imóveis vendidos','10',['vendas',10]],
+  ['venda_25','Vendas','d','25 vendas','Lenda do bairro','25',['vendas',25]],
+  ['ind_1','Indicações','b','1ª indicação','Deu o primeiro passo','1',['total',1]],
+  ['ind_10','Indicações','s','10 indicações','Indicações enviadas','10',['total',10]],
+  ['qualif_5','Indicações','g','5 qualificadas','Viraram oportunidade','5Q',['qualif',5]],
+  ['ind_50','Indicações','d','50 indicações','Indicações enviadas','50',['total',50]],
+  ['rank_1','Ranking e constância','g','Indicador do mês','1º lugar no ranking','1º',null],
+  ['rank_3','Ranking e constância','s','Top 3 do mês','Pódio do ranking','TOP3',null],
+  ['meses_3','Ranking e constância','b','3 meses seguidos','Indicou todo mês','3M',null],
+  ['predio_2','Ranking e constância','g','Prédio parceiro','2 vendas no mesmo condomínio','2x',null],
+  ['bonus_1k','Bonificação acumulada','b','R$ 1 mil','Em bonificações','1k',['bonus',1000]],
+  ['bonus_5k','Bonificação acumulada','s','R$ 5 mil','Em bonificações','5k',['bonus',5000]],
+  ['bonus_10k','Bonificação acumulada','g','R$ 10 mil','Em bonificações','10k',['bonus',10000]],
+  ['bonus_50k','Bonificação acumulada','d','R$ 50 mil','Em bonificações','50k',['bonus',50000]]
+];
+let badgeN = 0;
+function badgeSVG(def, on){
+  const [c1, c2] = TIERS[on ? def[2] : 'x'], id = 'bg' + (++badgeN), sym = def[5];
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c2}"/><stop offset="1" stop-color="${c1}"/></linearGradient></defs><path d="M50 4 L61 12 L75 10 L80 23 L92 31 L88 45 L94 58 L84 68 L82 82 L68 85 L58 95 L45 90 L32 95 L24 84 L10 80 L11 66 L4 54 L12 42 L9 28 L22 22 L28 9 L41 11Z" fill="url(#${id})"/><circle cx="50" cy="50" r="31" fill="${on ? '#1D3A5F' : '#D5DBE3'}"/><circle cx="50" cy="50" r="31" fill="none" stroke="${c2}" stroke-width="2"/><text x="50" y="${sym.length > 3 ? 55 : 58}" text-anchor="middle" font-weight="800" font-size="${sym.length > 3 ? 15 : sym.length > 2 ? 19 : 24}" fill="${on ? '#FFFFFF' : '#9AA5B5'}">${sym}</text></svg>`;
+}
 function minhasVendas(){ return S.D.inds.filter(i => i.indicador_id === S.perfil.id && vendido(i)).length; }
+function conqProgresso(){
+  const p = S.D.conq?.progresso; if (p) return p;
+  const mine = S.D.inds.filter(i => i.indicador_id === S.perfil.id);
+  return { vendas: mine.filter(vendido).length, total: mine.length, qualif: mine.filter(i => i.status >= 3 && i.status !== 8).length, bonus: (S.D.bonus || []).filter(b => b.estado !== 'cancelado').reduce((a, b) => a + Number(b.valor), 0) };
+}
+function conqGanhas(){
+  if (S.D.conq?.lista) return Object.fromEntries(S.D.conq.lista.map(c => [c.codigo, c.em]));
+  const p = conqProgresso(), o = {};
+  SELOS.forEach(d => { if (d[6] && Number(p[d[6][0]] || 0) >= d[6][1]) o[d[0]] = null; });
+  return o;
+}
+function faltaSelo(d, p){
+  if (!d[6]) return d[4];
+  const [k, alvo] = d[6], v = Number(p[k] || 0), f = alvo - v;
+  return k === 'bonus' ? `Faltam ${money(f)}` : `Faltam ${f}`;
+}
 function selosCard(){
-  const n = minhasVendas(); if (!n) return '';
-  const prox = SELOS.find(([k]) => n < k);
-  return `<div class="card selos"><div class="sec-h"><h3>Seus selos</h3><span class="note">${n} venda${n>1?'s':''}</span></div>
-    <div class="badges">${SELOS.map(([k,l,t]) => `<div class="bd ${n >= k ? 'on' : ''}" title="${n >= k ? 'Conquistado' : `Faltam ${k-n}`}"><i>${t}</i>${l}</div>`).join('')}</div>
-    ${prox ? `<p class="note">Faltam ${prox[0]-n} venda${prox[0]-n>1?'s':''} para o selo de ${prox[1]}.</p>` : '<p class="note">Você conquistou todos os selos. Parabéns!</p>'}</div>`;
+  const g = conqGanhas(), n = Object.keys(g).length; if (!n) return '';
+  const ganhos = SELOS.filter(d => d[0] in g).sort((a, b) => new Date(g[b[0]] || 0) - new Date(g[a[0]] || 0)).slice(0, 5);
+  const p = conqProgresso(), prox = SELOS.find(d => !(d[0] in g) && d[6]);
+  return `<button class="card selos" data-a="go" data-v="selos"><div class="sec-h"><h3>Seus selos</h3><span class="note">${n} de ${SELOS.length} · Ver coleção</span></div>
+    <div class="badges">${ganhos.map(d => `<div class="bd on">${badgeSVG(d, true)}<span>${d[3]}</span></div>`).join('')}</div>
+    ${prox ? `<p class="note">Próximo: <b>${prox[3]}</b> · ${faltaSelo(prox, p).toLowerCase()}.</p>` : ''}</button>`;
+}
+function vSelos(){
+  const g = conqGanhas(), p = conqProgresso(), grupos = [...new Set(SELOS.map(d => d[1]))];
+  return `${ph('Meus selos')}<p class="note">${Object.keys(g).length} de ${SELOS.length} conquistados. Os selos ficam guardados para sempre, mesmo que o ranking mude depois.</p>
+    ${grupos.map(gr => `<div class="card selosg"><h3>${gr}</h3><div class="badges">${SELOS.filter(d => d[1] === gr).map(d => { const on = d[0] in g;
+      return `<div class="bd ${on ? 'on' : ''}">${badgeSVG(d, on)}<b>${d[3]}</b><span>${on ? (g[d[0]] ? 'Conquistado em ' + fd(g[d[0]]) : 'Conquistado') : faltaSelo(d, p)}</span></div>`; }).join('')}</div></div>`).join('')}`;
+}
+/* Som da comemoração: fanfarra curta (sintetizada, sem arquivo) */
+const somLigado = () => { try { return localStorage.getItem('rendique-som') !== 'off'; } catch(e) { return true; } };
+let AUD = null, somPendente = false;
+function audioCtx(){ try { return AUD ||= new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; } }
+function fanfarra(){
+  const a = audioCtx(); if (!a) return;
+  if (a.state !== 'running') { somPendente = true; a.resume().then(() => { if (somPendente && a.state === 'running') { somPendente = false; fanfarra(); } }).catch(() => {}); return; }
+  const t = a.currentTime + 0.03, tom = (f, t0, d, tipo, g) => { const o = a.createOscillator(), v = a.createGain(); o.type = tipo; o.frequency.setValueAtTime(f, t0); v.gain.setValueAtTime(0, t0); v.gain.linearRampToValueAtTime(g, t0 + 0.01); v.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(v).connect(a.destination); o.start(t0); o.stop(t0 + d + 0.05); };
+  [523, 659, 784].forEach((f, i) => { tom(f, t + i*0.13, 0.25, 'sawtooth', 0.07); tom(f*2, t + i*0.13, 0.25, 'triangle', 0.05); });
+  tom(1047, t + 0.42, 1.0, 'sawtooth', 0.08); tom(1319, t + 0.42, 1.0, 'triangle', 0.06); tom(784, t + 0.42, 1.0, 'triangle', 0.05);
+}
+['pointerdown','keydown'].forEach(ev => document.addEventListener(ev, () => { const a = audioCtx(); if (a && a.state !== 'running') a.resume().then(() => { if (somPendente) { somPendente = false; fanfarra(); } }).catch(() => {}); }, { passive: true }));
+async function loadConquistas(){
+  try {
+    S.D.conq = await rpc('minhas_conquistas', {});
+    const nv = S.D.conq?.novas || [];
+    if (nv.length) {
+      const nomes = nv.map(c => SELOS.find(d => d[0] === c)?.[3]).filter(Boolean);
+      if (nv.length === (S.D.conq.lista || []).length && nv.length > 2) toast(`Você tem ${nv.length} selos! Veja sua coleção em Mais › Meus selos.`);
+      else if (nomes.length) toast(nomes.length > 1 ? `Novos selos: ${nomes.join(', ')}` : `Novo selo: ${nomes[0]}!`);
+    }
+  } catch(e) { S.D.conq = null; }
 }
 function comemoraPendente(){
   if (papel() !== 'indicador' || S.comemorando) return null;
@@ -1602,7 +1674,7 @@ function comemoraPendente(){
 }
 function comemora(){
   const b = comemoraPendente(); if (!b || document.getElementById('festa')) return;
-  const i = S.D.inds.find(x => x.id === b.indicacao_id), n = minhasVendas(), selo = SELOS.find(([k]) => k === n);
+  const i = S.D.inds.find(x => x.id === b.indicacao_id), n = minhasVendas(), sd = SELOS.find(d => d[6] && d[6][0] === 'vendas' && d[6][1] === n), selo = sd ? [n, sd[3]] : null;
   S.comemorando = b.indicacao_id;
   const el = document.createElement('div'); el.className = 'festa'; el.id = 'festa'; el.setAttribute('role','dialog'); el.setAttribute('aria-label','Venda realizada');
   el.innerHTML = `<canvas aria-hidden="true"></canvas><div class="festa-in">
@@ -1613,6 +1685,7 @@ function comemora(){
     ${selo ? `<span class="fselo">Você ganhou o selo <b>${selo[1]}</b></span>` : ''}
     <button class="btn gold big" data-a="festaVer">Ver minha bonificação</button><button class="link festa-x" data-a="festaFechar">Fechar</button></div>`;
   document.body.appendChild(el);
+  if (somLigado()) fanfarra();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, fv = el.querySelector('.fv'), end = Number(b.valor);
   if (reduce) { fv.textContent = money(end); return; }
   const t0 = performance.now();
@@ -1742,8 +1815,8 @@ function render(){
     if (p === 'admin') { html = vAdm(); cls = desk ? 'wide' : 'adm'; }
     else if (p === 'corretor') { html = vPro(); cls = 'pro'; }
     else {
-      html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking,chat:vChatInd}[S.tab] || vHome)();
-      if (['ok','dup','mais','qr','convite','privacidade','termos','ranking'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
+      html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking,chat:vChatInd,selos:vSelos}[S.tab] || vHome)();
+      if (['ok','dup','mais','qr','convite','privacidade','termos','ranking','selos'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
     }
   } else {
     html = ({setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
@@ -1842,6 +1915,7 @@ const act = {
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
   festaVer: () => festaFim(true),
+  somToggle: () => { const on = !somLigado(); try { localStorage.setItem('rendique-som', on ? 'on' : 'off'); } catch(e) {} render(); toast(on ? 'Som das comemorações ligado' : 'Som das comemorações desligado'); if (on) fanfarra(); },
   festaFechar: () => festaFim(false),
   chatEnviar: () => chatEnviar(),
   chatSel: d => { S.chatSel = d.v; S.chatSobre = null; render(); chatLer(); },

@@ -643,10 +643,6 @@ nav.bottom button{position:relative}
 @keyframes stamp{0%{opacity:0;transform:rotate(-14deg) scale(2.6)}70%{opacity:1;transform:rotate(-14deg) scale(.92)}100%{opacity:1;transform:rotate(-14deg) scale(1)}}
 .sdust{position:absolute;right:40px;top:24px;width:12px;height:12px;border-radius:50%;border:2px solid rgba(30,122,72,.45);opacity:0;animation:dust .7s ease-out both .8s;pointer-events:none}
 @keyframes dust{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(9)}}
-.selos .badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin:6px 0 4px}
-.selos .bd{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--muted)}
-.selos .bd i{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800;font-size:15px;background:#E8ECF1;color:#9AA5B5;border:2px dashed #C9D1DC}
-.selos .bd.on i{background:#1E7A48;color:#fff;border:3px solid #F5B83D;box-shadow:0 0 0 3px #E3F4EA}.selos .bd.on{color:#1E7A48}
 .festa{position:fixed;inset:0;z-index:1000;background:radial-gradient(120% 80% at 50% 30%,#24507F 0%,#1D3A5F 45%,#132840 100%);color:#fff;display:flex;align-items:center;justify-content:center;padding:24px max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:ffade .3s ease both}
 .festa canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .festa-in{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;max-width:360px}
@@ -675,6 +671,13 @@ nav.bottom button{position:relative}
 .adind{border-color:#BFE3CC;background:#F5FBF7;display:flex;flex-direction:column;gap:10px}.adind h3{display:flex;align-items:center;gap:6px;color:#1E7A48}
 .note.err{color:var(--danger)}
 .insuf .pre{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--muted);font-size:14px;pointer-events:none}.insuf .pre + .in{padding-left:40px}
+button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.selos .badges,.selosg .badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:10px;margin:8px 0 4px;text-align:center}
+.selos .bd,.selosg .bd{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.25}
+.selos .bd svg{width:56px;height:56px}.selosg .bd svg{width:68px;height:68px}
+.selosg{display:flex;flex-direction:column;gap:4px}.selosg h3{margin:0}.selosg .bd b{color:var(--ink);font-size:13px}.selosg .bd span{font-weight:600;font-size:11.5px}
+.selos .bd.on,.selosg .bd.on span{color:#1E7A48}
+.bd svg text,.seal svg text{font-family:Sora,Figtree,system-ui,sans-serif}
 </style>
 </head>
 <body>
@@ -688,6 +691,6 @@ nav.bottom button{position:relative}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610162320"></script>
+<script src="app.js?v=202610162330"></script>
 </body>
 </html>

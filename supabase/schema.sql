@@ -1311,3 +1311,79 @@ end $$;
 update public.notificacoes set corpo = public._brl_fix(corpo) where corpo ~ 'R\$ \d';
 update public.notificacoes set titulo = public._brl_fix(titulo) where titulo ~ 'R\$ \d';
 update public.auditoria set acao = public._brl_fix(acao) where acao ~ 'R\$ \d';
+
+-- ---------------------------------------------------------------------
+-- Conquistas (selos) do indicador: ficam guardadas depois de conquistadas
+-- ---------------------------------------------------------------------
+create table if not exists public.conquistas (
+  perfil_id      uuid not null references public.perfis(id) on delete cascade,
+  codigo         text not null,
+  conquistado_em timestamptz not null default now(),
+  primary key (perfil_id, codigo)
+);
+alter table public.conquistas enable row level security;
+drop policy if exists conquistas_ler on public.conquistas;
+create policy conquistas_ler on public.conquistas for select to authenticated using (public.is_admin() or perfil_id = auth.uid());
+revoke all on public.conquistas from anon;
+revoke insert, update, delete on public.conquistas from authenticated;
+grant select on public.conquistas to authenticated;
+
+-- Calcula as conquistas do indicador logado, grava as novas e devolve a lista completa
+create or replace function public.minhas_conquistas() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid := auth.uid();
+  v_vendas int; v_total int; v_qualif int; v_bonus numeric; v_pos int; v_qm int;
+  v_seq boolean; v_predio boolean; v_ini timestamptz; v_ganhos text[] := '{}'; v_novas jsonb;
+begin
+  if public.meu_papel() is distinct from 'indicador' then return jsonb_build_object('lista','[]'::jsonb,'novas','[]'::jsonb); end if;
+  select count(*) filter (where status in (6,7)), count(*), count(*) filter (where status >= 3 and status <> 8)
+    into v_vendas, v_total, v_qualif from public.indicacoes where indicador_id = v_id;
+  select coalesce(sum(valor),0) into v_bonus from public.bonus_venda where indicador_id = v_id and estado <> 'cancelado';
+  -- 3 meses seguidos com pelo menos uma indicação
+  select exists (
+    select 1 from (select distinct date_trunc('month', criado_em at time zone 'America/Sao_Paulo') m from public.indicacoes where indicador_id = v_id) a
+     where exists (select 1 from public.indicacoes b where b.indicador_id = v_id and date_trunc('month', b.criado_em at time zone 'America/Sao_Paulo') = a.m + interval '1 month')
+       and exists (select 1 from public.indicacoes c where c.indicador_id = v_id and date_trunc('month', c.criado_em at time zone 'America/Sao_Paulo') = a.m + interval '2 month')
+  ) into v_seq;
+  select exists (select 1 from public.indicacoes where indicador_id = v_id and status in (6,7) and condominio_id is not null
+                  group by condominio_id having count(*) >= 2) into v_predio;
+  -- posição no ranking do mês (qualificadas, vendas, total)
+  v_ini := (date_trunc('month', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo';
+  with base as (
+    select p.id, count(i.id) filter (where i.status >= 3 and i.status <> 8) q, count(i.id) filter (where i.status in (6,7)) v, count(i.id) t
+      from public.perfis p left join public.indicacoes i on i.indicador_id = p.id and i.criado_em >= v_ini
+     where p.papel = 'indicador' and p.ativo group by p.id),
+  r as (select id, q, rank() over (order by q desc, v desc, t desc) pos from base)
+  select pos, q into v_pos, v_qm from r where id = v_id;
+
+  if v_vendas >= 1 then v_ganhos := array_append(v_ganhos, 'venda_1'); end if;
+  if v_vendas >= 3 then v_ganhos := array_append(v_ganhos, 'venda_3'); end if;
+  if v_vendas >= 5 then v_ganhos := array_append(v_ganhos, 'venda_5'); end if;
+  if v_vendas >= 10 then v_ganhos := array_append(v_ganhos, 'venda_10'); end if;
+  if v_vendas >= 25 then v_ganhos := array_append(v_ganhos, 'venda_25'); end if;
+  if v_total >= 1 then v_ganhos := array_append(v_ganhos, 'ind_1'); end if;
+  if v_total >= 10 then v_ganhos := array_append(v_ganhos, 'ind_10'); end if;
+  if v_qualif >= 5 then v_ganhos := array_append(v_ganhos, 'qualif_5'); end if;
+  if v_total >= 50 then v_ganhos := array_append(v_ganhos, 'ind_50'); end if;
+  if coalesce(v_qm,0) >= 1 and v_pos = 1 then v_ganhos := array_append(v_ganhos, 'rank_1'); end if;
+  if coalesce(v_qm,0) >= 1 and v_pos <= 3 then v_ganhos := array_append(v_ganhos, 'rank_3'); end if;
+  if v_seq then v_ganhos := array_append(v_ganhos, 'meses_3'); end if;
+  if v_predio then v_ganhos := array_append(v_ganhos, 'predio_2'); end if;
+  if v_bonus >= 1000 then v_ganhos := array_append(v_ganhos, 'bonus_1k'); end if;
+  if v_bonus >= 5000 then v_ganhos := array_append(v_ganhos, 'bonus_5k'); end if;
+  if v_bonus >= 10000 then v_ganhos := array_append(v_ganhos, 'bonus_10k'); end if;
+  if v_bonus >= 50000 then v_ganhos := array_append(v_ganhos, 'bonus_50k'); end if;
+
+  with ins as (
+    insert into public.conquistas (perfil_id, codigo) select v_id, unnest(v_ganhos)
+    on conflict do nothing returning codigo)
+  select coalesce(jsonb_agg(codigo), '[]'::jsonb) into v_novas from ins;
+
+  return jsonb_build_object(
+    'lista', coalesce((select jsonb_agg(jsonb_build_object('codigo', codigo, 'em', conquistado_em) order by conquistado_em) from public.conquistas where perfil_id = v_id), '[]'::jsonb),
+    'novas', v_novas,
+    'progresso', jsonb_build_object('vendas', v_vendas, 'total', v_total, 'qualif', v_qualif, 'bonus', v_bonus, 'pos', v_pos));
+end $$;
+revoke execute on function public.minhas_conquistas() from public, anon;
+grant execute on function public.minhas_conquistas() to authenticated;
