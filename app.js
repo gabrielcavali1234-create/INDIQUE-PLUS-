@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162200 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162205 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -366,7 +366,7 @@ function vNav(){
   const b = (k,l,n,c='') => `<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
   return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais','Mais','more')}</div></nav>`;
 }
-const ph = (t, back='home') => `<div class="ph"><button class="back" data-a="go" data-v="${back}" aria-label="Voltar">${ic('back')}</button><h1>${t}</h1></div>`;
+const ph = (t, back='home', upd) => `<div class="ph"><button class="back" data-a="go" data-v="${back}" aria-label="Voltar">${ic('back')}</button><h1>${t}</h1>${upd ? `<button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button>` : ''}</div>`;
 
 /* ---------- indicador ---------- */
 const lastT = i => i.atualizado_em || i.criado_em;
@@ -430,7 +430,7 @@ function vHome(){
   const n = { tot: mine.length, at: mine.filter(i => i.status<=2).length, q: mine.filter(i => i.status>=3 && i.status<=5).length, v: mine.filter(i => i.status===6 || i.status===7).length };
   const recent = [...mine].sort((a,b) => new Date(lastT(b)) - new Date(lastT(a))).slice(0,3);
   const tile = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l"><span class="dot" style="background:var(--s${s})"></span>${l}</div></div>`;
-  return `<div class="hgrid"><div class="col"><section class="hello"><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || 'Condomínio')}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
+  return `<div class="hgrid"><div class="col"><section class="hello"><button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || 'Condomínio')}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
    <p class="sub">Você conhece. Você indica. A gente cuida do resto.</p></section>
    <button class="cta" data-a="go" data-v="nova">${ic('plus',24)}<span>Nova indicação</span><small>Leva menos de 2 minutos</small></button>
    <div class="stats">${tile(n.tot,'Suas indicações',0)}${tile(n.at,'Em atendimento',1)}${tile(n.q,'Oportunidades qualificadas',3)}${tile(n.v,'Vendas concluídas',6)}</div>
@@ -577,7 +577,7 @@ function vLista(){
   const f = { todas:()=>true, andamento:i=>i.status<6, concluidas:i=>i.status===6||i.status===7, encerradas:i=>i.status===8 };
   const L = S.D.inds.filter(i => i.indicador_id === S.perfil.id).filter(f[S.filter]).sort((a,b) => new Date(lastT(b)) - new Date(lastT(a)));
   const fb = (k,l) => `<button class="chipbtn ${S.filter===k?'on':''}" data-a="filter" data-v="${k}">${l}</button>`;
-  return `${ph('Minhas indicações')}<div class="filters">${fb('todas','Todas')}${fb('andamento','Em andamento')}${fb('concluidas','Concluídas')}${fb('encerradas','Encerradas')}</div>
+  return `${ph('Minhas indicações','home',1)}<div class="filters">${fb('todas','Todas')}${fb('andamento','Em andamento')}${fb('concluidas','Concluídas')}${fb('encerradas','Encerradas')}</div>
    <div class="cards list">${L.map(cardInd).join('') || '<p class="muted">Nenhuma indicação aqui ainda.</p>'}</div>`;
 }
 function timeline(i){
@@ -600,7 +600,7 @@ function vDet(){
 }
 function vCarteira(){
   const w = wallet();
-  return `${ph('Minha carteira')}
+  return `${ph('Minha carteira','home',1)}
    <div class="split"><div class="col"><div class="wallet"><span class="l">Saldo disponível</span><span class="v">${money(w.disp)}</span><span class="l">Programa de Incentivos Rendique</span></div>
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
@@ -660,7 +660,7 @@ function vTermos(){ return `${ph('Termos do programa','mais')}
 /* ---------- corretor ---------- */
 function vPro(){
   const L = S.D.inds.filter(i => i.status >= 1 && i.status <= 5).sort((a,b) => a.status - b.status || new Date(lastT(a)) - new Date(lastT(b)));
-  return `<section class="hello"><p class="eyebrow">Profissional imobiliário</p><h1 style="font-size:28px">${esc(S.perfil.nome)}</h1>
+  return `<section class="hello"><button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button><p class="eyebrow">Profissional imobiliário</p><h1 style="font-size:28px">${esc(S.perfil.nome)}</h1>
    <p class="sub">${L.length} oportunidade${L.length===1?'':'s'} em atendimento. Atualize o status a cada etapa: o indicador acompanha em tempo real.</p></section>
    <div class="cards list">${L.map(i => { const nx = i.status + 1; return `<div class="card" style="gap:10px">
     <div class="sec-h"><span class="mono note">${i.id}</span><span class="lc-pills">${pill(i.status)}${fichaTag(i)}</span></div><h2>${esc(i.proprietario_nome)}</h2>
