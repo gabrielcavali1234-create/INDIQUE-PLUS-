@@ -1120,3 +1120,20 @@ end $$;
 
 revoke execute on function public.definir_ativo(uuid,boolean), public.excluir_usuario(uuid) from public, anon;
 grant execute on function public.definir_ativo(uuid,boolean), public.excluir_usuario(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Prazo (SLA) de 24h por etapa: guarda quando a indicação entrou na fase atual
+-- ---------------------------------------------------------------------
+alter table public.indicacoes add column if not exists etapa_em timestamptz;
+update public.indicacoes set etapa_em = coalesce(atualizado_em, criado_em) where etapa_em is null;
+alter table public.indicacoes alter column etapa_em set default now();
+create or replace function public.marca_etapa() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then new.etapa_em := coalesce(new.etapa_em, now());
+  elsif new.status is distinct from old.status then new.etapa_em := now(); end if;
+  return new;
+end $$;
+drop trigger if exists indicacoes_etapa on public.indicacoes;
+create trigger indicacoes_etapa before insert or update on public.indicacoes
+  for each row execute function public.marca_etapa();

@@ -580,6 +580,17 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 .logoutbtn{display:flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
 .logoutbtn:hover{border-color:var(--danger);color:var(--danger)}
 @media (max-width:480px){.who-chip{display:none}.logoutbtn span{display:none}.logoutbtn{width:40px;padding:0;justify-content:center}}
+.sla{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px 3px 7px;border-radius:999px;white-space:nowrap}
+.sla b{font-variant-numeric:tabular-nums;font-weight:800}.sla small{font-size:11px;font-weight:600;opacity:.85}
+.sla.ok{background:#E3F4EA;color:#1E7A48}.sla.warn{background:#FDEBD8;color:#B4530B}.sla.late{background:#FBE1E1;color:#B42318}
+.slabox{border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;border:1px solid}
+.slabox.ok{background:#F1FAF4;border-color:#BFE3CC;color:#1E7A48}.slabox.warn{background:#FFF6EC;border-color:#F6CFA6;color:#B4530B}.slabox.late{background:#FFF1F1;border-color:#F3B9B9;color:#B42318}
+.slabox .eyebrow{color:inherit}.slat{display:flex;align-items:baseline;gap:10px}.slat svg{align-self:center}
+.slat b{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px;line-height:1}.slat span{font-weight:700;font-size:14px}
+.slabar{height:8px;border-radius:8px;background:rgba(0,0,0,.08);overflow:hidden}.slabar i{display:block;height:100%;background:currentColor;border-radius:8px;transition:width 1s linear}
+.slaalert{display:flex;align-items:center;gap:12px;background:#FFF1F1;border:1px solid #F3B9B9;color:#B42318;border-radius:14px;padding:12px 14px;margin-bottom:16px}
+.slaalert>div{flex:1}.slaalert .note{color:#8A2A22;margin:2px 0 0}
+.chipbtn.alerta[data-v="atras"]:not(.on){background:#FBE1E1;color:#B42318;border-color:#F3B9B9}
 </style>
 </head>
 <body>
@@ -593,6 +604,6 @@ body.busy button,body.busy input[type=submit]{pointer-events:none;opacity:.7}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610162140"></script>
+<script src="app.js?v=202610162200"></script>
 </body>
 </html>

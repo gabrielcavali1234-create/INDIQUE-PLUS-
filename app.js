@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162140 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162200 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -75,6 +75,7 @@ const I = {
   chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
   pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
@@ -688,7 +689,8 @@ function aGeral(){
   const top = inds.map(u => ({ u, n: L.filter(i => i.indicador_id === u.id).length, q: L.filter(i => i.indicador_id === u.id && reached(i,3)).length })).sort((a,b) => b.q - a.q || b.n - a.n).slice(0,8);
   const byC = S.D.condos.map(c => ({ c, n: L.filter(i => i.condominio_id === c.id).length })).filter(x => x.n).sort((a,b) => b.n - a.n).slice(0,8);
   const byR = {}; L.forEach(i => { const r = condo(i.condominio_id)?.regiao || 'Sem região'; byR[r] = (byR[r]||0) + 1; });
-  return `<h2 style="font-size:17px">Indicadores (profissionais)</h2>
+  const late = L.filter(slaLate).length;
+  return `${late ? `<div class="slaalert">${ic('clock',20)}<div><b>${late} indicaç${late>1?'ões':'ão'} com prazo de ${SLA_H}h estourado</b><p class="note">Passaram mais de ${SLA_H} horas sem trocar de fase.</p></div><button class="btn sm" data-a="verAtras">Ver agora</button></div>` : ''}<h2 style="font-size:17px">Indicadores (profissionais)</h2>
    <div class="kpis">${kpi(inds.length,'Total de indicadores')}${kpi(inds.filter(u => new Date(u.criado_em) > now - 30*DAY).length,'Novos (30 dias)')}${kpi(ativos,'Ativos (30 dias)')}${kpi(S.D.ocorr.filter(o=>o.estado==='aberta').length,'Ocorrências abertas')}</div>
    <h2 style="font-size:17px">Indicações</h2>
    <div class="kpis">${kpi(n,'Total')}${kpi(since(1),'Hoje')}${kpi(since(7),'Semana')}${kpi(since(30),'Mês')}</div>
@@ -779,8 +781,39 @@ const GRUPOS = [
   ['negoc','Em negociação', i => i.status === 5],
   ['concl','Venda realizada', i => i.status === 6 || i.status === 7],
   ['encerr','Encerradas', i => i.status === 8],
+  ['atras','Prazo estourado', i => slaLate(i)],
   ['todas','Todas', () => true]
 ];
+/* ---------- Prazo (SLA) de 24h por etapa ---------- */
+const SLA_H = 24, SLA_ST = [0,1,2,3];
+const slaIni = i => new Date(i.etapa_em || i.atualizado_em || i.criado_em).getTime();
+const slaFim = i => SLA_ST.includes(i.status) ? slaIni(i) + SLA_H * 36e5 : null;
+const slaLate = i => { const f = slaFim(i); return f !== null && f < Date.now(); };
+function slaTxt(fim){
+  const ms = fim - Date.now(), a = Math.abs(ms), h = Math.floor(a / 36e5), m = Math.floor(a % 36e5 / 6e4), sg = Math.floor(a % 6e4 / 1e3), p = n => String(n).padStart(2,'0');
+  if (ms >= 0) return { c: ms > 6 * 36e5 ? 'ok' : 'warn', t: `${p(h)}:${p(m)}:${p(sg)}`, l: 'para trocar de fase' };
+  const d = Math.floor(h / 24);
+  return { c: 'late', t: d ? `${d}d ${h % 24}h` : h ? `${h}h ${p(m)}min` : `${m}min`, l: 'de atraso' };
+}
+function slaChip(i){
+  const f = slaFim(i); if (f === null) return ''; const x = slaTxt(f);
+  return `<span class="sla ${x.c}" data-sla="${f}">${ic('clock',14)}<b>${x.t}</b><small>${x.l}</small></span>`;
+}
+function slaBox(i){
+  const f = slaFim(i); if (f === null) return ''; const x = slaTxt(f), pct = Math.max(0, Math.min(100, (f - Date.now()) / (SLA_H * 36e5) * 100));
+  return `<section class="slabox ${x.c}" data-sla="${f}" data-big="1"><div class="sec-h"><p class="eyebrow">Prazo desta etapa · ${SLA_H}h</p><span class="note">desde ${fdt(new Date(slaIni(i)).toISOString())}</span></div>
+    <div class="slat">${ic('clock',22)}<b>${x.t}</b><span>${x.l}</span></div><div class="slabar"><i style="width:${pct}%"></i></div>
+    <p class="note">${x.c === 'late' ? 'O prazo estourou. Avance a indicação para a próxima fase o quanto antes.' : `Troque de fase até ${fdt(new Date(f).toISOString())}.`}</p></section>`;
+}
+function slaTick(){
+  document.querySelectorAll('[data-sla]').forEach(el => {
+    const f = Number(el.dataset.sla), x = slaTxt(f);
+    el.classList.remove('ok','warn','late'); el.classList.add(x.c);
+    const b = el.querySelector('b'), l = el.querySelector(el.dataset.big ? '.slat span' : 'small'); if (b) b.textContent = x.t; if (l) l.textContent = x.l;
+    if (el.dataset.big) { const bar = el.querySelector('.slabar i'); if (bar) bar.style.width = Math.max(0, Math.min(100, (f - Date.now()) / (SLA_H * 36e5) * 100)) + '%'; }
+  });
+}
+setInterval(slaTick, 1000);
 const PROX = { 0:'Validar', 1:'Contato feito', 2:'Qualificar', 3:'Publicar anúncio', 4:'Iniciar negociação', 5:'Venda realizada', 6:'Liberar bonificação' };
 const waLink = t => `https://wa.me/55${dig(t)}`;
 function filtraInds(){
@@ -801,7 +834,7 @@ function cardAdm(i, compact){
   return `<article class="lcard ${S.flash===i.id?'flash':''} ${i.status===0?'needs':''}" id="row-${i.id}" data-a="openInd" data-v="${i.id}" tabindex="0">
    <div class="lc-main">
     <div class="lc-top"><span class="mono lc-id">${i.id}</span><span class="lc-ago">${ago(i.criado_em)}</span></div>
-    ${compact ? '' : `<div class="lc-pills">${pill(i.status)}${fichaTag(i)}</div>`}
+    ${compact ? slaChip(i) : `<div class="lc-pills">${pill(i.status)}${fichaTag(i)}${slaChip(i)}</div>`}
     <h3>${esc(i.proprietario_nome)}</h3>
     <p class="lc-sub">${esc(i.unidade)} · ${esc(i.endereco || condoNome(i.condominio_id))}</p>
     ${compact ? '' : `<p class="lc-sub">Indicado por <b>${esc(ind || 'QR Code')}</b></p>`}
@@ -815,11 +848,11 @@ function cardAdm(i, compact){
 }
 function aInds(){
   const base = filtraInds(), g = GRUPOS.find(x => x[0] === S.admGrupo) || GRUPOS[0];
-  const chips = GRUPOS.map(([k,l,f]) => { const n = base.filter(f).length; return `<button class="chipbtn ${g[0]===k?'on':''} ${k==='novas'&&n?'alerta':''}" data-a="admGrupo" data-v="${k}">${l}<span class="cnum">${n}</span></button>`; }).join('');
+  const chips = GRUPOS.map(([k,l,f]) => { const n = base.filter(f).length; return `<button class="chipbtn ${g[0]===k?'on':''} ${(k==='novas'||k==='atras')&&n?'alerta':''}" data-a="admGrupo" data-v="${k}">${l}<span class="cnum">${n}</span></button>`; }).join('');
   const top = `<div class="ind-bar">
     <label class="search">${ic('search',18)}<input class="in" id="a-busca" placeholder="Buscar por nome, telefone, ID, condomínio ou indicador" value="${esc(S.admQ||'')}" autocomplete="off"></label>
    </div>`;
-  const L = base.filter(g[2]);
+  const L = base.filter(g[2]).sort((a,b) => (slaFim(a) ?? Infinity) - (slaFim(b) ?? Infinity));
   return `${top}<div class="filters">${chips}</div>
    <div class="lgrid">${L.map(i => cardAdm(i)).join('') || `<div class="card"><p class="note">${S.admQ ? 'Nada encontrado nessa busca.' : 'Nenhuma indicação neste grupo.'}</p></div>`}</div>`;
 }
@@ -831,6 +864,7 @@ function vDrawer(){
    <div class="db">
     <section><p class="eyebrow">Proprietário</p><h2>${esc(i.proprietario_nome)}</h2><p class="mono" style="margin-top:4px">${fph(i.telefone)}</p>
      <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
+    ${slaBox(i)}
     ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
     ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div></section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
     ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
@@ -1590,6 +1624,7 @@ const act = {
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
+  verAtras: () => { S.admTab = 'inds'; S.admGrupo = 'atras'; render(); },
   ativoUser: d => guard(async () => { closeModal(); const on = d.s === '1'; await rpc('definir_ativo', { p_usuario: d.v, p_ativo: on }); await refresh(); toast(on ? 'Acesso reativado' : 'Acesso suspenso'); }),
   delUser: d => delUserModal(d.v),
   delUserOk: d => guard(async () => { const n = perfil(d.v)?.nome || 'Usuário'; closeModal(); await rpc('excluir_usuario', { p_usuario: d.v }); await refresh(); toast(`${n} excluído`); }),
