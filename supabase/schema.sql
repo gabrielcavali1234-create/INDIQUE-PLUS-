@@ -1202,3 +1202,33 @@ do $$ begin
     alter publication supabase_realtime add table public.mensagens;
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------
+-- Venda realizada fica travada: não volta etapa nem é encerrada
+-- ---------------------------------------------------------------------
+create or replace function public.trava_venda() returns trigger
+language plpgsql as $$
+begin
+  if old.status in (6,7) and (new.status < 6 or new.status = 8) then
+    raise exception 'Venda realizada não pode voltar de etapa nem ser encerrada.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists indicacoes_trava_venda on public.indicacoes;
+create trigger indicacoes_trava_venda before update of status on public.indicacoes
+  for each row execute function public.trava_venda();
+
+create or replace function public.tentativa_alterar_venda(p_id text, p_acao text default 'voltar') returns void
+language plpgsql security definer set search_path = public as $$
+declare v_nome text; v_ind public.indicacoes;
+begin
+  if public.meu_papel() not in ('admin','corretor') then raise exception 'Sem permissão.'; end if;
+  select * into v_ind from public.indicacoes where id = p_id;
+  if not found or v_ind.status not in (6,7) then return; end if;
+  select nome into v_nome from public.perfis where id = auth.uid();
+  perform public.notifica_admins('venda_bloqueio', 'Tentativa bloqueada em venda realizada',
+    coalesce(v_nome,'Alguém') || ' tentou ' || case when p_acao = 'encerrar' then 'encerrar' else 'voltar a etapa de' end || ' ' || p_id || ' (' || coalesce(v_ind.proprietario_nome,'') || '). A venda continua registrada.', p_id);
+  perform public.registra('Tentativa bloqueada: ' || case when p_acao = 'encerrar' then 'encerrar ' else 'voltar etapa de ' end || p_id || ' (venda realizada)');
+end $$;
+revoke execute on function public.tentativa_alterar_venda(text,text) from public, anon;
+grant execute on function public.tentativa_alterar_venda(text,text) to authenticated;

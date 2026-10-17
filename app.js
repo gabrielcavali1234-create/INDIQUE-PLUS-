@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162240 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162250 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -77,6 +77,7 @@ const I = {
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
   chat2:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4"/>',
   send:'<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
+  lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
@@ -852,7 +853,7 @@ function cardAdm(i, compact){
     ${compact ? '' : recBox(i)}
    </div>
    <div class="lc-act">
-    <div class="btns" style="flex-wrap:nowrap;gap:6px">${i.status >= 1 && i.status <= 7 ? `<button class="iconbtn" data-a="back1" data-v="${i.id}" aria-label="Voltar para ${ST[i.status-1]}" title="Voltar para ${ST[i.status-1]}">${ic('undo',18)}</button>` : ''}<a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a></div>
+    <div class="btns" style="flex-wrap:nowrap;gap:6px">${i.status === 6 ? `<button class="iconbtn lockb" data-a="back1" data-v="${i.id}" aria-label="Venda realizada: etapa travada" title="Venda realizada: não pode voltar de etapa">${ic('lock',18)}</button>` : i.status >= 1 && i.status <= 7 ? `<button class="iconbtn" data-a="back1" data-v="${i.id}" aria-label="Voltar para ${ST[i.status-1]}" title="Voltar para ${ST[i.status-1]}">${ic('undo',18)}</button>` : ''}<a class="iconbtn wa" data-a="noop" href="${waLink(i.telefone)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(i.proprietario_nome)}" title="WhatsApp">${ic('chat',18)}</a></div>
     ${nx ? `<button class="btn sm ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx}</button>` : i.status === 8 ? `<button class="btn sm ghost" data-a="reopen" data-v="${i.id}">${ic('undo',16)}Reabrir</button>` : ''}
    </div>
   </article>`;
@@ -877,7 +878,7 @@ function vDrawer(){
      <div class="btns" style="margin-top:12px"><a class="btn wa" href="${waLink(i.telefone)}" target="_blank" rel="noopener">${ic('chat',18)}WhatsApp</a><button class="btn ghost" data-a="copy" data-v="${fph(i.telefone)}">${ic('copy',18)}Copiar telefone</button></div></section>
     ${slaBox(i)}
     ${i.status === 8 ? `<section class="nextbox"><p class="eyebrow">Indicação encerrada</p>${i.motivo_encerramento ? `<p>${esc(i.motivo_encerramento)}</p>` : ''}<button class="btn big ghost" data-a="reopen" data-v="${i.id}">${ic('undo',18)}Reabrir indicação</button><p class="note" style="text-align:center">Volta para a etapa em que estava antes de ser encerrada.</p></section>` : ''}
-    ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button><div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div></section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
+    ${nx ? `<section class="nextbox"><p class="eyebrow">Próximo passo</p><button class="btn big ${i.status===6?'gold':''}" data-a="adv" data-v="${i.id}" data-s="${i.status+1}">${nx} →</button>${i.status === 6 ? `<button class="lockl" data-a="back1" data-v="${i.id}">${ic('lock',16)}<span><b>Venda realizada: etapa travada.</b> Não dá para voltar etapa nem encerrar.</span></button>` : `<div class="btns" style="justify-content:space-between">${i.status >= 1 ? `<button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[i.status-1]}</button>` : '<span></span>'}<button class="link" data-a="close" data-v="${i.id}">Encerrar indicação</button></div>`}</section>` : i.status === 7 ? `<section class="nextbox"><p class="eyebrow">Etapa final</p><button class="link" style="color:var(--ink)" data-a="back1" data-v="${i.id}">← Voltar para ${ST[6]}</button></section>` : ''}
     ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
     ${recBox(i, true) ? `<section><p class="eyebrow">Recompensa do indicador</p>${recBox(i, true)}</section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
@@ -1527,6 +1528,16 @@ async function relXLSX(k){
   baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
 }
 
+/* ---------- Venda realizada: etapa travada ---------- */
+function vendaBloq(i, acao){
+  openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
+    <div class="lockicon">${ic('lock',28)}</div>
+    <div><p class="eyebrow">${esc(i.id)} · ${esc(i.proprietario_nome)}</p><h2>Venda realizada não pode ${acao === 'encerrar' ? 'ser encerrada' : 'voltar de etapa'}</h2></div>
+    <p class="note">Depois que a venda é registrada, a indicação fica travada em "${ST[i.status]}" para proteger o histórico, a bonificação do indicador e os relatórios.</p>
+    <p class="note">Se a venda foi registrada por engano ou o valor está errado, use <b>Registrar venda</b> de novo para corrigir os dados. Esta tentativa foi registrada e os gestores foram avisados.</p>
+    <div class="btns" style="justify-content:flex-end"><button class="btn" data-a="mclose">Entendi</button></div></div>`);
+  rpc('tentativa_alterar_venda', { p_id: i.id, p_acao: acao }).catch(() => {});
+}
 /* ---------- Chat de atendimento (indicador ↔ gestores) ---------- */
 const hm = d => new Date(d).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
 const diaChat = d => { const x = new Date(d), h = new Date(); const ont = new Date(h - DAY); return x.toDateString() === h.toDateString() ? 'Hoje' : x.toDateString() === ont.toDateString() ? 'Ontem' : x.toLocaleDateString('pt-BR', { day:'2-digit', month:'long' }); };
@@ -1741,7 +1752,8 @@ const act = {
   bonComp: d => act.verComp({ v: d.v, tipo: 'bonus' }),
   registrarVenda: d => vendaModal(d.v),
   advOk: d => guard(async () => { await rpc('mudar_status', { p_id: d.v, p_status: Number(d.s), p_motivo: null }); delete S.D.hist[d.v]; await refresh(); toast(`${d.v}: ${ST[Number(d.s)]}`); }),
-  close: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
+  close: d => { const i = S.D.inds.find(x => x.id === d.v); if (i && (i.status === 6 || i.status === 7)) return vendaBloq(i, 'encerrar'); act.closeAsk(d); },
+  closeAsk: d => openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
      <div><p class="eyebrow">Encerrar ${esc(d.v)}</p><h2>Qual o motivo?</h2></div>
      <label class="f">Motivo<select class="in" id="m-motivo">${MOTIVOS.map(m => `<option>${m}</option>`).join('')}</select></label>
      <label class="f">Justificativa <small>(obrigatória)</small><textarea class="in" id="m-just" maxlength="500" placeholder="Explique o que aconteceu. Ex.: proprietário informou por WhatsApp que desistiu de vender este ano."></textarea></label>
@@ -1749,6 +1761,7 @@ const act = {
      <div id="m-err" class="err" hidden></div>
      <div class="btns"><button class="btn danger" data-a="confirmClose" data-v="${esc(d.v)}">Encerrar indicação</button><button class="btn ghost" data-a="mclose">Cancelar</button></div></div>`),
   back1: d => { const i = S.D.inds.find(x => x.id === d.v); if (!i) return;
+    if (i.status === 6) return vendaBloq(i, 'voltar');
     const r = S.D.rewards.find(x => x.indicacao_id === i.id), novo = i.status - 1;
     const aviso = novo < 3 && r && r.estado === 'processamento' ? '<p class="note"><b>A recompensa em processamento será cancelada.</b> Se a indicação avançar de novo até "Oportunidade qualificada", ela volta automaticamente.</p>' : '';
     openModal(`<div style="text-align:left;display:flex;flex-direction:column;gap:14px">
