@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162205 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162225 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -589,12 +589,15 @@ function timeline(i){
 }
 function vDet(){
   const i = S.D.inds.find(x => x.id === S.det); if (!i) return vLista();
-  const r = S.D.rewards.find(x => x.indicacao_id === i.id && x.estado !== 'cancelada');
+  const r = S.D.rewards.find(x => x.indicacao_id === i.id && x.estado !== 'cancelada'), b = (S.D.bonus || []).find(x => x.indicacao_id === i.id && x.estado !== 'cancelado');
   return `${ph(`<span class="mono" style="font-size:18px">${i.id}</span>`,'lista')}
    <div class="split"><div class="col"><div class="card"><div class="sec-h"><h2>${esc(i.proprietario_nome)}</h2>${pill(i.status)}</div>
     <dl class="kv"><dt>Imóvel</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(condoNome(i.condominio_id))}</dd><dt>Enviada</dt><dd>${fdt(i.criado_em)}</dd>${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></div>
    ${r ? `<div class="reward" style="cursor:default"><div><div class="l">Recompensa por indicação qualificada</div><div class="v">${money(r.valor)}</div></div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span></div>` :
      i.status < 3 ? `<p class="principle">${ic('wallet')}<span>Quando a oportunidade for qualificada pela equipe, você recebe ${money(S.D.valor)} na carteira, conforme as regras do programa.</span></p>` : ''}
+   ${b ? `<div class="card vendabox"><div class="sec-h"><h3>${ic('check',18)}Venda realizada</h3><span class="tag nw ${BON[b.estado][0]}">${BON_IND[b.estado]}</span></div>
+     <dl class="kv"><dt>Data da venda</dt><dd>${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</dd><dt>Sua bonificação</dt><dd><b>${money(b.valor)}</b></dd></dl>
+     ${b.observacao ? `<div class="obsbox"><p class="eyebrow">Observação da equipe</p><p>${esc(b.observacao)}</p></div>` : ''}</div>` : ''}
    <p class="principle">${ic('shield')}<span>O atendimento, a avaliação e a negociação são feitos por um profissional imobiliário habilitado.</span></p></div>
    <div class="col"><div class="card"><h2>Linha do tempo</h2>${timeline(i)}</div></div></div>`;
 }
@@ -605,7 +608,7 @@ function vCarteira(){
    <div class="wsplit"><div class="tile"><div class="l">Em processamento</div><div class="v" style="font-size:22px">${money(w.proc)}</div></div><div class="tile"><div class="l">Já pagos</div><div class="v" style="font-size:22px">${money(w.pago)}</div></div></div>
    <button class="btn big" data-a="resgatar" ${w.disp?'':'disabled'}>Solicitar resgate via Pix</button>
    ${cardPix()}
-   ${(S.D.bonus||[]).length ? `<div class="card bonifl"><h2>Bonificação por venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe uma bonificação. Ela fica em processamento até a conclusão da venda e depois é liberada para pagamento via Pix.</p>${bonusTotais()}<div class="hist">${(S.bonMes && S.bonMes !== 'todos' ? S.D.bonus.filter(b => mesDe(b.data_venda) === S.bonMes || mesDe(b.pago_em) === S.bonMes) : S.D.bonus).map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${BON_IND[b.estado]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`).join('') || '<p class="muted">Nenhuma bonificação neste mês.</p>'}</div></div>` : ''}
+   ${(S.D.bonus||[]).length ? `<div class="card bonifl"><h2>Bonificação por venda</h2><p class="note">Quando um imóvel que você indicou é vendido, você recebe uma bonificação. Ela fica em processamento até a conclusão da venda e depois é liberada para pagamento via Pix.</p>${bonusTotais()}<div class="hist">${(S.bonMes && S.bonMes !== 'todos' ? S.D.bonus.filter(b => mesDe(b.data_venda) === S.bonMes || mesDe(b.pago_em) === S.bonMes) : S.D.bonus).map(b => `<div><div><div class="mono" style="font-size:13px">${b.indicacao_id}</div><div class="note">Venda em ${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</div></div><div style="text-align:right"><div class="a">${money(b.valor)}</div><span class="tag ${BON[b.estado][0]}">${BON_IND[b.estado]}</span>${b.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="bonComp" data-v="${b.indicacao_id}">Ver comprovante</button></div>`:''}</div>${b.observacao ? `<div class="obsind"><b>Observação da equipe:</b> ${esc(b.observacao)}</div>` : ''}</div>`).join('') || '<p class="muted">Nenhuma bonificação neste mês.</p>'}</div></div>` : ''}
    <div class="card"><h3>Como funciona</h3><p class="note">Você recebe ${money(S.D.valor)} por indicação qualificada, sujeita às regras do programa. A recompensa fica em processamento até a validação da equipe e depois aparece como disponível para resgate.</p></div></div>
    <div class="col"><div class="card"><h2>Histórico de recompensas</h2><div class="hist">${[...w.list].map(r => { const i = S.D.inds.find(x => x.id === r.indicacao_id);
      return `<div><div><div class="mono" style="font-size:13px">${r.indicacao_id}</div><div class="note">${esc(i?.proprietario_nome||'')} · ${fd(r.criado_em)}</div></div><div style="text-align:right"><div class="a">${money(r.valor)}</div><span class="tag ${REW[r.estado][0]}">${REW[r.estado][1]}</span>${r.estado==='pago'?`<div><button class="link" style="font-size:13px" data-a="verComp" data-v="${r.indicacao_id}">Ver comprovante</button></div>`:''}</div></div>`; }).join('') || '<p class="muted">Sem recompensas ainda.</p>'}</div></div></div></div>`;
@@ -870,7 +873,7 @@ function vDrawer(){
     ${i.status >= 2 && (i.status !== 8 || ficha(i.id)) ? `<section class="fichabox"><div class="sec-h"><p class="eyebrow">Ficha do imóvel</p>${fichaTag(i) || (ficha(i.id) ? `<span class="ftag ok">${ic('check',13)}Completa</span>` : '')}</div>${fichaResumo(i)}<button class="btn ghost" data-a="fichaAbrir" data-v="${i.id}">${ic('doc',18)}${ficha(i.id) ? 'Editar ficha' : 'Preencher ficha'}</button></section>` : ''}
     ${recBox(i, true) ? `<section><p class="eyebrow">Recompensa do indicador</p>${recBox(i, true)}</section>` : ''}
     <section><p class="eyebrow">Imóvel</p><dl class="kv"><dt>Unidade</dt><dd>${esc(i.unidade)}</dd><dt>Local</dt><dd>${esc(i.endereco || condoNome(i.condominio_id))}</dd><dt>Tipo</dt><dd>${esc(i.tipo||'—')} · ${esc(i.dormitorios||'—')} dorm.</dd><dt>Horário</dt><dd>${esc(i.horario||'—')}</dd>${i.observacoes?`<dt>Obs.</dt><dd>${esc(i.observacoes)}</dd>`:''}${i.motivo_encerramento?`<dt>Motivo</dt><dd>${esc(i.motivo_encerramento)}</dd>`:''}</dl></section>
-    <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}${bonusDe(i.id)?`<dt>Bônus de venda</dt><dd>${money(bonusDe(i.id).valor)} · ${BON[bonusDe(i.id).estado][1]}${bonusDe(i.id).estado!=='pago'?` · <button class="link" data-a="registrarVenda" data-v="${i.id}">editar venda</button>`:''}</dd>`:(i.status===6||i.status===7)&&i.indicador_id?`<dt>Bônus de venda</dt><dd><button class="link" data-a="registrarVenda" data-v="${i.id}">Registrar valor da venda</button></dd>`:''}</dl></section>
+    <section><p class="eyebrow">Indicador</p><dl class="kv"><dt>Nome</dt><dd>${esc(ind?.nome || 'QR Code')}</dd>${ind?`<dt>Função</dt><dd>${esc(ind.funcao)}</dd><dt>Celular</dt><dd class="mono">${fph(ind.telefone)}</dd>`:''}<dt>Origem</dt><dd>${esc(i.origem)}</dd><dt>Recebida</dt><dd>${fdt(i.criado_em)}</dd>${r?`<dt>Recompensa</dt><dd>${money(r.valor)} · ${REW[r.estado][1]}</dd>`:''}${bonusDe(i.id)?.observacao?`<dt>Obs. da venda</dt><dd>${esc(bonusDe(i.id).observacao)}</dd>`:''}${bonusDe(i.id)?`<dt>Bônus de venda</dt><dd>${money(bonusDe(i.id).valor)} · ${BON[bonusDe(i.id).estado][1]}${bonusDe(i.id).estado!=='pago'?` · <button class="link" data-a="registrarVenda" data-v="${i.id}">editar venda</button>`:''}</dd>`:(i.status===6||i.status===7)&&i.indicador_id?`<dt>Bônus de venda</dt><dd><button class="link" data-a="registrarVenda" data-v="${i.id}">Registrar valor da venda</button></dd>`:''}</dl></section>
     <section><p class="eyebrow">Linha do tempo</p>${timeline(i)}</section>
    </div></aside></div>`;
 }
@@ -1097,7 +1100,7 @@ function vendaModal(id){
     </div>
     <p class="note" id="vd-det">Informe o valor da venda e os percentuais.</p>
     <p class="note">A bonificação do indicador fica aguardando até você marcar que a comissão foi recebida. A da Rendique não aparece para o indicador.</p>
-    <label class="f">Observação <small>(opcional)</small><input class="in" name="obs" value="${esc(b?.observacao || '')}" placeholder="Ex.: venda financiada, escritura em 15/11"></label>
+    <label class="f">Observação para o indicador <small>(opcional · aparece no painel dele)</small><textarea class="in" name="obs" rows="3" maxlength="500" style="min-height:96px" placeholder="Ex.: venda financiada; a bonificação é liberada após a escritura, prevista para 15/11">${esc(b?.observacao || '')}</textarea></label>
     <div id="vd-err" class="err" hidden></div>
     <div class="btns"><button class="btn gold" type="submit">Registrar venda</button><button type="button" class="btn ghost" data-a="mclose">Cancelar</button></div></form>`);
   vendaCalc();

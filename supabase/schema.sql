@@ -958,7 +958,8 @@ begin
     insert into public.historico (indicacao_id, status, autor_id, autor_nome) values (p_id, 6, auth.uid(), v_nome);
   end if;
   insert into public.notificacoes (destinatario_id, tipo, titulo, corpo, indicacao_id)
-  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bonificação de R$ ' || v_val || ' em processamento.', p_id);
+  values (v_ind.indicador_id, 'bonus', 'Venda realizada!', p_id || ': bonificação de R$ ' || v_val || ' em processamento.'
+          || coalesce(' Observação: ' || nullif(trim(p_obs),''), ''), p_id);
   if p_rendique_pct is not null then
     if p_rendique_pct < 0 or p_rendique_pct > 100 then raise exception 'Percentual da Rendique inválido.'; end if;
     insert into public.receitas_venda (indicacao_id, percentual, valor) values (p_id, p_rendique_pct, round(p_valor_venda * p_rendique_pct / 100, 2))
