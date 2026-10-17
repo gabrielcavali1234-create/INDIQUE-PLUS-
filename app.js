@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162225 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162240 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -75,6 +75,8 @@ const I = {
   chat:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 10.5c.5 1.8 2 3.3 4 4l1.2-1.2 2 .8v1.6c-4.2.5-8.2-3.5-7.7-7.7h1.6l.8 2z"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
+  chat2:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4"/>',
+  send:'<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
@@ -104,6 +106,7 @@ async function loadData(){
     q(sb.from('indicacoes').select('*').order('criado_em',{ascending:false}).limit(1000)).then(r => S.D.inds = r)
   ];
   if (p === 'indicador') jobs.push(loadRanking('mes'));
+  if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('mensagens').select('*').order('criado_em',{ascending:false}).limit(p === 'admin' ? 2000 : 300)).then(r => S.D.msgs = r.reverse()).catch(() => S.D.msgs = null));
   if (p === 'indicador') jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('recompensas').select('*').order('criado_em',{ascending:false})).then(r => S.D.rewards = r));
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
@@ -132,7 +135,9 @@ function subscribe(){
       try { await loadData(); } catch(e) {}
       const ci = n.indicacao_id && S.D.inds.find(i => i.id === n.indicacao_id)?.condominio_id; if (ci) M.flash = { id: ci, t: Date.now() };
       render();
-    }).subscribe();
+    })
+    .on('postgres_changes', { event:'*', schema:'public', table:'mensagens', ...(papel() === 'admin' ? {} : { filter:`conversa_id=eq.${S.perfil.id}` }) }, payload => chatRecebe(payload))
+    .subscribe();
 }
 function unsubscribe(){ if (S.channel) { sb.removeChannel(S.channel); S.channel = null; } }
 function browserAlert(n){
@@ -362,9 +367,9 @@ function vBell(){
 }
 function vNav(){
   if (S.screen !== 'app' || papel() !== 'indicador') return '';
-  const grp = {home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab] || 'mais';
+  const grp = {home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab] || 'mais', nc = chatNaoLidas();
   const b = (k,l,n,c='') => `<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
-  return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais','Mais','more')}</div></nav>`;
+  return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais', nc ? `Mais<span class="navdot">${nc}</span>` : 'Mais','more')}</div></nav>`;
 }
 const ph = (t, back='home', upd) => `<div class="ph"><button class="back" data-a="go" data-v="${back}" aria-label="Voltar">${ic('back')}</button><h1>${t}</h1>${upd ? `<button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button>` : ''}</div>`;
 
@@ -433,6 +438,7 @@ function vHome(){
   return `<div class="hgrid"><div class="col"><section class="hello"><button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || 'Condomínio')}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
    <p class="sub">Você conhece. Você indica. A gente cuida do resto.</p></section>
    <button class="cta" data-a="go" data-v="nova">${ic('plus',24)}<span>Nova indicação</span><small>Leva menos de 2 minutos</small></button>
+   ${chatNaoLidas() ? `<button class="chatnovo" data-a="go" data-v="chat">${ic('chat2',22)}<span><b>${chatNaoLidas() > 1 ? `${chatNaoLidas()} novas mensagens` : 'Nova mensagem'} da equipe</b><small>Toque para ler e responder</small></span></button>` : ''}
    <div class="stats">${tile(n.tot,'Suas indicações',0)}${tile(n.at,'Em atendimento',1)}${tile(n.q,'Oportunidades qualificadas',3)}${tile(n.v,'Vendas concluídas',6)}</div>
    <button class="reward" data-a="go" data-v="carteira"><div><div class="l">Recompensas acumuladas</div><div class="v">${money(w.disp+w.proc+w.pago)}</div></div>
     <div style="text-align:right"><div class="l">Disponível</div><b class="num">${money(w.disp)}</b></div></button>
@@ -442,7 +448,8 @@ function vHome(){
     <button class="qbtn" data-a="go" data-v="lista">${ic('list')}Minhas indicações</button>
     <button class="qbtn" data-a="go" data-v="carteira">${ic('wallet')}Minha carteira</button>
     <button class="qbtn" data-a="go" data-v="convite">${ic('users')}Convidar profissional</button>
-    <button class="qbtn" data-a="go" data-v="qr">${ic('qr')}Meu QR Code</button></div></div>
+    <button class="qbtn" data-a="go" data-v="qr">${ic('qr')}Meu QR Code</button>
+    <button class="qbtn chatq" data-a="go" data-v="chat">${ic('chat2')}Falar com a equipe${chatNaoLidas() ? `<span class="cnt">${chatNaoLidas()}</span>` : ''}</button></div></div>
    <div class="col"><section class="cards"><div class="sec-h"><h2>Últimas atualizações</h2><button class="link" data-a="go" data-v="lista">Ver todas</button></div>
     ${recent.map(cardInd).join('') || `<div class="card"><p class="note">Você ainda não fez nenhuma indicação. Quando souber de alguém que quer vender, toque em <b>Nova indicação</b>.</p></div>`}</section>
    <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p></div></div>`;
@@ -598,6 +605,7 @@ function vDet(){
    ${b ? `<div class="card vendabox"><div class="sec-h"><h3>${ic('check',18)}Venda realizada</h3><span class="tag nw ${BON[b.estado][0]}">${BON_IND[b.estado]}</span></div>
      <dl class="kv"><dt>Data da venda</dt><dd>${dataBon(b,'data_venda').toLocaleDateString('pt-BR')}</dd><dt>Sua bonificação</dt><dd><b>${money(b.valor)}</b></dd></dl>
      ${b.observacao ? `<div class="obsbox"><p class="eyebrow">Observação da equipe</p><p>${esc(b.observacao)}</p></div>` : ''}</div>` : ''}
+   <button class="btn ghost" data-a="chatSobre" data-v="${i.id}">${ic('chat2',18)}Dúvida sobre esta indicação? Fale com a equipe</button>
    <p class="principle">${ic('shield')}<span>O atendimento, a avaliação e a negociação são feitos por um profissional imobiliário habilitado.</span></p></div>
    <div class="col"><div class="card"><h2>Linha do tempo</h2>${timeline(i)}</div></div></div>`;
 }
@@ -628,7 +636,7 @@ function cardPix(){
 function vMais(){
   const u = S.perfil, it = (v,i,t,d,a='go') => `<button class="qbtn" style="width:100%" data-a="${a}" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
   return `<section class="hello"><p class="eyebrow">Código ${esc(u.codigo)}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '')}</p></section>
-   <div class="cards">${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
+   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
 }
 function vQR(){ const u = S.perfil, url = `${SITE}?q=${u.codigo}`;
   return `${ph('Meu QR Code','mais')}
@@ -677,8 +685,8 @@ const kpi = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l
 function vAdm(){
   const open = S.D.ocorr.filter(o => o.estado === 'aberta').length;
   const novas = S.D.inds.filter(i => i.status === 0).length;
-  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
-  const body = ({ geral:aGeral, inds:aInds, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
+  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
+  const body = ({ geral:aGeral, inds:aInds, chat:aChat, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
    <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
 }
@@ -1519,6 +1527,91 @@ async function relXLSX(k){
   baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
 }
 
+/* ---------- Chat de atendimento (indicador ↔ gestores) ---------- */
+const hm = d => new Date(d).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+const diaChat = d => { const x = new Date(d), h = new Date(); const ont = new Date(h - DAY); return x.toDateString() === h.toDateString() ? 'Hoje' : x.toDateString() === ont.toDateString() ? 'Ontem' : x.toLocaleDateString('pt-BR', { day:'2-digit', month:'long' }); };
+function chatNaoLidas(conv){
+  const M = S.D.msgs || [], adm = papel() === 'admin';
+  return M.filter(m => !m.lida && (adm ? !m.da_equipe : m.da_equipe) && (!conv || m.conversa_id === conv)).length;
+}
+function chatConversas(){
+  const by = {};
+  (S.D.msgs || []).forEach(m => { const c = by[m.conversa_id] ||= { id: m.conversa_id, msgs: [] }; c.msgs.push(m); });
+  return Object.values(by).map(c => ({ ...c, ult: c.msgs[c.msgs.length - 1], nl: c.msgs.filter(m => !m.da_equipe && !m.lida).length }))
+    .sort((a, b) => new Date(b.ult.criado_em) - new Date(a.ult.criado_em));
+}
+function chatThread(L, eu){
+  if (!L.length) return `<div class="chat-vazio">${ic('chat2',34)}<p>${eu === 'equipe' ? 'Nenhuma mensagem ainda. Escreva abaixo para iniciar a conversa.' : 'Mande sua dúvida para a equipe Rendique. Respondemos por aqui mesmo, em horário comercial.'}</p></div>`;
+  let dia = '';
+  return L.map(m => {
+    const meu = eu === 'equipe' ? m.da_equipe : !m.da_equipe, d = diaChat(m.criado_em), sep = d !== dia ? `<div class="chat-dia"><span>${d}</span></div>` : ''; dia = d;
+    return `${sep}<div class="bolha ${meu ? 'eu' : 'ele'}">${!meu && m.da_equipe ? `<b class="bautor">${esc(m.autor_nome || 'Equipe Rendique')} · equipe</b>` : meu && eu === 'equipe' && m.autor_id !== S.perfil.id ? `<b class="bautor">${esc(m.autor_nome || '')}</b>` : ''}${m.indicacao_id ? `<span class="bref">${ic('doc',12)}${esc(m.indicacao_id)}</span>` : ''}<p>${esc(m.texto)}</p><small>${hm(m.criado_em)}${meu ? ` · ${m.lida ? 'Lida' : 'Enviada'}` : ''}</small></div>`;
+  }).join('');
+}
+function chatCompor(){
+  const sobre = S.chatSobre;
+  return `<div class="chat-compor">${sobre ? `<div class="chat-sobre">${ic('doc',14)}Sobre a indicação <b>${esc(sobre)}</b><button class="link" data-a="chatTiraSobre" aria-label="Remover">${ic('x',14)}</button></div>` : ''}
+    <div class="chat-linha"><textarea class="in" id="chat-in" rows="1" maxlength="2000" placeholder="Escreva sua mensagem…" aria-label="Mensagem"></textarea><button class="btn chat-env" data-a="chatEnviar" aria-label="Enviar">${ic('send',20)}</button></div></div>`;
+}
+function vChatInd(){
+  if (S.D.msgs === null) return `${ph('Atendimento')}<div class="card"><p class="note">O chat ainda não está ativo. Fale com o gestor.</p></div>`;
+  const L = S.D.msgs || [];
+  return `${ph('Atendimento')}<div class="chat ind"><div class="chat-head">${logo(30)}<div><b>Equipe Rendique</b><span class="note">Respondemos em horário comercial</span></div></div>
+    <div class="chat-thread" id="chat-thread">${chatThread(L, 'ind')}</div>${chatCompor()}</div>`;
+}
+function aChat(){
+  if (S.D.msgs === null) return `<div class="alert"><b>Chat ainda não ativado</b><p class="note">Rode o schema.sql atualizado no Supabase para ligar o chat de atendimento.</p></div>`;
+  const C = chatConversas(), q = (S.chatQ || '').toLowerCase(), sel = S.chatSel, u = sel && perfil(sel);
+  const semConversa = S.D.perfis.filter(p => p.papel === 'indicador' && !p.excluido_em && !C.some(c => c.id === p.id));
+  const lista = C.filter(c => !q || (perfil(c.id)?.nome || '').toLowerCase().includes(q)).map(c => { const p = perfil(c.id);
+    return `<button class="conv ${sel === c.id ? 'on' : ''} ${c.nl ? 'nl' : ''}" data-a="chatSel" data-v="${c.id}"><span class="cav">${esc((p?.nome || '?').trim()[0] || '?')}</span><span class="cmid"><b>${esc(p?.nome || 'Usuário excluído')}</b><span class="cprev">${c.ult.da_equipe ? 'Você: ' : ''}${esc(c.ult.texto.slice(0, 70))}</span></span><span class="cfim"><small>${diaChat(c.ult.criado_em) === 'Hoje' ? hm(c.ult.criado_em) : diaChat(c.ult.criado_em)}</small>${c.nl ? `<span class="cnum">${c.nl}</span>` : ''}</span></button>`; }).join('');
+  const thread = u ? (() => { const L = (S.D.msgs || []).filter(m => m.conversa_id === sel), n = S.D.inds.filter(i => i.indicador_id === sel).length;
+    return `<div class="chat"><div class="chat-head"><button class="back chat-back" data-a="chatVoltar" aria-label="Voltar">${ic('back')}</button><span class="cav">${esc(u.nome.trim()[0])}</span><div><b>${esc(u.nome)}</b><span class="note">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')} · ${n} indicaç${n === 1 ? 'ão' : 'ões'}</span></div>${u.telefone ? `<a class="iconbtn wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp de ${esc(u.nome)}">${ic('chat',18)}</a>` : ''}</div>
+      <div class="chat-thread" id="chat-thread">${chatThread(L, 'equipe')}</div>${u.excluido_em ? '<p class="note" style="padding:12px">Usuário excluído.</p>' : chatCompor()}</div>`; })()
+    : `<div class="chat chat-nada"><div class="chat-vazio">${ic('chat2',40)}<p>Escolha uma conversa ao lado.</p></div></div>`;
+  return `<div class="chatwrap ${sel ? 'tem' : ''}"><aside class="convs"><label class="search">${ic('search',16)}<input class="in" id="chat-q" placeholder="Buscar indicador" value="${esc(S.chatQ || '')}" autocomplete="off"></label>
+    <div class="convlist">${lista || '<p class="note" style="padding:12px">Nenhuma conversa ainda.</p>'}</div>
+    ${semConversa.length ? `<div class="convnova"><select class="in" id="chat-novo"><option value="">Iniciar conversa com…</option>${semConversa.map(p => `<option value="${p.id}">${esc(p.nome)}</option>`).join('')}</select><button class="btn sm" data-a="chatNova">Abrir</button></div>` : ''}</aside>${thread}</div>`;
+}
+function chatPos(foc, sel){
+  const t = $('#chat-thread'); if (t) t.scrollTop = t.scrollHeight;
+  const ci = $('#chat-in'); if (!ci) return;
+  ci.value = S.chatDraft || ''; chatAltura(ci);
+  if (foc) { ci.focus(); if (sel) ci.setSelectionRange(sel[0], sel[1]); }
+}
+function chatAltura(el){ el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
+function chatAberto(conv){ return S.screen === 'app' && document.visibilityState === 'visible' && (papel() === 'admin' ? S.admTab === 'chat' && S.chatSel === conv : S.tab === 'chat'); }
+async function chatLer(){
+  const adm = papel() === 'admin', conv = adm ? S.chatSel : S.perfil.id; if (!conv || !chatNaoLidas(adm ? conv : null)) return;
+  (S.D.msgs || []).forEach(m => { if (m.conversa_id === conv && (adm ? !m.da_equipe : m.da_equipe)) m.lida = true; });
+  render();
+  try { await rpc('marcar_mensagens_lidas', { p_conversa: adm ? conv : null }); } catch(e) {}
+}
+async function chatEnviar(){
+  const ci = $('#chat-in'), t = (ci?.value || '').trim(); if (!t || S.chatEnviando) return;
+  const adm = papel() === 'admin';
+  S.chatEnviando = true;
+  try {
+    const id = await rpc('enviar_mensagem', { p_texto: t, p_conversa: adm ? S.chatSel : null, p_indicacao: adm ? null : S.chatSobre || null });
+    if (!(S.D.msgs || []).some(m => m.id === id)) (S.D.msgs ||= []).push({ id, conversa_id: adm ? S.chatSel : S.perfil.id, autor_id: S.perfil.id, autor_nome: S.perfil.nome, da_equipe: adm, texto: t, indicacao_id: adm ? null : S.chatSobre || null, lida: false, criado_em: new Date().toISOString() });
+    S.chatDraft = ''; S.chatSobre = null; render(); $('#chat-in')?.focus();
+  } catch(e) { toast(msg(e)); }
+  finally { S.chatEnviando = false; }
+}
+function chatRecebe(p){
+  const m = p.new; if (!m || !m.id) return;
+  S.D.msgs ||= [];
+  const i = S.D.msgs.findIndex(x => x.id === m.id);
+  if (i >= 0) { S.D.msgs[i] = m; render(); return; }
+  S.D.msgs.push(m);
+  const adm = papel() === 'admin', deOutro = adm ? !m.da_equipe : m.da_equipe;
+  if (deOutro) {
+    if (chatAberto(m.conversa_id)) { chatLer(); }
+    else { const quem = adm ? (perfil(m.conversa_id)?.nome || 'Indicador') : 'Equipe Rendique'; toast(`${quem}: ${m.texto.slice(0, 80)}`); browserAlert({ titulo: `Mensagem de ${quem}`, corpo: m.texto }); }
+  }
+  render();
+}
+
 /* ---------- render ---------- */
 function render(){
   const root = document.documentElement, app = $('#app');
@@ -1532,14 +1625,16 @@ function render(){
     if (p === 'admin') { html = vAdm(); cls = desk ? 'wide' : 'adm'; }
     else if (p === 'corretor') { html = vPro(); cls = 'pro'; }
     else {
-      html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking}[S.tab] || vHome)();
+      html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking,chat:vChatInd}[S.tab] || vHome)();
       if (['ok','dup','mais','qr','convite','privacidade','termos','ranking'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
     }
   } else {
     html = ({setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
     cls = 'pro';
   }
+  const ci = $('#chat-in'), cFoc = ci && document.activeElement === ci, cSel = ci ? [ci.selectionStart, ci.selectionEnd] : null;
   app.className = cls; app.innerHTML = html;
+  chatPos(cFoc, cSel);
   const nav = vNav(); $('#nav').innerHTML = nav;
   if (nav) root.dataset.side = ''; else delete root.dataset.side;
   $('#bell').innerHTML = vBell() + (S.screen === 'app' && papel() === 'admin' ? vDrawer() : '');
@@ -1551,6 +1646,7 @@ function render(){
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
   S.tab = t; S.bell = false; render(); window.scrollTo(0,0);
+  if (t === 'chat') chatLer();
   if (t === 'ranking') { const per = S.rankPer || 'mes'; if (!S.D.rank?.[per]) loadRanking(per).then(render); }
   if (t === 'convite' && S.D.convidados === null) rpc('meus_convidados', {}).then(r => { S.D.convidados = r; render(); }).catch(() => { S.D.convidados = []; render(); });
 }
@@ -1565,7 +1661,7 @@ const act = {
   go: d => go(d.v),
   det: async d => { S.det = d.v; go('det'); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) { toast(msg(e)); } } },
   filter: d => { S.filter = d.v; render(); },
-  atab: d => { S.admTab = d.v; S.flash = null; render(); },
+  atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); },
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await refresh(); toast('Dados atualizados'); }),
   logout: () => guard(async () => { S.drawer = null; S.bell = false; closeModal(); await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
@@ -1627,6 +1723,12 @@ const act = {
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
+  chatEnviar: () => chatEnviar(),
+  chatSel: d => { S.chatSel = d.v; S.chatSobre = null; render(); chatLer(); },
+  chatVoltar: () => { S.chatSel = null; render(); },
+  chatSobre: d => { S.chatSobre = d.v; go('chat'); },
+  chatTiraSobre: () => { S.chatSobre = null; render(); },
+  chatNova: () => { const v = $('#chat-novo')?.value; if (v) { S.chatSel = v; render(); } },
   verAtras: () => { S.admTab = 'inds'; S.admGrupo = 'atras'; render(); },
   ativoUser: d => guard(async () => { closeModal(); const on = d.s === '1'; await rpc('definir_ativo', { p_usuario: d.v, p_ativo: on }); await refresh(); toast(on ? 'Acesso reativado' : 'Acesso suspenso'); }),
   delUser: d => delUserModal(d.v),
@@ -1732,7 +1834,7 @@ document.addEventListener('click', e => {
   act[a.dataset.a]?.(a.dataset, a, e);
 });
 document.addEventListener('mouseover', e => { const t = e.target.closest?.('[data-tip]'); const tip = $('#ftip'); if (!tip) return; if (!t) { tip.hidden = true; return; } tip.innerHTML = t.dataset.tip; tip.hidden = false; const r = t.getBoundingClientRect(); tip.style.left = Math.min(window.innerWidth - 180, Math.max(8, r.left + r.width/2 - 80)) + 'px'; tip.style.top = (r.top + 8) + 'px'; });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches?.('.lcard')) { e.target.click(); } if (e.key === 'Escape') { if (S.drawer) { S.drawer = null; render(); return; } if ($('#modal').innerHTML) closeModal(); else if (S.bell) { S.bell = false; render(); } } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'chat-in' && !matchMedia('(pointer:coarse)').matches) { e.preventDefault(); chatEnviar(); return; } if (e.key === 'Enter' && e.target.matches?.('.lcard')) { e.target.click(); } if (e.key === 'Escape') { if (S.drawer) { S.drawer = null; render(); return; } if ($('#modal').innerHTML) closeModal(); else if (S.bell) { S.bell = false; render(); } } });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.form?.dataset.f === 'nova') nvSync();
@@ -1746,6 +1848,8 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.id === 'chat-in') { S.chatDraft = e.target.value; chatAltura(e.target); return; }
+  if (e.target.id === 'chat-q') { S.chatQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#chat-q'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.form?.dataset.f === 'ficha') fichaCalc();
   if (e.target.form?.dataset.f === 'venda') vendaCalc();
   if (e.target.form?.dataset.f === 'publico') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } pubSync(); }

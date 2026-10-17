@@ -1138,3 +1138,67 @@ end $$;
 drop trigger if exists indicacoes_etapa on public.indicacoes;
 create trigger indicacoes_etapa before insert or update on public.indicacoes
   for each row execute function public.marca_etapa();
+
+-- ---------------------------------------------------------------------
+-- Chat de atendimento: uma conversa por indicador com a equipe (gestores)
+-- ---------------------------------------------------------------------
+create table if not exists public.mensagens (
+  id           bigserial primary key,
+  conversa_id  uuid not null references public.perfis(id) on delete cascade,
+  autor_id     uuid references public.perfis(id) on delete set null,
+  autor_nome   text,
+  da_equipe    boolean not null,
+  texto        text not null check (char_length(texto) between 1 and 2000),
+  indicacao_id text references public.indicacoes(id) on delete set null,
+  lida         boolean not null default false,
+  criado_em    timestamptz not null default now()
+);
+create index if not exists mensagens_conversa_idx on public.mensagens (conversa_id, criado_em);
+alter table public.mensagens enable row level security;
+drop policy if exists mensagens_ler on public.mensagens;
+create policy mensagens_ler on public.mensagens for select to authenticated
+  using (public.is_admin() or (conversa_id = auth.uid() and public.meu_papel() = 'indicador'));
+revoke all on public.mensagens from anon;
+revoke insert, update, delete on public.mensagens from authenticated;
+grant select on public.mensagens to authenticated;
+
+create or replace function public.enviar_mensagem(p_texto text, p_conversa uuid default null, p_indicacao text default null) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_eq boolean := public.is_admin(); v_conv uuid; v_nome text; v_id bigint;
+begin
+  if auth.uid() is null then raise exception 'Sem permissão.'; end if;
+  if nullif(trim(coalesce(p_texto,'')),'') is null then raise exception 'Escreva a mensagem.'; end if;
+  if char_length(p_texto) > 2000 then raise exception 'Mensagem muito longa (máximo 2000 caracteres).'; end if;
+  if v_eq then
+    v_conv := p_conversa;
+    if not exists (select 1 from public.perfis where id = v_conv and papel = 'indicador' and excluido_em is null) then raise exception 'Indicador não encontrado.'; end if;
+  else
+    if public.meu_papel() is distinct from 'indicador' then raise exception 'Sem permissão.'; end if;
+    v_conv := auth.uid();
+  end if;
+  if p_indicacao is not null and not exists (select 1 from public.indicacoes where id = p_indicacao and indicador_id = v_conv) then p_indicacao := null; end if;
+  select nome into v_nome from public.perfis where id = auth.uid();
+  insert into public.mensagens (conversa_id, autor_id, autor_nome, da_equipe, texto, indicacao_id)
+  values (v_conv, auth.uid(), v_nome, v_eq, trim(p_texto), p_indicacao) returning id into v_id;
+  return v_id;
+end $$;
+
+create or replace function public.marcar_mensagens_lidas(p_conversa uuid default null) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if public.is_admin() then
+    update public.mensagens set lida = true where conversa_id = p_conversa and not da_equipe and not lida;
+  elsif public.meu_papel() = 'indicador' then
+    update public.mensagens set lida = true where conversa_id = auth.uid() and da_equipe and not lida;
+  end if;
+end $$;
+
+revoke execute on function public.enviar_mensagem(text,uuid,text), public.marcar_mensagens_lidas(uuid) from public, anon;
+grant execute on function public.enviar_mensagem(text,uuid,text), public.marcar_mensagens_lidas(uuid) to authenticated;
+
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'mensagens') then
+    alter publication supabase_realtime add table public.mensagens;
+  end if;
+end $$;
