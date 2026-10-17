@@ -1387,3 +1387,18 @@ begin
 end $$;
 revoke execute on function public.minhas_conquistas() from public, anon;
 grant execute on function public.minhas_conquistas() to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Aceite dos termos (versão aceita por cada usuário)
+-- ---------------------------------------------------------------------
+alter table public.perfis add column if not exists termos_versao text;
+alter table public.perfis add column if not exists termos_aceito_em timestamptz;
+create or replace function public.aceitar_termos(p_versao text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sem permissão.'; end if;
+  update public.perfis set termos_versao = left(p_versao, 20), termos_aceito_em = now() where id = auth.uid();
+  perform public.registra('Termos aceitos (versão ' || left(p_versao, 20) || ')');
+end $$;
+revoke execute on function public.aceitar_termos(text) from public, anon;
+grant execute on function public.aceitar_termos(text) to authenticated;

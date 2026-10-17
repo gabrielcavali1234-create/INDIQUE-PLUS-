@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162330 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610170010 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -663,19 +663,65 @@ function vConvite(){ const u = S.perfil, url = `${SITE}?c=${u.codigo}`, conv = S
     <a class="btn" style="width:100%;text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar convite pelo WhatsApp</a></div>
    <div class="card"><h2>Profissionais que você convidou</h2><div class="hist">${conv === null ? '<p class="muted">Carregando…</p>' : conv.map(c => `<div><div><b>${esc(c.nome)}</b><div class="note">${esc(c.funcao)} · ${esc(c.condominio||'')}</div></div><div class="note" style="text-align:right">desde ${fd(c.criado_em)}<br>${c.indicacoes} indicações</div></div>`).join('') || '<p class="muted">Ninguém ainda.</p>'}</div></div>
    <p class="principle">${ic('users')}<span>A rede tem um único nível: você convida, o profissional convidado faz as próprias indicações. Incentivos por convite serão anunciados após validação jurídica.</span></p>`; }
+const TERMOS_VERSAO = '2.0', TERMOS_DATA = '16/10/2026';
+const TERMOS = () => [
+  ['Quem somos', [`O Programa de Indicações Rendique é operado por <b>N. R. Cordeiro</b>, CNPJ nº <b>52.235.808/0001-51</b>, imobiliária inscrita no <b>CRECI/SP sob o nº 053574-J</b>, com sede em Osasco/SP, doravante chamada <b>Rendique</b>.`, `Toda a intermediação imobiliária (avaliação, anúncio, negociação e formalização da venda) é realizada pela Rendique ou por corretores habilitados que atuam com ela.`]],
+  ['Sobre o programa', [`O programa permite que pessoas ligadas a condomínios indiquem proprietários que desejam vender o seu imóvel. Ao se cadastrar, o indicador declara que leu e aceita estes termos e a política de privacidade.`]],
+  ['Quem pode participar', [`Pode participar qualquer pessoa maior de 18 anos que trabalhe, more ou tenha relação com um condomínio, como porteiros, zeladores, síndicos, faxineiros, administradores, moradores e outros profissionais.`, `O cadastro pode ser feito por link de convite ou diretamente pelo site rendique.com.br, com dados verdadeiros e atualizados. Cada pessoa pode ter apenas um cadastro, pessoal e intransferível. O indicador é responsável pelo uso do seu login e da sua senha.`]],
+  ['O papel do indicador', [`O indicador apenas informa uma oportunidade: um proprietário que deseja vender o imóvel e autorizou ser contatado.`, `O indicador não faz intermediação imobiliária, não avalia o imóvel, não define preço, não apresenta propostas, não negocia condições e não assina documentos em nome da Rendique.`, `O indicador deve respeitar as regras do condomínio e do seu empregador ao participar do programa.`]],
+  ['Autorização do proprietário', [`Toda indicação exige a autorização do proprietário para ser contatado pela Rendique. A autorização fica registrada no envio, com data e hora.`]],
+  ['Validade da indicação', [`A indicação vale por tempo indeterminado. Se o imóvel indicado for vendido com a intermediação da Rendique a qualquer momento, mesmo anos depois, o indicador mantém o direito à bonificação, desde que a indicação tenha sido válida e registrada no app.`, `Não são consideradas indicações válidas, e não geram recompensa nem bonificação: (a) imóveis que já estavam na carteira da Rendique antes da indicação; (b) imóveis anunciados na plataforma QuintoAndar no momento da indicação; (c) imóveis já indicados por outra pessoa, valendo a primeira indicação registrada, identificada pelo endereço, número da unidade e bloco ou torre; (d) indicações sem a autorização do proprietário.`, `Quando a indicação não for válida, o indicador é avisado no app.`]],
+  ['Recompensa por indicação qualificada', [`Quando a Rendique qualifica a oportunidade indicada, o indicador ganha uma recompensa de valor fixo, hoje de <b>${money(S.D.valor)}</b>. Vale o valor em vigor na data da qualificação; mudanças no valor só se aplicam a novas qualificações.`, `A recompensa fica em processamento e é liberada quando o imóvel estiver com anúncio ativo. Depois de liberada, o indicador pode solicitar o resgate pelo app, sem valor mínimo.`]],
+  ['Bonificação por venda', [`Quando o imóvel indicado é vendido com a intermediação da Rendique, o indicador recebe uma bonificação de <b>30% (trinta por cento) da comissão de captação efetivamente recebida pela Rendique</b> naquela venda.`, `Exemplo: em uma venda de R$ 500.000,00 com comissão de captação de 1% (R$ 5.000,00), a bonificação do indicador é de R$ 1.500,00.`, `A bonificação só é devida após a conclusão da venda, ou seja, quando todos os apontamentos da diligência (análise de documentos do imóvel e das partes) forem superados, a venda estiver formalizada e a Rendique tiver recebido a comissão. Até lá, ela aparece no app como "em processamento".`, `Se a venda for desfeita, cancelada ou não se concluir, ou se a comissão não for recebida, a bonificação não é devida. Vendas feitas sem a intermediação da Rendique não geram bonificação.`]],
+  ['Pagamentos', [`Os pagamentos de recompensas e bonificações são feitos <b>toda sexta-feira</b>, via Pix, para os valores liberados e solicitados até quinta-feira às 23h59. Se a sexta-feira for feriado, o pagamento é feito no dia útil seguinte. O comprovante fica disponível no app.`, `Para receber, o indicador precisa informar no app o seu <b>CPF</b> e uma <b>chave Pix em seu próprio nome</b>, vinculada ao mesmo CPF do cadastro. A Rendique não faz pagamentos para contas de terceiros. Se a chave Pix estiver errada ou em nome de outra pessoa, o pagamento fica retido até a correção.`, `O CPF é usado para identificar o indicador, conferir a titularidade da chave Pix, emitir os recibos dos pagamentos e cumprir obrigações fiscais. O indicador é responsável por declarar os valores recebidos quando a lei exigir.`]],
+  ['Proibição de cobrança', [`O indicador não pode cobrar, pedir ou receber qualquer valor, presente ou vantagem do proprietário, do comprador ou de qualquer outra pessoa pela indicação ou pela venda. A única remuneração do indicador é a paga pela Rendique, nos termos deste programa.`]],
+  ['Uso do nome e da marca Rendique', [`O indicador pode divulgar que participa do programa e compartilhar os links de anúncio disponibilizados no app.`, `O indicador não pode se apresentar como funcionário, corretor ou representante da Rendique, criar perfis, páginas, grupos, materiais ou anúncios próprios com o nome, a marca ou o logotipo da Rendique, nem alterar os materiais oficiais, sem autorização por escrito.`]],
+  ['Fraude e exclusão', [`São proibidos: indicar proprietário inexistente ou que não autorizou o contato, informar dados falsos, criar mais de um cadastro, cobrar valores de terceiros, usar a marca de forma indevida, combinar indicações com outras pessoas para burlar as regras e qualquer outra tentativa de obter valores de forma indevida.`, `Quando houver suspeita, a Rendique pode suspender o acesso enquanto analisa o caso, e o indicador é avisado no app, com prazo de 5 dias para se explicar. Se a irregularidade for confirmada, o indicador é <b>excluído da plataforma</b> e <b>perde todos os valores ainda não pagos</b>, sem prejuízo de outras medidas cabíveis.`]],
+  ['Selos, ranking e comemorações', [`Selos, posições no ranking e comemorações são reconhecimentos e não têm valor em dinheiro nem dão direito a pagamento. No ranking aparecem apenas o primeiro nome, a inicial do sobrenome e o condomínio.`]],
+  ['Convites', [`A rede de convites tem um único nível: o indicador convida, e o profissional convidado faz as próprias indicações. Incentivos por convite só valem se forem anunciados no app.`]],
+  ['Saída do programa', [`O indicador pode pedir a exclusão do seu cadastro a qualquer momento em Privacidade e dados. O login, o telefone e a chave Pix são apagados; o histórico das indicações é mantido pelo tempo exigido em lei e para os relatórios do programa. Valores já liberados e não pagos são pagos antes da exclusão.`]],
+  ['Sem vínculo', [`A participação é voluntária e não cria vínculo de emprego, sociedade, representação ou mandato com a Rendique. Não há exclusividade nem metas obrigatórias.`]],
+  ['Mudanças nos termos', [`A Rendique pode atualizar estes termos. Quando isso acontecer, o indicador é avisado no app e precisa aceitar a nova versão para continuar participando. Valores já liberados não são afetados.`]],
+  ['Contato', [`O canal oficial de atendimento é o <b>chat do app</b> (Mais › Falar com a equipe), respondido pelos gestores da plataforma, em horário comercial.`]],
+  ['Foro', [`Fica eleito o foro da Comarca de Osasco/SP para resolver questões relacionadas a estes termos, ressalvado o direito do indicador de propor ação no foro do seu domicílio, quando a lei permitir.`]]
+];
+const PRIVACIDADE = [
+  ['Quem cuida dos seus dados', [`N. R. Cordeiro (Rendique), CNPJ nº 52.235.808/0001-51, com sede em Osasco/SP.`]],
+  ['Quais dados usamos', [`Do seu cadastro: nome, e-mail, celular, CPF, função, condomínio e chave Pix.`, `Das indicações: nome e telefone do proprietário e dados do imóvel, enviados com a autorização dele.`, `Do uso do app: mensagens do chat de atendimento, histórico das indicações, pagamentos e selos.`]],
+  ['Para que usamos', [`Identificar suas indicações, acompanhar cada etapa, calcular e pagar recompensas e bonificações, emitir recibos, cumprir obrigações fiscais, falar com você e prevenir fraudes.`]],
+  ['Com quem compartilhamos', [`Os dados do proprietário e do imóvel são compartilhados apenas com o corretor responsável pelo atendimento.`, `Usamos prestadores de tecnologia para hospedar o app e o banco de dados. Não vendemos dados.`]],
+  ['Base legal', [`Consentimento (art. 7º, I, da LGPD), execução do programa do qual você participa (art. 7º, V) e cumprimento de obrigações legais e fiscais (art. 7º, II).`]],
+  ['Por quanto tempo guardamos', [`Enquanto você participar do programa e, depois, pelo prazo necessário para cumprir obrigações legais e manter o histórico de pagamentos.`]],
+  ['Seus direitos', [`Você pode pedir acesso, correção, portabilidade ou exclusão dos seus dados a qualquer momento, pelos botões desta página.`]],
+  ['Encarregados pelo tratamento de dados', [`Pedidos sobre dados pessoais também podem ser enviados diretamente aos encarregados: Gabriel Cavali (gabrielcavali1234@gmail.com) e Neemias Rodrigues (neyrodriguesc@gmail.com).`]]
+];
+const secTxt = L => L.map(([t, ps], n) => `<section class="tsec"><h3>${n + 1}. ${t}</h3>${ps.map(p => `<p>${p}</p>`).join('')}</section>`).join('');
 function vPriv(){ return `${ph('Privacidade e dados','mais')}
-   <div class="card"><h2>Seus dados</h2><p class="note">Usamos seus dados para identificar suas indicações e pagar recompensas. Os dados do proprietário só são compartilhados com o profissional imobiliário responsável, mediante a autorização registrada no envio, com data e hora.</p>
+   <div class="card"><h2>Seus dados</h2><p class="note">Você pode pedir a correção ou a exclusão dos seus dados. A equipe responde pelo app.</p>
     <div class="btns"><button class="btn ghost" data-a="lgpd" data-v="correção">Solicitar correção</button><button class="btn danger" data-a="lgpd" data-v="exclusão">Solicitar exclusão</button></div></div>
-   <div class="card"><h3>Política de privacidade (resumo)</h3><p class="note">Base legal: consentimento (art. 7º, I, LGPD). Retenção pelo prazo necessário ao programa e às obrigações legais. Você pode pedir acesso, correção, portabilidade ou exclusão a qualquer momento.</p></div>`; }
+   <div class="card termos"><h2>Política de privacidade</h2><p class="note">Versão ${TERMOS_VERSAO} · atualizada em ${TERMOS_DATA}</p>${secTxt(PRIVACIDADE)}</div>`; }
 function vTermos(){ return `${ph('Termos do programa','mais')}
-   <div class="card"><ol class="note" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px">
-    <li>O indicador apenas informa uma oportunidade, com autorização do proprietário. Não realiza intermediação imobiliária.</li>
-    <li>Avaliação, captação, negociação e formalização são feitas exclusivamente por profissionais imobiliários habilitados.</li>
-    <li>O indicador não pode definir preço, apresentar propostas nem prometer condições comerciais.</li>
-    <li>A recompensa é um valor fixo por indicação qualificada (${money(S.D.valor)}), sem vínculo com o valor da venda.</li>
-    <li>Indicações duplicadas ou sem autorização não geram recompensa e podem ser auditadas.</li>
-    <li>A rede de convites tem um único nível.</li></ol>
-    <p class="note"><b>Versão preliminar.</b> Regras sujeitas à análise jurídica e às normas do CRECI antes da operação comercial.</p></div>`; }
+   <div class="card termos"><h2>Termos do Programa de Indicações Rendique</h2><p class="note">Versão ${TERMOS_VERSAO} · atualizada em ${TERMOS_DATA}</p>${secTxt(TERMOS())}</div>`; }
+const TERMOS_MUDANCAS = [
+  'Bonificação por venda: 30% da comissão de captação, paga após a conclusão da venda',
+  'Pagamentos toda sexta-feira, via Pix em nome do próprio indicador (CPF)',
+  'Indicação válida por tempo indeterminado e quais indicações não valem',
+  'Proibição de cobrar terceiros, regras de uso da marca e de exclusão por fraude'
+];
+function termosPendente(){ return S.screen === 'app' && papel() === 'indicador' && S.perfil && S.perfil.termos_versao !== undefined && S.perfil.termos_versao !== TERMOS_VERSAO; }
+function termosModal(){
+  if (document.getElementById('termos-novo')) return;
+  const el = document.createElement('div'); el.className = 'modal'; el.id = 'termos-novo';
+  el.innerHTML = `<div class="box" role="dialog" aria-label="Termos atualizados" style="text-align:left;display:flex;flex-direction:column;gap:12px;max-height:90vh;overflow:auto">
+    <p class="eyebrow">Versão ${TERMOS_VERSAO} · ${TERMOS_DATA}</p><h2>Atualizamos os termos do programa</h2>
+    <p class="note">Para continuar usando o Rendique, leia e aceite a nova versão. O que mudou:</p>
+    <ul class="note" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">${TERMOS_MUDANCAS.map(t => `<li>${t}</li>`).join('')}</ul>
+    <details class="tdet"><summary>Ler os termos completos</summary><div class="termos">${secTxt(TERMOS())}</div></details>
+    <label class="check"><input type="checkbox" id="t-aceite"><span>Li e aceito os termos do programa e a política de privacidade.</span></label>
+    <p class="note err" id="t-err" hidden></p>
+    <button class="btn big" id="t-ok" data-a="termosAceitar">Aceitar e continuar</button></div>`;
+  document.body.appendChild(el);
+}
 
 /* ---------- corretor ---------- */
 function vPro(){
@@ -1832,7 +1878,8 @@ function render(){
   if (S.screen === 'app' && papel() === 'admin' && S.admTab === 'condos') montaMapa();
   if (S.screen === 'app' && S.tab === 'nova' && papel() === 'indicador') nvRestaura();
   if (S.screen === 'publico') pubSync();
-  if (S.screen === 'app' && papel() === 'indicador' && !S.comemorando && !S.festaAg && comemoraPendente()) { S.festaAg = true; setTimeout(() => { S.festaAg = false; comemora(); }, 300); }
+  if (termosPendente()) termosModal(); else document.getElementById('termos-novo')?.remove();
+  if (S.screen === 'app' && papel() === 'indicador' && !termosPendente() && !S.comemorando && !S.festaAg && comemoraPendente()) { S.festaAg = true; setTimeout(() => { S.festaAg = false; comemora(); }, 300); }
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -1915,6 +1962,11 @@ const act = {
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
   festaVer: () => festaFim(true),
+  termosAceitar: async () => {
+    if (!$('#t-aceite')?.checked) return showErr('#t-err', 'Marque a caixa para aceitar os termos.');
+    try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); S.perfil.termos_versao = TERMOS_VERSAO; document.getElementById('termos-novo')?.remove(); render(); toast('Termos aceitos. Obrigado!'); }
+    catch(e) { showErr('#t-err', msg(e)); }
+  },
   somToggle: () => { const on = !somLigado(); try { localStorage.setItem('rendique-som', on ? 'on' : 'off'); } catch(e) {} render(); toast(on ? 'Som das comemorações ligado' : 'Som das comemorações desligado'); if (on) fanfarra(); },
   festaFechar: () => festaFim(false),
   chatEnviar: () => chatEnviar(),
@@ -2151,6 +2203,7 @@ const forms = {
       await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: g('funcao'),
         p_condominio_id: g('condominio') === 'outro' ? null : g('condominio'), p_condominio_texto: g('condominio') === 'outro' ? g('condominio_texto') : null, p_convite: g('convite') || null });
     } catch(e) { return showErr('#c-err', msg(e)); }
+    try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); } catch(e) {}
     saveLS('rendique-convite', null);
     await onSession(S.session);
     toast(papel() === 'admin' ? 'Bem-vindo! Você é o gestor do Rendique.' : 'Cadastro concluído!');
