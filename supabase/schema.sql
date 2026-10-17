@@ -1402,3 +1402,40 @@ begin
 end $$;
 revoke execute on function public.aceitar_termos(text) from public, anon;
 grant execute on function public.aceitar_termos(text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- CPF do indicador (pagamentos via Pix no próprio nome e recibos)
+-- ---------------------------------------------------------------------
+alter table public.perfis add column if not exists cpf text;
+create unique index if not exists perfis_cpf_uk on public.perfis (cpf) where cpf is not null and excluido_em is null;
+
+create or replace function public.cpf_valido(p text) returns boolean
+language plpgsql immutable as $$
+declare d text := regexp_replace(coalesce(p,''), '\D', '', 'g'); s int; r int; i int;
+begin
+  if length(d) <> 11 or d ~ '^(\d)\1{10}$' then return false; end if;
+  s := 0; for i in 1..9 loop s := s + substr(d,i,1)::int * (11 - i); end loop;
+  r := (s * 10) % 11; if r = 10 then r := 0; end if;
+  if r <> substr(d,10,1)::int then return false; end if;
+  s := 0; for i in 1..10 loop s := s + substr(d,i,1)::int * (12 - i); end loop;
+  r := (s * 10) % 11; if r = 10 then r := 0; end if;
+  return r = substr(d,11,1)::int;
+end $$;
+
+create or replace function public.salvar_cpf(p_cpf text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_d text := regexp_replace(coalesce(p_cpf,''), '\D', '', 'g'); v_atual text;
+begin
+  if auth.uid() is null then raise exception 'Sem permissão.'; end if;
+  if not public.cpf_valido(v_d) then raise exception 'CPF inválido. Confira os números.'; end if;
+  select cpf into v_atual from public.perfis where id = auth.uid();
+  if v_atual = v_d then return; end if;
+  if v_atual is not null then raise exception 'Seu CPF já está cadastrado. Para trocar, fale com a equipe pelo chat.'; end if;
+  if exists (select 1 from public.perfis where cpf = v_d and excluido_em is null and id <> auth.uid()) then
+    raise exception 'Este CPF já está cadastrado em outra conta. Fale com a equipe pelo chat.';
+  end if;
+  update public.perfis set cpf = v_d where id = auth.uid();
+  perform public.registra('CPF cadastrado');
+end $$;
+revoke execute on function public.salvar_cpf(text) from public, anon;
+grant execute on function public.salvar_cpf(text) to authenticated;

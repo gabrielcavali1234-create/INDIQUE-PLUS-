@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610170010 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610170020 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -277,6 +277,7 @@ function vCadastro(){
    <form data-f="cadastro" class="card" novalidate>
     <label class="f">Nome completo<input class="in" id="c-nome" name="nome" autocomplete="name"></label>
     <label class="f">Celular (WhatsApp)<input class="in" id="c-tel" name="telefone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <label class="f">CPF <small>(para receber seus pagamentos via Pix)</small><input class="in mono" id="c-cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off"></label>
     <div class="f"><span class="qlabel">Você trabalha como</span>${ch('funcao', FUNCOES, 'Porteiro')}</div>
     <label class="f">Condomínio onde trabalha<select class="in" id="c-condo" name="condominio">${S.D.condos.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('')}<option value="outro" ${S.D.condos.length?'':'selected'}>Meu condomínio não está na lista</option></select></label>
     <label class="f" id="c-outro-wrap" ${S.D.condos.length?'hidden':''}>Nome e endereço do condomínio<input class="in" id="c-outro" name="condominio_texto" placeholder="Ex.: Ed. Solar, Rua das Flores, 120"></label>
@@ -633,12 +634,16 @@ function vCarteira(){
 const PIX_TIPOS = ['CPF','Celular','E-mail','Chave aleatória'];
 function cardPix(){
   const u = S.perfil;
+  const cpfLinha = u.cpf ? `<dt>CPF</dt><dd class="mono">${fcpf(u.cpf)}</dd>` : '';
+  const cpfCampo = u.cpf === undefined || u.cpf ? '' : `<label class="f">Seu CPF <small>(a chave Pix precisa estar no seu nome)</small><input class="in mono" id="x-cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off"></label>`;
+  if (u.pix_chave && !S.editPix && u.cpf === null) return `<form data-f="cpf" class="card" novalidate><h3>Informe seu CPF</h3><p class="note">Pelos novos termos, os pagamentos vão para uma chave Pix no seu nome, ligada ao seu CPF. Sem o CPF, os pagamentos ficam retidos.</p>
+     <dl class="kv"><dt>${esc(u.pix_tipo)}</dt><dd class="mono">${esc(u.pix_chave)}</dd></dl>${cpfCampo}<div id="x-err" class="err" hidden></div><button class="btn" type="submit">Salvar CPF</button></form>`;
   if (u.pix_chave && !S.editPix) return `<div class="card"><div class="sec-h"><h3>Sua chave Pix</h3><button class="link" data-a="editPix">Alterar</button></div>
-     <dl class="kv"><dt>${esc(u.pix_tipo)}</dt><dd class="mono">${esc(u.pix_chave)}</dd></dl><p class="note">É para esta chave que a equipe envia suas recompensas.</p></div>`;
+     <dl class="kv">${cpfLinha}<dt>${esc(u.pix_tipo)}</dt><dd class="mono">${esc(u.pix_chave)}</dd></dl><p class="note">É para esta chave que a equipe envia suas recompensas, toda sexta-feira. Ela precisa estar no seu nome.</p></div>`;
   return `<form data-f="pix" class="card" novalidate><h3>${u.pix_chave ? 'Alterar chave Pix' : 'Cadastre sua chave Pix'}</h3>
      <p class="note">Precisamos dela para pagar suas recompensas.</p>
      <div class="chips" role="radiogroup">${PIX_TIPOS.map(t => `<label><input type="radio" name="tipo" value="${t}" ${(u.pix_tipo||'Celular')===t?'checked':''}><span>${t}</span></label>`).join('')}</div>
-     <label class="f">Chave Pix<input class="in mono" id="x-chave" name="chave" value="${esc(u.pix_chave||'')}" autocomplete="off"></label>
+     ${cpfCampo}<label class="f">Chave Pix <small>(no seu nome)</small><input class="in mono" id="x-chave" name="chave" value="${esc(u.pix_chave||'')}" autocomplete="off"></label>
      <div id="x-err" class="err" hidden></div>
      <div class="btns"><button class="btn" type="submit">Salvar chave Pix</button>${u.pix_chave?'<button type="button" class="btn ghost" data-a="editPix">Cancelar</button>':''}</div></form>`;
 }
@@ -708,7 +713,7 @@ const TERMOS_MUDANCAS = [
   'Indicação válida por tempo indeterminado e quais indicações não valem',
   'Proibição de cobrar terceiros, regras de uso da marca e de exclusão por fraude'
 ];
-function termosPendente(){ return S.screen === 'app' && papel() === 'indicador' && S.perfil && S.perfil.termos_versao !== undefined && S.perfil.termos_versao !== TERMOS_VERSAO; }
+function termosPendente(){ return S.screen === 'app' && S.perfil && S.perfil.termos_versao !== undefined && S.perfil.termos_versao !== TERMOS_VERSAO; }
 function termosModal(){
   if (document.getElementById('termos-novo')) return;
   const el = document.createElement('div'); el.className = 'modal'; el.id = 'termos-novo';
@@ -1311,7 +1316,7 @@ function aUsers(){
   const pend = vivos.filter(p => !p.condominio_id && p.condominio_texto);
   return `${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
    <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Acesso</th><th></th></tr></thead><tbody>
-   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span></td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
+   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span>${u.cpf ? `<br><span class="note mono">CPF ${fcpf(u.cpf)}</span>` : ''}</td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
     <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${eu?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td>
     <td>${eu ? '<span class="note">Você</span>' : `<div class="btns" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm ghost" data-a="ativoUser" data-v="${u.id}" data-s="${u.ativo ? 0 : 1}">${u.ativo ? 'Suspender' : 'Reativar'}</button><button class="btn sm danger" data-a="delUser" data-v="${u.id}" title="Excluir usuário" aria-label="Excluir ${esc(u.nome)}">${ic('trash',16)}</button></div>`}</td></tr>`; }).join('')}
    </tbody></table></div>
@@ -1582,6 +1587,10 @@ async function relXLSX(k){
   const buf = await wb.xlsx.writeBuffer();
   baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), relNomeArq(k, 'xlsx'));
 }
+
+/* ---------- CPF ---------- */
+const cpfOk = v => { const d = dig(v); if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false; const dv = n => { let s = 0; for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; }; return dv(9) === Number(d[9]) && dv(10) === Number(d[10]); };
+const fcpf = v => { const d = dig(v).slice(0, 11); return d.length > 9 ? `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}` : d.length > 6 ? `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}` : d.length > 3 ? `${d.slice(0,3)}.${d.slice(3)}` : d; };
 
 /* ---------- Campos de valor em reais: 1.440.000,50 enquanto digita ---------- */
 function maskBRL(el){
@@ -2024,7 +2033,7 @@ const act = {
   pagarPix: d => {
     const anexar = d.modo === 'anexar';
     const bon = d.tipo === 'bonus', r = bon ? bonusDe(d.v) : S.D.rewards.find(x => x.indicacao_id === d.v), u = perfil(r.indicador_id), t0 = new Date(), hoje = `${t0.getFullYear()}-${String(t0.getMonth()+1).padStart(2,'0')}-${String(t0.getDate()).padStart(2,'0')}`;
-    const pix = u?.pix_chave ? `<div class="paybox"><span class="eyebrow">Chave Pix · ${esc(u.pix_tipo)}</span><div class="copyrow"><span>${esc(u.pix_chave)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(u.pix_chave)}">${ic('copy',16)}Copiar</button></div></div>`
+    const pix = u?.pix_chave ? `<div class="paybox"><span class="eyebrow">Chave Pix · ${esc(u.pix_tipo)}</span><div class="copyrow"><span>${esc(u.pix_chave)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(u.pix_chave)}">${ic('copy',16)}Copiar</button></div>${u.cpf ? `<span class="note">Titular: ${esc(u.nome)} · CPF ${fcpf(u.cpf)}. Confira se a chave está no nome dele.</span>` : '<span class="note neg">Indicador ainda sem CPF cadastrado. Pelos termos, o pagamento fica retido até ele informar o CPF.</span>'}</div>`
       : `<div class="alert"><b>${esc(u?.nome || 'O indicador')} ainda não cadastrou a chave Pix.</b><p class="note">Peça para ele cadastrar em Carteira → Sua chave Pix.</p>${u?.telefone ? `<a class="btn sm wa" href="${waLink(u.telefone)}?text=${encodeURIComponent('Oi! Para receber sua recompensa do Rendique, cadastre sua chave Pix no app: Carteira → Sua chave Pix.')}" target="_blank" rel="noopener">${ic('chat',16)}Avisar pelo WhatsApp</a>` : ''}</div>`;
     openModal(`<form data-f="pagamento" class="cards" style="gap:14px;text-align:left" novalidate>
       <input type="hidden" name="ind" value="${esc(d.v)}"><input type="hidden" name="modo" value="${bon ? 'bonus' : anexar ? 'anexar' : 'pagar'}">
@@ -2050,7 +2059,8 @@ const act = {
       <button class="btn ghost" data-a="mclose">Fechar</button></div>`);
   }),
   resgatar: () => guard(async () => {
-    if (!S.perfil.pix_chave) { S.editPix = true; render(); return toast('Cadastre sua chave Pix antes de pedir o resgate.'); } const v = await rpc('solicitar_resgate', {}); await refresh(); toast(`Resgate de ${money(v)} solicitado`); }),
+    if (!S.perfil.pix_chave) { S.editPix = true; render(); return toast('Cadastre sua chave Pix antes de pedir o resgate.'); }
+    if (S.perfil.cpf === null) { render(); return toast('Informe seu CPF antes de pedir o resgate.'); } const v = await rpc('solicitar_resgate', {}); await refresh(); toast(`Resgate de ${money(v)} solicitado`); }),
   lgpd: d => guard(async () => { await rpc('solicitar_lgpd', { p_tipo: d.v }); toast(`Pedido de ${d.v} registrado. Resposta em até 15 dias.`); }),
   copy: d => { try { navigator.clipboard.writeText(d.v).then(() => toast('Link copiado'), () => toast('Selecione o link e copie manualmente')); } catch(e) { toast('Selecione o link e copie manualmente'); } },
   novoConvite: d => guard(async () => {
@@ -2099,6 +2109,7 @@ document.addEventListener('change', e => {
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
 });
 document.addEventListener('input', e => {
+  if (e.target.id === 'c-cpf' || e.target.id === 'x-cpf') { e.target.value = fcpf(e.target.value); return; }
   if (e.target.matches?.('input[data-brl]')) maskBRL(e.target);
   if (e.target.form?.dataset.f === 'anuncio' && e.target.name === 'url') { const t = e.target.parentElement.querySelector('.adtag'); if (t) t.textContent = e.target.value.trim() ? portalDe(e.target.value) : 'Portal'; return; }
   if (e.target.id === 'chat-in') { S.chatDraft = e.target.value; chatAltura(e.target); return; }
@@ -2185,24 +2196,26 @@ const forms = {
     if (!g('nome')) return showErr('#c-err', 'Informe seu nome completo.');
     if (dig(g('telefone')).length < 10) return showErr('#c-err', 'Informe seu celular com DDD.');
     if (g('convite_acesso')) {
-      try { await rpc('cadastro_por_convite', { p_token: g('convite_acesso'), p_nome: g('nome'), p_telefone: dig(g('telefone')) }); }
+      try { await rpc('cadastro_por_convite', { p_token: g('convite_acesso'), p_nome: g('nome'), p_telefone: dig(g('telefone')) }); try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); } catch(e) {} }
       catch(e) { return showErr('#c-err', msg(e)); }
       saveLS('rendique-convite-acesso', null); S.convAcesso = null; S.convInfo = null;
       await onSession(S.session);
       return toast('Cadastro concluído!');
     }
     if (g('gestor')) {
-      try { await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: 'Gestor', p_condominio_id: null, p_condominio_texto: null, p_convite: null }); }
+      try { await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: 'Gestor', p_condominio_id: null, p_condominio_texto: null, p_convite: null }); try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); } catch(e) {} }
       catch(e) { return showErr('#c-err', msg(e)); }
       await onSession(S.session);
       return toast(papel() === 'admin' ? 'Pronto! Este é o seu painel de gestor.' : 'Cadastro concluído.');
     }
     if (g('condominio') === 'outro' && !g('condominio_texto')) return showErr('#c-err', 'Informe o nome do condomínio onde trabalha.');
     if (!fd.get('termos')) return showErr('#c-err', 'Para continuar, aceite os termos do programa.');
+    if (!cpfOk(g('cpf'))) return showErr('#c-err', 'Informe um CPF válido. Ele é usado para os pagamentos via Pix.');
     try {
       await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: g('funcao'),
         p_condominio_id: g('condominio') === 'outro' ? null : g('condominio'), p_condominio_texto: g('condominio') === 'outro' ? g('condominio_texto') : null, p_convite: g('convite') || null });
     } catch(e) { return showErr('#c-err', msg(e)); }
+    try { await rpc('salvar_cpf', { p_cpf: dig(g('cpf')) }); } catch(e) { toast(msg(e)); }
     try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); } catch(e) {}
     saveLS('rendique-convite', null);
     await onSession(S.session);
@@ -2279,7 +2292,13 @@ const forms = {
     closeModal(); await refresh(); toast(lib ? `${id}: anúncio liberado` : ok ? 'Ficha completa salva' : `Ficha salva. Falta: ${falta.join(', ').toLowerCase()}`);
     if (lib && papel() === 'admin') anuncioModal(id, true);
   }),
+  cpf: fd => guard(async () => {
+    const c = String(fd.get('cpf') || ''); if (!cpfOk(c)) return showErr('#x-err', 'CPF inválido. Confira os números.');
+    try { await rpc('salvar_cpf', { p_cpf: dig(c) }); } catch(e) { return showErr('#x-err', msg(e)); }
+    await loadPerfil(); render(); toast('CPF salvo');
+  }),
   pix: fd => guard(async () => {
+    if (fd.has('cpf')) { const c = String(fd.get('cpf') || ''); if (!cpfOk(c)) return showErr('#x-err', 'CPF inválido. Confira os números.'); try { await rpc('salvar_cpf', { p_cpf: dig(c) }); } catch(e) { return showErr('#x-err', msg(e)); } }
     try { await rpc('atualizar_pix', { p_tipo: String(fd.get('tipo')||''), p_chave: String(fd.get('chave')||'') }); } catch(e) { return showErr('#x-err', msg(e)); }
     S.editPix = false; await loadPerfil(); render(); toast('Chave Pix salva');
   }),
