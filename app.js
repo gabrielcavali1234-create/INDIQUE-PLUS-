@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610170950 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610171210 */
 'use strict';
 
 /* ---------- configuração ---------- */

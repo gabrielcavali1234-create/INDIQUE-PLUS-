@@ -329,7 +329,7 @@ tr.flash td{background:var(--gold-soft)}
 :root[data-theme="dark"]{--cg:#5B8EDB;--cp:#33A06A}
 .ftiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:12px}
 @media (min-width:900px){.ftiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (min-width:1200px){[data-device="desk"] .ftiles{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media (min-width:1500px){[data-device="desk"] .ftiles{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .fg-ax{font-size:12px}
 .ftile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .ftile .l{font-size:13px;color:var(--muted);font-weight:600}
@@ -689,6 +689,11 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 .festa .selobig::after{content:"";position:absolute;inset:-20px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 20deg,rgba(255,226,154,.35) 30deg,transparent 40deg 80deg,rgba(255,226,154,.35) 90deg,transparent 100deg 140deg,rgba(255,226,154,.35) 150deg,transparent 160deg 200deg,rgba(255,226,154,.35) 210deg,transparent 220deg 260deg,rgba(255,226,154,.35) 270deg,transparent 280deg 320deg,rgba(255,226,154,.35) 330deg,transparent 340deg);z-index:-1;animation:fspin 8s linear infinite}
 .festa .fmais{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:frise .6s ease both 1s}.festa .fmais span{display:flex;flex-direction:column;align-items:center;gap:4px;width:74px}.festa .fmais svg{width:52px;height:52px}.festa .fmais small{font-size:11px;opacity:.85;line-height:1.2}
 .festa .selobig + .fl{margin-top:4px}
+.ftile,.kpis .tile{container-type:inline-size;min-width:0}
+.ftile .v{font-size:clamp(15px,11.5cqi,26px);white-space:nowrap}
+.kpis .tile .v{font-size:clamp(15px,13cqi,30px);white-space:nowrap}
+.ftile .note,.ftile .l{overflow-wrap:anywhere}
+@media (min-width:900px){.ftile .l{min-height:2.6em}}
 </style>
 </head>
 <body>
@@ -702,6 +707,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610170950"></script>
+<script src="app.js?v=202610171210"></script>
 </body>
 </html>
