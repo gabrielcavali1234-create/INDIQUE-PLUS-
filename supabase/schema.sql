@@ -1069,3 +1069,54 @@ grant execute on function public.ranking_indicadores(text) to authenticated;
 
 -- Etapa 7 renomeada: avisos antigos
 update public.notificacoes set corpo = replace(corpo, 'Recompensa liberada', 'Bonificação liberada') where corpo like '%Recompensa liberada%';
+
+-- ---------------------------------------------------------------------
+-- Suspender e excluir usuários (só o gestor)
+-- Excluir apaga o login (e-mail fica livre), mas mantém nome e histórico
+-- nas indicações e relatórios. Telefone e Pix são apagados (LGPD).
+-- ---------------------------------------------------------------------
+alter table public.perfis add column if not exists excluido_em timestamptz;
+do $$ declare c text; begin
+  select conname into c from pg_constraint
+   where conrelid = 'public.perfis'::regclass and contype = 'f'
+     and confrelid = 'auth.users'::regclass;
+  if c is not null then execute format('alter table public.perfis drop constraint %I', c); end if;
+end $$;
+
+create or replace function public.definir_ativo(p_usuario uuid, p_ativo boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_nome text;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  if p_usuario = auth.uid() then raise exception 'Você não pode suspender o seu próprio acesso.'; end if;
+  select nome into v_nome from public.perfis where id = p_usuario and excluido_em is null;
+  if v_nome is null then raise exception 'Usuário não encontrado.'; end if;
+  update public.perfis set ativo = p_ativo where id = p_usuario;
+  perform public.registra(case when p_ativo then 'Acesso reativado: ' else 'Acesso suspenso: ' end || v_nome);
+end $$;
+
+create or replace function public.excluir_usuario(p_usuario uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_nome text; v_pend int;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  if p_usuario = auth.uid() then raise exception 'Você não pode excluir a sua própria conta por aqui.'; end if;
+  select nome into v_nome from public.perfis where id = p_usuario and excluido_em is null;
+  if v_nome is null then raise exception 'Usuário não encontrado.'; end if;
+  select (select count(*) from public.recompensas where indicador_id = p_usuario and estado in ('disponivel','resgate'))
+       + (select count(*) from public.bonus_venda where indicador_id = p_usuario and estado = 'disponivel')
+    into v_pend;
+  if v_pend > 0 then
+    raise exception 'Esta pessoa tem % pagamento(s) liberado(s) e ainda não pago(s). Pague ou cancele antes de excluir.', v_pend;
+  end if;
+  update public.recompensas set estado = 'cancelada' where indicador_id = p_usuario and estado = 'processamento';
+  update public.bonus_venda set estado = 'cancelado' where indicador_id = p_usuario and estado = 'aguardando';
+  update public.perfis set ativo = false, excluido_em = now(), telefone = null, pix_tipo = null, pix_chave = null
+   where id = p_usuario;
+  delete from public.notificacoes where destinatario_id = p_usuario;
+  delete from auth.users where id = p_usuario;
+  perform public.registra('Usuário excluído: ' || v_nome);
+end $$;
+
+revoke execute on function public.definir_ativo(uuid,boolean), public.excluir_usuario(uuid) from public, anon;
+grant execute on function public.definir_ativo(uuid,boolean), public.excluir_usuario(uuid) to authenticated;

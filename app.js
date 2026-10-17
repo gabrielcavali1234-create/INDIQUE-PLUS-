@@ -1,4 +1,4 @@
-/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610142045 */
+/* Rendique · aplicativo com banco de dados (Supabase) · versão 202610162140 */
 'use strict';
 
 /* ---------- configuração ---------- */
@@ -76,6 +76,7 @@ const I = {
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
   building:'<path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 7h3M8 11h3M8 15h3"/>',
   chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
   pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
 };
@@ -682,7 +683,7 @@ function aGeral(){
   const reached = (i,k) => i.status >= k && i.status !== 8;
   const fun = [['Indicações',n,0],['Contatos',L.filter(i=>reached(i,2)).length,2],['Qualificadas',L.filter(i=>reached(i,3)).length,3],['Anúncios',L.filter(i=>reached(i,4)).length,4],['Negociações',L.filter(i=>reached(i,5)).length,5],['Vendas',L.filter(i=>reached(i,6)).length,6]];
   const R = S.D.rewards.filter(r => r.estado !== 'cancelada'), sum = f => R.filter(f).reduce((a,b) => a + Number(b.valor), 0);
-  const inds = S.D.perfis.filter(p => p.papel === 'indicador');
+  const inds = S.D.perfis.filter(p => p.papel === 'indicador' && !p.excluido_em);
   const ativos = inds.filter(u => L.some(i => i.indicador_id === u.id && new Date(i.criado_em) > now - 30*DAY)).length;
   const top = inds.map(u => ({ u, n: L.filter(i => i.indicador_id === u.id).length, q: L.filter(i => i.indicador_id === u.id && reached(i,3)).length })).sort((a,b) => b.q - a.q || b.n - a.n).slice(0,8);
   const byC = S.D.condos.map(c => ({ c, n: L.filter(i => i.condominio_id === c.id).length })).filter(x => x.n).sort((a,b) => b.n - a.n).slice(0,8);
@@ -967,7 +968,7 @@ const gmaps = c => `https://www.google.com/maps/search/?api=1&query=${c.latitude
 function cStats(c){
   const L = S.D.inds.filter(i => i.condominio_id === c.id);
   return { n: L.length, ab: L.filter(i => i.status < 6).length, q: L.filter(i => i.status >= 3 && i.status !== 8).length,
-    ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador').length,
+    ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador' && !p.excluido_em).length,
     nova: L.some(i => Date.now() - new Date(i.criado_em) < DAY), ult: L.map(i => i.criado_em).sort().pop() };
 }
 /* ---------- Bônus de venda (gestor) ---------- */
@@ -1205,13 +1206,32 @@ function aConvites(){
    </div>`;
 }
 function aUsers(){
-  const pend = S.D.perfis.filter(p => !p.condominio_id && p.condominio_texto);
+  const vivos = S.D.perfis.filter(p => !p.excluido_em), excl = S.D.perfis.length - vivos.length;
+  const pend = vivos.filter(p => !p.condominio_id && p.condominio_texto);
   return `${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
-   <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Acesso</th></tr></thead><tbody>
-   ${S.D.perfis.map(u => `<tr><td><b>${esc(u.nome)}</b><br><span class="note mono">${fph(u.telefone)}</span></td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
-    <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${u.id===S.perfil.id?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td></tr>`).join('')}
+   <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Acesso</th><th></th></tr></thead><tbody>
+   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span></td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
+    <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${eu?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td>${eu ? '<span class="note">Você</span>' : `<div class="btns" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm ghost" data-a="ativoUser" data-v="${u.id}" data-s="${u.ativo ? 0 : 1}">${u.ativo ? 'Suspender' : 'Reativar'}</button><button class="btn sm danger" data-a="delUser" data-v="${u.id}" title="Excluir usuário" aria-label="Excluir ${esc(u.nome)}">${ic('trash',16)}</button></div>`}</td></tr>`; }).join('')}
    </tbody></table></div>
-   <p class="note">Para dar acesso a um corretor ou outro gestor: peça para a pessoa entrar com o e-mail dela e completar o cadastro, depois troque o acesso aqui.</p>`;
+   <p class="note">Para dar acesso a um corretor ou outro gestor: peça para a pessoa entrar com o e-mail dela e completar o cadastro, depois troque o acesso aqui. <b>Suspender</b> bloqueia a entrada e pode ser desfeito. <b>Excluir</b> apaga o login de vez.${excl ? ` ${excl} usuário${excl>1?'s':''} excluído${excl>1?'s':''} (o histórico continua nos relatórios).` : ''}</p>`;
+}
+function delUserModal(id){
+  const u = perfil(id); if (!u) return;
+  const L = S.D.inds.filter(i => i.indicador_id === id).length;
+  const R = S.D.rewards.filter(r => r.indicador_id === id), B = (S.D.bonus || []).filter(b => b.indicador_id === id);
+  const liberado = R.filter(r => r.estado === 'disponivel' || r.estado === 'resgate').length + B.filter(b => b.estado === 'disponivel').length;
+  const futuro = R.filter(r => r.estado === 'processamento').length + B.filter(b => b.estado === 'aguardando').length;
+  openModal(`<h2 style="text-align:left">Excluir ${esc(u.nome)}?</h2>
+    ${liberado ? `<div class="alert"><b>Há ${liberado} pagamento${liberado>1?'s':''} liberado${liberado>1?'s':''} e ainda não pago${liberado>1?'s':''}.</b><p class="note">Pague ou cancele no Financeiro antes de excluir, ou use Suspender.</p></div>` : ''}
+    <ul class="note" style="padding-left:18px;margin:12px 0;line-height:1.6;text-align:left">
+      <li>O login é apagado e a pessoa não consegue mais entrar. Se ela se cadastrar de novo com o mesmo e-mail, vira um cadastro novo, do zero.</li>
+      <li>Telefone e chave Pix são apagados.</li>
+      <li>${L > 1 ? `As ${L} indicações dela continuam no sistema e nos relatórios, com o nome.` : L ? 'A indicação dela continua no sistema e nos relatórios, com o nome.' : 'Ela não tem indicações.'}</li>
+      ${futuro ? `<li>${futuro} recompensa${futuro>1?'s':''}/bonificaç${futuro>1?'ões':'ão'} ainda em processamento ser${futuro>1?'ão':'á'} cancelada${futuro>1?'s':''}.</li>` : ''}
+      <li><b>Não dá para desfazer.</b> Se for só para tirar o acesso por um tempo, use Suspender.</li>
+    </ul>
+    <div class="btns" style="justify-content:flex-end"><button class="btn ghost" data-a="mclose">Voltar</button>${u.ativo ? `<button class="btn ghost" data-a="ativoUser" data-v="${id}" data-s="0">Só suspender</button>` : ''}<button class="btn danger" data-a="delUserOk" data-v="${id}" ${liberado ? 'disabled' : ''}>${ic('trash',16)}Excluir definitivamente</button></div>`);
 }
 function aProg(){
   return `<div class="grid2"><form data-f="cfg" class="card" novalidate><h2>Recompensa por indicação qualificada</h2>
@@ -1273,7 +1293,7 @@ function relDados(){
     return { u, n: L.length, q: L.filter(i => alcancou(i,3)).length, v: L.filter(i => alcancou(i,6)).length, e: L.filter(i => i.status === 8).length,
       rec: sum(RR.filter(r => r.estado === 'pago' && em(dataPago(r)))), apagar: sum(RR.filter(r => r.estado === 'disponivel' || r.estado === 'resgate')), total: sum(RR.filter(r => r.estado === 'pago')) };
   }).sort((x, y) => y.q - x.q || y.n - x.n || String(x.u?.nome).localeCompare(String(y.u?.nome)));
-  const condos = S.D.condos.map(c => { const L = inds.filter(i => i.condominio_id === c.id); return { c, ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador').length, n: L.length, q: L.filter(i => alcancou(i,3)).length, v: L.filter(i => alcancou(i,6)).length }; });
+  const condos = S.D.condos.map(c => { const L = inds.filter(i => i.condominio_id === c.id); return { c, ind: S.D.perfis.filter(p => p.condominio_id === c.id && p.papel === 'indicador' && !p.excluido_em).length, n: L.length, q: L.filter(i => alcancou(i,3)).length, v: L.filter(i => alcancou(i,6)).length }; });
   const fora = inds.filter(i => !i.condominio_id); if (fora.length) condos.push({ c: { nome: 'Outro endereço', bairro: '', cidade: '', regiao: '' }, ind: 0, n: fora.length, q: fora.filter(i => alcancou(i,3)).length, v: fora.filter(i => alcancou(i,6)).length });
   condos.sort((x, y) => y.n - x.n || x.c.nome.localeCompare(y.c.nome));
   const BV = S.D.bonus || [], bonVendas = BV.filter(x => x.estado !== 'cancelado' && em(new Date(x.data_venda + 'T12:00')));
@@ -1570,6 +1590,9 @@ const act = {
   drawerBg: (d, el, e) => { if (e.target === el) { S.drawer = null; render(); } },
   fichaAbrir: d => fichaModal(d.v, false),
   closeX: () => closeModal(),
+  ativoUser: d => guard(async () => { closeModal(); const on = d.s === '1'; await rpc('definir_ativo', { p_usuario: d.v, p_ativo: on }); await refresh(); toast(on ? 'Acesso reativado' : 'Acesso suspenso'); }),
+  delUser: d => delUserModal(d.v),
+  delUserOk: d => guard(async () => { const n = perfil(d.v)?.nome || 'Usuário'; closeModal(); await rpc('excluir_usuario', { p_usuario: d.v }); await refresh(); toast(`${n} excluído`); }),
   adv: d => { const i = S.D.inds.find(x => x.id === d.v); if (Number(d.s) === 4 && i && i.status === 3 && fichaFalta(ficha(d.v)).length) return fichaModal(d.v, true); if (Number(d.s) === 6 && i && i.status === 5 && i.indicador_id && papel() === 'admin') return vendaModal(d.v); act.advOk(d); },
   bonPer: d => { S.bonPer = d.v; render(); },
   bonEst: d => { S.bonEst = d.v; render(); },
