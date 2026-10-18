@@ -25,6 +25,14 @@ const S = {
   bell: false, channel: null
 };
 if (params.get('c')) saveLS('rendique-convite', params.get('c'));
+S.instalar = params.get('instalar');
+const UA = navigator.userAgent || '', ehIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), ehAndroid = /Android/i.test(UA);
+const noApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let pedidoInstalar = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; if (S.screen === 'instalar') render(); });
+window.addEventListener('appinstalled', () => { pedidoInstalar = null; S.instalado = true; if (S.screen === 'instalar') render(); });
+if (!S.device && noApp()) { S.device = 'mob'; saveLS('rendique-device', 'mob'); }
+if ('serviceWorker' in navigator && location.protocol === 'https:') window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 if (params.get('g')) saveLS('rendique-convite-acesso', params.get('g'));
 S.convAcesso = loadLS('rendique-convite-acesso'); S.convInfo = null;
 const fotoParam = params.get('fotografo');
@@ -91,6 +99,10 @@ const I = {
   pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   camera:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.6"/>',
+  download:'<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
+  share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10H5.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H17"/>',
+  addsq:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8.5v7M8.5 12h7"/>',
+  dots:'<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>',
   play:'<path d="M7.5 4.8v14.4a.6.6 0 0 0 .9.5l11.4-7.2a.6.6 0 0 0 0-1L8.4 4.3a.6.6 0 0 0-.9.5z"/>',
   pause:'<path d="M8.5 5v14M15.5 5v14"/>',
   expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
@@ -162,6 +174,7 @@ function browserAlert(n){
 
 /* ---------- inicialização ---------- */
 async function boot(){
+  if (S.instalar) { S.screen = 'instalar'; render(); return; }
   if (S.pub) { S.screen = 'publico'; render(); if (sb) { try { S.pub.info = await rpc('info_qr', { p_codigo: S.pub.q || null, p_condominio: S.pub.k || null }); } catch(e) {} } render(); return; }
   if (!sb) { S.screen = 'setup'; render(); return; }
   if (S.convAcesso) { try { S.convInfo = await rpc('info_convite', { p_token: S.convAcesso }); } catch(e) { S.convInfo = null; } }
@@ -200,6 +213,32 @@ async function onSession(session){
 }
 
 /* ---------- telas fora do app ---------- */
+function vInstalar(){
+  const so = S.instalar === 'ios' || (S.instalar !== 'android' && ehIOS) ? 'ios' : 'android', outro = so === 'ios' ? 'android' : 'ios';
+  const passo = (n, t, d) => `<li><span class="ipn">${n}</span><span><b>${t}</b>${d ? `<small>${d}</small>` : ''}</span></li>`;
+  const inApp = /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)/i.test(UA), iosOutro = so === 'ios' && /CriOS|FxiOS|EdgiOS/.test(UA);
+  const pronto = noApp() || S.instalado;
+  let corpo;
+  if (pronto) corpo = `<div class="ipok">${ic('check',30)}<h2>App instalado!</h2><p class="note">Procure o ícone do Rendique na tela inicial do celular e entre com seu e-mail e senha.</p><a class="btn big" href="./" style="text-decoration:none">Abrir o Rendique</a></div>`;
+  else if (so === 'android') corpo = `${pedidoInstalar ? `<button class="btn big gold" data-a="instalarApp">${ic('download',22)}Instalar o app</button><p class="note" style="text-align:center">Toque em <b>Instalar</b> na janela que abrir. Leva 5 segundos.</p>` : ''}
+    <div class="ipbox"><p class="eyebrow">${pedidoInstalar ? 'Se o botão não funcionar' : 'Como instalar no Android'}</p><ol class="ips">
+     ${inApp ? passo(1, 'Abra este link no Chrome', 'Toque nos três pontinhos ' + ic('dots',16) + ' e em <b>Abrir no Chrome</b> (ou copie o link e cole no Chrome).') : ''}
+     ${passo(inApp ? 2 : 1, `Toque nos três pontinhos ${ic('dots',16)}`, 'No canto de cima, à direita do Chrome.')}
+     ${passo(inApp ? 3 : 2, 'Toque em <b>Instalar app</b>', 'Em alguns celulares aparece como <b>Adicionar à tela inicial</b>.')}
+     ${passo(inApp ? 4 : 3, 'Confirme em <b>Instalar</b>', 'O ícone do Rendique aparece na tela inicial.')}</ol></div>`;
+  else corpo = `<div class="ipbox"><p class="eyebrow">Como instalar no iPhone</p><ol class="ips">
+     ${inApp || iosOutro ? passo(1, 'Abra este link no Safari', 'Se abriu dentro do WhatsApp ou Instagram, toque em ' + ic('dots',16) + ' ou no ícone de bússola e escolha <b>Abrir no Safari</b>.') : ''}
+     ${passo(inApp || iosOutro ? 2 : 1, `Toque em Compartilhar ${ic('share',16)}`, 'Na barra de baixo do Safari (no iPad, fica em cima).')}
+     ${passo(inApp || iosOutro ? 3 : 2, `Toque em <b>Adicionar à Tela de Início</b> ${ic('addsq',16)}`, 'Se não aparecer, role a lista para baixo.')}
+     ${passo(inApp || iosOutro ? 4 : 3, 'Toque em <b>Adicionar</b>', 'O ícone do Rendique aparece na tela inicial.')}</ol></div>
+     ${!inApp && !iosOutro ? `<div class="ipseta" aria-hidden="true">${ic('share',20)}<span>O botão Compartilhar fica aqui embaixo</span>${ic('download',20)}</div>` : ''}`;
+  return `<div class="narrow cards inst" style="gap:16px;margin-top:8px">
+   <div class="iphero"><img src="icon-192.png" alt="" width="84" height="84"><div><p class="eyebrow">${so === 'ios' ? 'iPhone' : 'Android'}</p><h1>Baixe o app Rendique</h1><p class="note">Grátis · abre direto da tela inicial · avisos das suas indicações</p></div></div>
+   ${corpo}
+   ${pronto ? '' : `<p class="note" style="text-align:center">Depois de instalar, abra pelo ícone e entre com seu e-mail e senha. Ainda não tem conta? Você cria no próprio app.</p>`}
+   <div class="btns" style="justify-content:center"><a class="link" href="./?instalar=${outro}">Instruções para ${outro === 'ios' ? 'iPhone' : 'Android'}</a><a class="link" href="./">Continuar no navegador</a></div>
+  </div>`;
+}
 function vSetup(){
   return `<div class="narrow cards" style="gap:16px;margin-top:24px">
    <div class="brand big">${logo(56)}<span class="bn">Rendique</span></div>
@@ -704,7 +743,7 @@ function cardPix(){
 function vMais(){
   const u = S.perfil, it = (v,i,t,d,a='go') => `<button class="qbtn" style="width:100%" data-a="${a}" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
   return `<section class="hello"><p class="eyebrow">Código ${esc(u.codigo)}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '')}</p></section>
-   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('selos','chart','Meus selos',`${Object.keys(conqGanhas()).length} de ${SELOS.length} conquistados`)}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('som','bell','Som das comemorações', somLigado() ? 'Ligado · toque para desligar' : 'Desligado · toque para ligar', 'somToggle')}${it('tutorial','monitor','Rever o tutorial','Vídeo de 6 minutos sobre o app','tutRever')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
+   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('selos','chart','Meus selos',`${Object.keys(conqGanhas()).length} de ${SELOS.length} conquistados`)}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('som','bell','Som das comemorações', somLigado() ? 'Ligado · toque para desligar' : 'Desligado · toque para ligar', 'somToggle')}${noApp() ? '' : `<a class="qbtn" style="width:100%;text-decoration:none" href="./?instalar=${ehIOS ? 'ios' : 'android'}">${ic('download')}<span style="flex:1"><span style="display:block">Instalar o app no celular</span><span class="note" style="font-weight:400">Ícone na tela inicial, abre direto</span></span></a>`}${it('tutorial','monitor','Rever o tutorial','Vídeo de 6 minutos sobre o app','tutRever')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
 }
 function vQR(){ const u = S.perfil, url = `${SITE}?q=${u.codigo}`;
   return `${ph('Meu QR Code','mais')}
@@ -1462,7 +1501,7 @@ function aConvites(){
   const st = c => c.usado_por ? `Usado por ${esc(perfil(c.usado_por)?.nome || '—')}` : new Date(c.expira_em) < now ? 'Vencido' : `Aguardando · vence ${fd(c.expira_em)}`;
   return `<div class="card"><div class="sec-h"><h2>Convidar corretor ou indicador</h2></div>
     <p class="note"><b>Corretor:</b> link individual, vale para uma pessoa por 7 dias; ela já entra com acesso de corretor. <b>Indicador:</b> link fixo para porteiros, zeladores e síndicos; pode mandar para quantas pessoas quiser, e o cadastro fica registrado como convite seu. <b>Fotógrafo:</b> link de convite (entra aprovado) e página aberta (passa pela sua aprovação).</p>
-    <div class="btns"><button class="btn" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button><button class="btn ghost" data-a="linkIndicador">${ic('building',18)}Link de indicador</button><button class="btn ghost" data-a="linkFoto">${ic('camera',18)}Link de fotógrafo</button></div>
+    <div class="btns"><button class="btn" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button><button class="btn ghost" data-a="linkIndicador">${ic('building',18)}Link de indicador</button><button class="btn ghost" data-a="linkFoto">${ic('camera',18)}Link de fotógrafo</button><button class="btn ghost" data-a="appLinks">${ic('download',18)}Links do app</button></div>
     ${L.length ? `<div class="hist">${L.slice(0,10).map(c => { const aberto = !c.usado_por && new Date(c.expira_em) > now; return `<div><div><b>${c.papel === 'admin' ? 'Gestor' : 'Corretor'}</b><div class="note">${st(c)}</div></div><div class="btns" style="justify-content:flex-end">${aberto ? `<button class="btn sm ghost" data-a="copy" data-v="${esc(SITE + '?g=' + c.token)}">${ic('copy',16)}Copiar link</button><button class="btn sm danger" data-a="cancelConvite" data-v="${esc(c.token)}">Cancelar</button>` : ''}</div></div>`; }).join('')}</div>` : ''}
    </div>`;
 }
@@ -2103,8 +2142,8 @@ function chatRecebe(p){
 function render(){
   const root = document.documentElement, app = $('#app');
   root.dataset.device = S.device || 'mob';
-  if (!S.device && S.screen !== 'publico') { $('#top').innerHTML=''; $('#nav').innerHTML=''; $('#bell').innerHTML=''; delete root.dataset.side; app.className='choose'; app.innerHTML = vDevice(); return; }
-  $('#top').innerHTML = S.screen === 'publico' ? `<header class="top"><div class="top-in"><div class="brand">${logo(30)}<span class="bn">Rendique</span></div></div></header>` : vTop();
+  if (!S.device && S.screen !== 'publico' && S.screen !== 'instalar') { $('#top').innerHTML=''; $('#nav').innerHTML=''; $('#bell').innerHTML=''; delete root.dataset.side; app.className='choose'; app.innerHTML = vDevice(); return; }
+  $('#top').innerHTML = S.screen === 'publico' || S.screen === 'instalar' ? `<header class="top"><div class="top-in"><div class="brand">${logo(30)}<span class="bn">Rendique</span></div></div></header>` : vTop();
   const desk = S.device === 'desk';
   let html = '', cls = '';
   if (S.screen === 'app') {
@@ -2118,7 +2157,7 @@ function render(){
       else if (fotoPendente() && !tutorialPendente()) html = S.tab === 'chat' ? `<div class="alert tut-aviso"><b>Seu cadastro está em análise.</b><p class="note">Tire suas dúvidas com a equipe por aqui.</p><button class="btn sm" data-a="go" data-v="home">${ic('back',16)}Voltar</button></div>` + vChatInd() : vFotoAnalise();
     }
   } else {
-    html = ({setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
+    html = ({instalar:vInstalar, setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
     cls = 'pro';
   }
   const ci = $('#chat-in'), cFoc = ci && document.activeElement === ci, cSel = ci ? [ci.selectionStart, ci.selectionEnd] : null;
@@ -2346,6 +2385,8 @@ const act = {
       <a class="btn" style="text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
       <button class="btn ghost" data-a="mclose">Fechar</button>`);
   }),
+  instalarApp: async () => { if (!pedidoInstalar) return; pedidoInstalar.prompt(); try { const r = await pedidoInstalar.userChoice; if (r.outcome === 'accepted') S.instalado = true; } catch(e) {} pedidoInstalar = null; render(); },
+  appLinks: () => { openModal(`<p class="eyebrow">App no celular</p><h2>Links para baixar o app</h2><p class="note">Mande o link certo para cada pessoa. A página explica o passo a passo para instalar.</p><p class="note" style="margin-top:6px"><b>Android</b></p><div class="copyrow"><span>${SITE}android</span><button class="btn sm ghost" data-a="copy" data-v="${SITE}android">${ic('copy',16)}Copiar</button></div><p class="note"><b>iPhone</b></p><div class="copyrow"><span>${SITE}iphone</span><button class="btn sm ghost" data-a="copy" data-v="${SITE}iphone">${ic('copy',16)}Copiar</button></div><button class="btn ghost" data-a="mclose">Fechar</button>`); },
   fotoModo: d => { S.foto = d.v === '1'; saveLS('rendique-foto', S.foto ? '1' : null); if (!S.foto) { saveLS('rendique-foto-token', null); S.fotoToken = null; } else if (S.authMode === 'entrar') S.authMode = 'criar'; render(); window.scrollTo(0, 0); },
   linkFoto: () => {
     const tk = S.D.fotoToken; if (!tk) return toast('Rode o schema.sql atualizado no Supabase para gerar o link de fotógrafo.');

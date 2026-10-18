@@ -20,6 +20,12 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://rendique.com.br/og-rendique.jpg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rendique">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Rendique</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%2712%27 y=%275%27 width=%2740%27 height=%2754%27 rx=%275%27 fill=%27%231D3A5F%27/%3E%3Crect x=%2719%27 y=%2713%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23fff%27/%3E%3Crect x=%2735%27 y=%2713%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23F5B83D%27/%3E%3Crect x=%2719%27 y=%2728%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23fff%27/%3E%3Crect x=%2735%27 y=%2728%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23fff%27/%3E%3Crect x=%2727%27 y=%2744%27 width=%2710%27 height=%2715%27 rx=%272%27 fill=%27%23fff%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -769,6 +775,24 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 .tag.foto{display:inline-flex;align-items:center;gap:4px;background:#FDF1D6;color:#7A5208}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .fotopend{background:rgb(245 184 61/.08);border-color:rgb(245 184 61/.35)}:root:not([data-theme=light]) .fototag,:root:not([data-theme=light]) .tag.foto,:root:not([data-theme=light]) .fotoan-ic,:root:not([data-theme=light]) .fotosteps li.now{background:rgb(245 184 61/.16);color:#F5C96B}}
 :root[data-theme=dark] .fotopend{background:rgb(245 184 61/.08);border-color:rgb(245 184 61/.35)}:root[data-theme=dark] .fototag,:root[data-theme=dark] .tag.foto,:root[data-theme=dark] .fotoan-ic,:root[data-theme=dark] .fotosteps li.now{background:rgb(245 184 61/.16);color:#F5C96B}
+
+/* instalar o app */
+.iphero{display:flex;gap:16px;align-items:center}.iphero img{border-radius:20px;box-shadow:0 8px 22px rgb(14 31 51/.25);flex:none}
+.iphero h1{font-size:26px;margin:2px 0 4px;line-height:1.15}
+.ipbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.ips{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.ips li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.ips li>span:last-child{display:flex;flex-direction:column;gap:3px;font-size:16px;line-height:1.35}
+.ips small{color:var(--muted);font-size:14px;line-height:1.4}
+.ips svg{display:inline-block;vertical-align:-3px;color:var(--brand)}
+.ipn{width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px}
+.ipok{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 16px}
+.ipok>svg{width:56px;height:56px;padding:12px;border-radius:50%;background:#E3F4EA;color:#1E7A48}
+.ipok h2{margin:0}.ipok .btn{align-self:stretch}
+.ipseta{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:14px;font-weight:600}
+.ipseta svg:last-child{animation:ipb 1.4s ease-in-out infinite}
+@keyframes ipb{50%{transform:translateY(5px)}}
+.inst .btn.big svg{margin-right:4px}
 </style>
 </head>
 <body>
@@ -782,6 +806,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610181300"></script>
+<script src="app.js?v=202610181540"></script>
 </body>
 </html>
