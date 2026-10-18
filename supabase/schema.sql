@@ -1455,3 +1455,33 @@ language sql security definer set search_path = public as $$
 $$;
 revoke execute on function public.recompensa_comemorada(text) from public, anon;
 grant execute on function public.recompensa_comemorada(text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Tutorial obrigatório: o indicador novo assiste ao vídeo de boas-vindas
+-- antes de usar o app. Quem já estava no programa fica dispensado.
+-- ---------------------------------------------------------------------
+do $$ begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'perfis' and column_name = 'tutorial_visto_em') then
+    alter table public.perfis add column tutorial_visto_em timestamptz;
+    update public.perfis set tutorial_visto_em = now();  -- usuários atuais não precisam assistir
+  end if;
+end $$;
+create or replace function public.concluir_tutorial() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sem permissão.'; end if;
+  update public.perfis set tutorial_visto_em = coalesce(tutorial_visto_em, now()) where id = auth.uid();
+  perform public.registra('Tutorial de boas-vindas assistido');
+end $$;
+revoke execute on function public.concluir_tutorial() from public, anon;
+grant execute on function public.concluir_tutorial() to authenticated;
+-- o gestor pode liberar o app sem o vídeo (ex.: indicador sem internet boa)
+create or replace function public.liberar_tutorial(p_usuario uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  update public.perfis set tutorial_visto_em = coalesce(tutorial_visto_em, now()) where id = p_usuario;
+  perform public.registra('App liberado sem o tutorial');
+end $$;
+revoke execute on function public.liberar_tutorial(uuid) from public, anon;
+grant execute on function public.liberar_tutorial(uuid) to authenticated;
