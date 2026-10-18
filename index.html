@@ -310,15 +310,28 @@ html.tut-aberto #toast{z-index:90;bottom:calc(24px + env(safe-area-inset-bottom,
 .tut-vid.v{aspect-ratio:9/16;height:min(56vh,560px);max-width:100%}
 .tut-vid.h{aspect-ratio:16/9;width:100%}
 .tut-vid video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0E1F33}
+.tut-vid:fullscreen{aspect-ratio:auto;width:100vw;height:100vh;max-width:none;border-radius:0;margin:0;background:#000}
+.tut-vid:-webkit-full-screen{aspect-ratio:auto;width:100vw;height:100vh;max-width:none;border-radius:0;margin:0;background:#000}
+.tut-vid:fullscreen video,.tut-vid:-webkit-full-screen video,video#tut-v:fullscreen,video#tut-v:-webkit-full-screen{object-fit:contain;background:#000}
+.tut-vid:fullscreen .tut-play{top:50%}.tut-vid:-webkit-full-screen .tut-play{top:50%}
 .tut-play{position:absolute;left:50%;top:72%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:50%;border:0;background:var(--gold);color:#132840;display:grid;place-items:center;box-shadow:0 10px 30px rgb(0 0 0/.35)}
 .tut-play .ic{margin-left:5px}
 .tut-ctl{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:4px;padding:28px 10px 16px;background:linear-gradient(transparent,rgb(9 18 31/.85));color:#fff;transition:opacity .25s}
 .tut.tocando:not(.ctl) .tut-ctl{opacity:0;pointer-events:none}
 .tut-ctl button{border:0;background:none;color:#fff;display:inline-flex;align-items:center;gap:3px;min-height:40px;min-width:40px;justify-content:center;font-weight:700;font-size:12px}
-.tut-time{margin-left:auto;margin-right:2px;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.tut-time{margin-left:auto;margin-right:2px;white-space:nowrap;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
 .tut-bar{position:absolute;left:12px;right:12px;bottom:8px;height:4px;border-radius:4px;background:rgb(255 255 255/.28);overflow:hidden}
 .tut-bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .25s linear}
 .tut.ok .tut-bar i{background:var(--s6)}
+.tut-flip{display:inline-flex;transform:scaleX(-1)}
+.tut.rever .tut-ctl{gap:0;padding-left:4px;padding-right:4px}
+.tut.rever .tut-ctl button{min-width:36px}
+.tut.rever .tut-time{font-size:11px}
+.tut-vel{font-family:var(--mono);min-width:44px!important;margin:0 2px;border:1px solid rgb(255 255 255/.45)!important;border-radius:999px;min-height:28px!important;padding:0 8px}
+.tut.rever .tut-bar{height:6px;bottom:6px;cursor:pointer;touch-action:none;overflow:visible}
+.tut.rever .tut-bar::before{content:"";position:absolute;inset:-12px 0}
+.tut.rever .tut-bar i{position:relative;transition:none;border-radius:4px}
+.tut.rever .tut-bar i::after{content:"";position:absolute;right:-7px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--gold);box-shadow:0 1px 4px rgb(0 0 0/.4)}
 .tut-msg{margin:2px 0 0;text-align:center;color:var(--muted);font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;min-height:22px}
 .tut-msg b{color:var(--ink)}
 .tut.ok .tut-msg{color:var(--s7)} .tut.ok .tut-msg b{color:var(--s7)}
@@ -679,6 +692,7 @@ nav.bottom button{position:relative}
 .festa .medal{position:relative;width:150px;height:150px;animation:fpop .9s cubic-bezier(.2,1.6,.4,1) both .15s}
 .festa .ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,#F5B83D,#FFE29A,#F5B83D,#C98E1E,#F5B83D);box-shadow:0 0 0 8px rgba(245,184,61,.18),0 0 60px rgba(245,184,61,.45);animation:fspin 6s linear infinite}
 .festa .core{position:absolute;inset:15px;border-radius:50%;background:#1E7A48;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;line-height:1;gap:4px}
+.festa .medal.bv .core{background:#1D3A5F}.festa .medal.bv .core svg{width:76px;height:76px}
 .festa .core small{font-size:11px;letter-spacing:.16em}
 .festa h2{font-size:32px;font-weight:800;margin:8px 0 0;letter-spacing:-.02em;animation:frise .6s ease both .55s}
 .festa p{margin:0;opacity:.88;animation:frise .6s ease both .6s}
@@ -737,6 +751,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610172200"></script>
+<script src="app.js?v=202610172250"></script>
 </body>
 </html>

@@ -732,15 +732,17 @@ function tutorialModal(rever){
     <h2>${rever ? 'Tutorial do Rendique' : `${nome ? nome + ', assista' : 'Assista'} ao tutorial para liberar o app`}</h2>
     <p class="note">${rever ? 'Reveja quando quiser como indicar, acompanhar e receber.' : 'São 6 minutos e meio mostrando como indicar, acompanhar cada etapa e receber pelo Pix. O app libera quando o vídeo terminar.'}</p>
     <div class="tut-vid ${desk ? 'h' : 'v'}">
-      <video id="tut-v" playsinline preload="metadata" poster="${src}.jpg" src="${src}.mp4" disablepictureinpicture controlslist="nodownload noplaybackrate"></video>
+      <video id="tut-v" playsinline preload="metadata" poster="${src}.jpg" src="${src}.mp4" disablepictureinpicture controlslist="nodownload${rever ? '' : ' noplaybackrate'}"></video>
       <button class="tut-play" id="tut-play" data-a="tutPlay" aria-label="Assistir ao tutorial">${ic('play',34)}</button>
       <div class="tut-ctl">
         <button data-a="tutPlay" id="tut-pp" aria-label="Assistir">${ic('play',18)}</button>
-        <button data-a="tutVolta" aria-label="Voltar 10 segundos">${ic('undo',18)}<span>10s</span></button>
+        <button data-a="tutVolta" aria-label="Voltar 10 segundos">${ic('undo',18)}${rever ? '' : '<span>10s</span>'}</button>
+        ${rever ? `<button data-a="tutAvanca" aria-label="Avançar 10 segundos"><i class="tut-flip">${ic('undo',18)}</i></button>` : ''}
         <span class="tut-time" id="tut-time">0:00 / ${tutFmt(TUTORIAL.dur)}</span>
+        ${rever ? `<button data-a="tutVel" id="tut-vel" class="tut-vel" aria-label="Velocidade">1×</button>` : ''}
         <button data-a="tutTela" aria-label="Tela cheia">${ic('expand',18)}</button>
       </div>
-      <div class="tut-bar" aria-hidden="true"><i id="tut-bar"></i></div>
+      <div class="tut-bar" ${rever ? 'id="tut-seek" role="slider" aria-label="Posição do vídeo" tabindex="0"' : 'aria-hidden="true"'}><i id="tut-bar"></i></div>
     </div>
     <p class="tut-msg" id="tut-msg"></p>
     <button class="btn big green" id="tut-ok" data-a="tutConcluir" disabled>Disponível ao fim do vídeo</button>
@@ -770,6 +772,14 @@ function tutorialLiga(el, rever){
   v.addEventListener('play', () => { ui(); mostra(); }); v.addEventListener('pause', () => { ui(); clearTimeout(esconde); el.classList.add('ctl'); });
   v.addEventListener('click', () => { if (!v.paused && !el.classList.contains('ctl')) return mostra(); v.paused ? v.play().catch(() => {}) : v.pause(); });
   el.querySelector('.tut-ctl').addEventListener('click', mostra);
+  const seek = el.querySelector('#tut-seek');
+  if (rever && seek) {
+    const vai = e => { const r = seek.getBoundingClientRect(), d = v.duration || TUTORIAL.dur; v.currentTime = Math.max(0, Math.min(d - .1, (e.clientX - r.left) / r.width * d)); ui(); mostra(); };
+    seek.addEventListener('pointerdown', e => { e.preventDefault(); seek.setPointerCapture(e.pointerId); vai(e); seek.onpointermove = vai; });
+    seek.addEventListener('pointerup', () => { seek.onpointermove = null; });
+    seek.addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); v.currentTime = Math.max(0, v.currentTime + (e.key === 'ArrowRight' ? 5 : -5)); } });
+    v.addEventListener('ratechange', () => { const b = el.querySelector('#tut-vel'); if (b) b.textContent = String(v.playbackRate).replace('.', ',') + '×'; });
+  }
   v.addEventListener('error', () => { el.querySelector('#tut-msg').textContent = 'Não foi possível carregar o vídeo. Confira a internet e toque em assistir de novo.'; });
   ui();
 }
@@ -1864,6 +1874,14 @@ function festaSelo(lista){
     <button class="btn gold big" data-a="festaOk" data-v="selos">Ver meus selos</button><button class="link festa-x" data-a="festaOk">Fechar</button>`, 'Novo selo conquistado');
   somSelo(); festaConfete(el, 110);
 }
+function festaBoasVindas(){
+  const nome = esc(String(S.perfil?.nome || '').split(' ')[0]); S.festaAtual = { tipo: 'bv' };
+  const el = festaAbre(`<div class="medal bv"><div class="ring"></div><div class="core">${logo(64, true)}</div></div>
+    <h2>Seja bem-vindo à Rendique${nome ? ', ' + nome : ''}!</h2>
+    <p>Agora você faz parte do time. Quando souber de alguém no condomínio que quer vender o imóvel, é só indicar aqui. A gente cuida do resto e você acompanha cada etapa pelo app.</p>
+    <button class="btn gold big" data-a="festaOk" data-v="nova">Fazer minha 1ª indicação</button><button class="link festa-x" data-a="festaOk" data-v="home">Ver meu painel</button>`, 'Boas-vindas');
+  somSelo(); festaConfete(el, 140);
+}
 function proximaFesta(){
   if (S.screen !== 'app' || papel() !== 'indicador' || termosPendente() || document.getElementById('festa') || S.comemorando) return;
   if (comemoraPendente()) return comemora();
@@ -2101,13 +2119,21 @@ const act = {
   festaOk: d => festaOk(d.v),
   tutPlay: () => { const v = $('#tut-v'); if (!v) return; if (v.paused) v.play().catch(() => toast('Não foi possível tocar o vídeo. Confira a internet.')); else v.pause(); },
   tutVolta: () => { const v = $('#tut-v'); if (v) v.currentTime = Math.max(0, v.currentTime - 10); },
-  tutTela: () => { const v = $('#tut-v'); if (!v) return; const f = v.requestFullscreen || v.webkitRequestFullscreen || v.webkitEnterFullscreen; if (f) f.call(v); },
+  tutAvanca: () => { const v = $('#tut-v'); if (v && $('#tutorial.rever')) v.currentTime = Math.min((v.duration || TUTORIAL.dur) - .1, v.currentTime + 10); },
+  tutVel: () => { const v = $('#tut-v'); if (!v || !$('#tutorial.rever')) return; const vs = [1, 1.25, 1.5, 2], i = vs.indexOf(v.playbackRate); v.playbackRate = vs[(i + 1) % vs.length]; },
+  tutTela: () => {
+    const v = $('#tut-v'), box = v?.closest('.tut-vid'); if (!v) return;
+    const fe = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fe) return (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    const f = box.requestFullscreen || box.webkitRequestFullscreen;
+    if (f) { const r = f.call(box); if (r?.catch) r.catch(() => v.webkitEnterFullscreen?.()); } else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+  },
   tutConcluir: async () => {
     const el = $('#tutorial'); if (!el) return;
     if (el.classList.contains('rever')) return tutorialFecha();
     const b = $('#tut-ok'); b.disabled = true;
     try { await rpc('concluir_tutorial', {}); } catch(e) { b.disabled = false; return toast(msg(e)); }
-    S.perfil.tutorial_visto_em = new Date().toISOString(); S.tutAjuda = false; tutorialFecha(); go('home'); toast('Tutorial concluído. Boas indicações!');
+    S.perfil.tutorial_visto_em = new Date().toISOString(); S.tutAjuda = false; tutorialFecha(); go('home'); festaBoasVindas();
   },
   tutAjuda: () => { S.tutAjuda = true; tutorialFecha(); go('chat'); },
   tutVoltar: () => { S.tutAjuda = false; render(); },
