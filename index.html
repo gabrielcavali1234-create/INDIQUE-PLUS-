@@ -577,6 +577,14 @@ tr.flash td{background:var(--gold-soft)}
 .chipbtn .cnum,.kcol .cnum{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 6px;margin-left:8px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 .chipbtn.on .cnum{background:rgb(255 255 255/.18);color:inherit}
 .chipbtn.alerta:not(.on) .cnum{background:var(--danger);color:#fff}
+.ind-filt{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 10px;align-items:end;margin-top:10px}
+.ind-filt label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ind-filt .in{min-height:42px;font-size:15px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
+.ind-filt .link{justify-self:start;min-height:42px}
+.mes-bloco{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.mes-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.mes-h h3{margin:0;font-size:18px}.mes-h span{font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap}
+.mes-nota{margin-top:10px}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:12px}
 .lcard{display:flex;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .lcard:hover{border-color:var(--brand);box-shadow:0 4px 14px rgb(0 0 0/.06)}
@@ -751,6 +759,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610172250"></script>
+<script src="app.js?v=202610181200"></script>
 </body>
 </html>

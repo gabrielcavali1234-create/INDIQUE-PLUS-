@@ -987,15 +987,46 @@ function cardAdm(i, compact){
    </div>
   </article>`;
 }
+const ehVenda = i => i.status === 6 || i.status === 7;
+const vendaData = i => { const b = bonusDe(i.id); return b?.data_venda ? new Date(b.data_venda + 'T12:00') : new Date(i.etapa_em || i.atualizado_em || i.criado_em); };
+const dataRef = (i, gk) => gk === 'concl' ? vendaData(i) : new Date(i.criado_em);
+const mesD = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 function aInds(){
-  const base = filtraInds(), g = GRUPOS.find(x => x[0] === S.admGrupo) || GRUPOS[0];
-  const chips = GRUPOS.map(([k,l,f]) => { const n = base.filter(f).length; return `<button class="chipbtn ${g[0]===k?'on':''} ${(k==='novas'||k==='atras')&&n?'alerta':''}" data-a="admGrupo" data-v="${k}">${l}<span class="cnum">${n}</span></button>`; }).join('');
+  const fm = S.admMes || '', fc = S.admCondo || '', fi = S.admInd || '';
+  const base0 = filtraInds().filter(i => (!fc || i.condominio_id === fc) && (!fi || (fi === 'qr' ? !i.indicador_id : i.indicador_id === fi)));
+  const noMes = gk => i => !fm || mesD(dataRef(i, gk)) === fm;
+  const g = GRUPOS.find(x => x[0] === S.admGrupo) || GRUPOS[0];
+  const chips = GRUPOS.map(([k,l,f]) => { const n = base0.filter(f).filter(noMes(k)).length; return `<button class="chipbtn ${g[0]===k?'on':''} ${(k==='novas'||k==='atras')&&n?'alerta':''}" data-a="admGrupo" data-v="${k}">${l}<span class="cnum">${n}</span></button>`; }).join('');
+  const meses = [...new Set(S.D.inds.flatMap(i => [mesD(new Date(i.criado_em)), ...(ehVenda(i) ? [mesD(vendaData(i))] : [])]))].sort().reverse();
+  const inds = [...new Map(S.D.inds.filter(i => i.indicador_id).map(i => [i.indicador_id, perfil(i.indicador_id)?.nome || 'Sem nome'])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const condos = [...new Set(S.D.inds.map(i => i.condominio_id).filter(Boolean))].map(id => [id, condoNome(id)]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  const slaG = ['novas','andamento','qualif','atras'].includes(g[0]), ord = S.admOrd || (slaG ? 'prazo' : 'recentes');
+  const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
+  const ativos = [fm, fc, fi].filter(Boolean).length;
   const top = `<div class="ind-bar">
     <label class="search">${ic('search',18)}<input class="in" id="a-busca" placeholder="Buscar por nome, telefone, ID, condomínio ou indicador" value="${esc(S.admQ||'')}" autocomplete="off"></label>
+   </div>
+   <div class="ind-filt">
+    <label><span>Mês</span><select class="in" id="af-mes">${opt('', 'Todos os meses', fm)}${meses.map(m => opt(m, mesNome(m), fm)).join('')}</select></label>
+    <label><span>Condomínio</span><select class="in" id="af-condo">${opt('', 'Todos', fc)}${condos.map(([id, n]) => opt(id, n, fc)).join('')}</select></label>
+    <label><span>Indicador</span><select class="in" id="af-ind">${opt('', 'Todos', fi)}${inds.map(([id, n]) => opt(id, n, fi)).join('')}${opt('qr', 'QR Code (sem indicador)', fi)}</select></label>
+    <label><span>Ordem</span><select class="in" id="af-ord">${opt('recentes', 'Mais recentes', ord)}${opt('antigas', 'Mais antigas', ord)}${opt('prazo', 'Prazo mais curto', ord)}</select></label>
+    ${ativos ? `<button class="link" data-a="admLimpa">Limpar filtros (${ativos})</button>` : ''}
    </div>`;
-  const L = base.filter(g[2]).sort((a,b) => (slaFim(a) ?? Infinity) - (slaFim(b) ?? Infinity));
-  return `${top}<div class="filters">${chips}</div>
-   <div class="lgrid">${L.map(i => cardAdm(i)).join('') || `<div class="card"><p class="note">${S.admQ ? 'Nada encontrado nessa busca.' : 'Nenhuma indicação neste grupo.'}</p></div>`}</div>`;
+  const L = base0.filter(g[2]).filter(noMes(g[0]));
+  const ordF = ord === 'prazo' ? (a, b) => (slaFim(a) ?? Infinity) - (slaFim(b) ?? Infinity) || dataRef(b, g[0]) - dataRef(a, g[0])
+    : ord === 'antigas' ? (a, b) => dataRef(a, g[0]) - dataRef(b, g[0]) : (a, b) => dataRef(b, g[0]) - dataRef(a, g[0]);
+  const grupos = new Map(); L.forEach(i => { const m = mesD(dataRef(i, g[0])); if (!grupos.has(m)) grupos.set(m, []); grupos.get(m).push(i); });
+  const chaves = [...grupos.keys()].sort(); if (ord !== 'antigas') chaves.reverse();
+  const venda = g[0] === 'concl';
+  const blocos = chaves.map(m => {
+    const lst = grupos.get(m).sort(ordF), n = lst.length;
+    const vgv = venda ? lst.reduce((a, i) => a + Number(bonusDe(i.id)?.valor_venda || 0), 0) : 0;
+    const resumo = venda ? `${n} venda${n > 1 ? 's' : ''}${vgv ? ` · VGV ${brl0(vgv)}` : ''}` : `${n} indicaç${n > 1 ? 'ões' : 'ão'}`;
+    return `<section class="mes-bloco"><div class="mes-h"><h3>${mesNome(m)}</h3><span>${resumo}</span></div><div class="lgrid">${lst.map(i => cardAdm(i)).join('')}</div></section>`;
+  }).join('');
+  const vazio = `<div class="card"><p class="note">${S.admQ || ativos ? 'Nada encontrado com esses filtros.' : 'Nenhuma indicação neste grupo.'}</p></div>`;
+  return `${top}<div class="filters">${chips}</div>${venda && L.length ? `<p class="note mes-nota">Vendas organizadas pelo mês da venda. Nos outros grupos, pelo mês em que a indicação chegou.</p>` : ''}${blocos || vazio}`;
 }
 function vDrawer(){
   const i = S.drawer && S.D.inds.find(x => x.id === S.drawer); if (!i) return '';
@@ -2072,7 +2103,8 @@ const act = {
     render();
   }),
   askNotif: async () => { try { const p = await Notification.requestPermission(); toast(p === 'granted' ? 'Alertas do navegador ativados' : 'Alertas não autorizados neste navegador'); } catch(e) {} render(); },
-  admGrupo: d => { S.admGrupo = d.v; render(); },
+  admGrupo: d => { S.admGrupo = d.v; S.admOrd = ''; render(); },
+  admLimpa: () => { S.admMes = S.admCondo = S.admInd = ''; render(); },
   finPer: d => { S.finPer = d.v; render(); },
   finEst: d => { S.finEst = d.v; S.finLim = 15; render(); },
   finMais: () => { S.finLim = (S.finLim || 15) + 30; render(); },
@@ -2276,6 +2308,7 @@ document.addEventListener('change', e => {
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
   if (t.id === 'bon-mes') { S.bonMes = t.value; render(); }
+  if (['af-mes','af-condo','af-ind','af-ord'].includes(t.id)) { S[{ 'af-mes':'admMes', 'af-condo':'admCondo', 'af-ind':'admInd', 'af-ord':'admOrd' }[t.id]] = t.value; render(); }
   if (t.id === 'r-de' || t.id === 'r-ate') { S[t.id === 'r-de' ? 'relDe' : 'relAte'] = t.value; render(); }
   if (t.id === 'r-pess') S.relPess = t.checked;
   if (t.dataset.papel) guard(async () => { await rpc('definir_papel', { p_usuario: t.dataset.papel, p_papel: t.value }); await refresh(); toast('Acesso atualizado'); });
