@@ -27,6 +27,10 @@ const S = {
 if (params.get('c')) saveLS('rendique-convite', params.get('c'));
 if (params.get('g')) saveLS('rendique-convite-acesso', params.get('g'));
 S.convAcesso = loadLS('rendique-convite-acesso'); S.convInfo = null;
+const fotoParam = params.get('fotografo');
+if (fotoParam !== null) { saveLS('rendique-foto', '1'); if (fotoParam && fotoParam !== '1') saveLS('rendique-foto-token', fotoParam); }
+S.foto = !!loadLS('rendique-foto'); S.fotoToken = loadLS('rendique-foto-token');
+if (fotoParam !== null && S.authMode === 'entrar') S.authMode = 'criar';
 if ((S.convAcesso || params.get('c')) && S.authMode === 'entrar') S.authMode = 'criar';
 const ROTULO = { admin: 'gestor', corretor: 'corretor' };
 
@@ -47,6 +51,8 @@ const condo = id => S.D.condos.find(c => c.id === id);
 const condoNome = id => condo(id)?.nome || 'Outro endereço';
 const perfil = id => S.D.perfis.find(p => p.id === id);
 const papel = () => S.perfil?.papel;
+const ehFoto = () => S.perfil?.programa === 'fotografo';
+const fotoPendente = () => S.screen === 'app' && papel() === 'indicador' && ehFoto() && S.perfil.fotografo_status !== 'aprovado';
 const DAY = 864e5;
 const msg = e => (e && (e.message || e.error_description)) ? String(e.message || e.error_description).replace(/^.*?:\s(?=[A-ZÉ])/, '') : 'Algo deu errado. Tente de novo.';
 
@@ -84,6 +90,7 @@ const I = {
   trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
   pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  camera:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.6"/>',
   play:'<path d="M7.5 4.8v14.4a.6.6 0 0 0 .9.5l11.4-7.2a.6.6 0 0 0 0-1L8.4 4.3a.6.6 0 0 0-.9.5z"/>',
   pause:'<path d="M8.5 5v14M15.5 5v14"/>',
   expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
@@ -106,7 +113,7 @@ async function loadData(){
   const p = papel();
   const jobs = [
     q(sb.from('condominios').select('*').order('nome')).then(r => S.D.condos = r),
-    q(sb.from('configuracoes').select('valor_recompensa').eq('id',1)).then(r => S.D.valor = r[0]?.valor_recompensa ?? 20),
+    q(sb.from('configuracoes').select('*').eq('id',1)).then(r => { const c = r[0] || {}; S.D.cfg = c; S.D.valor = (ehFoto() && c.foto_valor_recompensa != null ? c.foto_valor_recompensa : c.valor_recompensa) ?? 20; }),
     q(sb.from('notificacoes').select('*').order('criado_em',{ascending:false}).limit(60)).then(r => S.D.notifs = r),
     q(sb.from('indicacoes').select('*').order('criado_em',{ascending:false}).limit(1000)).then(r => S.D.inds = r)
   ];
@@ -121,7 +128,8 @@ async function loadData(){
     jobs.push(q(sb.from('convites_acesso').select('*').order('criado_em',{ascending:false}).limit(50)).then(r => S.D.convites = r).catch(() => S.D.convites = []));
     jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
     jobs.push(q(sb.from('receitas_venda').select('*')).then(r => S.D.receitas = Object.fromEntries(r.map(x => [x.indicacao_id, x]))).catch(() => S.D.receitas = {}));
-    jobs.push(q(sb.from('configuracoes').select('bonus_modo,bonus_percentual,bonus_fixo').eq('id',1)).then(r => S.D.bonusCfg = r[0] || null).catch(() => S.D.bonusCfg = null));
+    jobs.push(q(sb.from('configuracoes').select('*').eq('id',1)).then(r => S.D.bonusCfg = r[0] || null).catch(() => S.D.bonusCfg = null));
+    jobs.push(q(sb.from('fotografo_link').select('token').eq('id',1)).then(r => S.D.fotoToken = r[0]?.token || null).catch(() => S.D.fotoToken = null));
     jobs.push(q(sb.from('auditoria').select('*').order('criado_em',{ascending:false}).limit(150)).then(r => S.D.audit = r));
   }
   await Promise.all(jobs);
@@ -182,6 +190,7 @@ async function onSession(session){
       if (!S.podeGestor) S.D.condos = await q(sb.from('condominios').select('id,nome').order('nome'));
       S.screen = 'cadastro'; render(); return;
     }
+    if (S.foto) { saveLS('rendique-foto', null); saveLS('rendique-foto-token', null); S.foto = false; S.fotoToken = null; }
     if (!S.perfil.ativo) { S.screen = 'inativo'; render(); return; }
     await loadData();
     S.screen = 'app'; S.tab = 'home'; subscribe();
@@ -234,12 +243,53 @@ function vLogin(){
     novaSenha: `<h1 style="font-size:24px">Crie uma senha nova</h1>${senha('l-pass','Senha nova','new-password')}${senha('l-pass2','Repita a senha nova','new-password')}
       <button class="btn big" type="submit">Salvar senha e entrar</button>`
   }[m];
+  if (S.foto && !S.convAcesso) return `<div class="narrow cards" style="gap:18px;margin-top:20px">
+   <div class="brand big">${logo(56)}<span class="bn">Rendique</span><span class="fototag">${ic('camera',16)}Fotógrafos</span></div>
+   <section class="fotohero"><p class="eyebrow">Plano de incentivo para fotógrafos</p><h1>Você fotografa imóveis. Agora também ganha indicando.</h1>
+    <ul class="fotolist"><li>${ic('users',20)}<span><b>Conheceu um proprietário que quer vender?</b> Indique pelo app em menos de 2 minutos, com a autorização dele.</span></li>
+     <li>${ic('shield',20)}<span><b>A equipe cuida do resto.</b> Um corretor habilitado atende, avalia e negocia. Você acompanha cada etapa.</span></li>
+     <li>${ic('wallet',20)}<span><b>Você recebe</b> por indicação qualificada e uma bonificação quando o imóvel é vendido, via Pix, toda sexta.</span></li></ul></section>
+   ${S.fotoToken ? `<div class="principle">${ic('check')}<span>Você recebeu o <b>convite de fotógrafo parceiro</b>. Seu cadastro já entra aprovado.</span></div>` : `<p class="note" style="margin:0">Depois do cadastro, a equipe confere seus dados e libera o acesso em até 1 dia útil.</p>`}
+   <form data-f="login" class="card" novalidate>${tabs}${body}<div id="l-err" class="err" hidden></div></form>
+   <button class="link" data-a="fotoModo" data-v="0">Não sou fotógrafo</button>
+  </div>`;
   return `<div class="narrow cards" style="gap:18px;margin-top:20px">
    <div class="brand big">${logo(56)}<span class="bn">Rendique</span></div>
    <p class="muted" style="margin-top:-8px">Você conhece a oportunidade. Nós cuidamos do resto.</p>
    ${conv}
    <form data-f="login" class="card" novalidate>${tabs}${body}<div id="l-err" class="err" hidden></div></form>
    <p class="principle">${ic('shield')}<span>Você indica a oportunidade. Um profissional imobiliário habilitado cuida de todo o processo.</span></p>
+   ${S.convAcesso ? '' : `<button class="fotolink" data-a="fotoModo" data-v="1">${ic('camera',18)}<span>É fotógrafo de imóveis? <b>Conheça o plano para fotógrafos</b></span></button>`}
+  </div>`;
+}
+function vCadastroFoto(){
+  return `<div class="narrow cards" style="gap:16px;margin-top:12px">
+   <div><p class="eyebrow">${ic('camera',14)} Fotógrafo parceiro</p><h1 style="font-size:28px">Complete seu cadastro</h1><p class="muted">${esc(S.session?.user?.email||'')}</p></div>
+   ${S.fotoToken ? `<div class="principle">${ic('check')}<span>Convite de fotógrafo parceiro: seu cadastro já entra aprovado.</span></div>` : ''}
+   <form data-f="cadastro" class="card" novalidate>
+    <input type="hidden" name="foto" value="1">
+    <label class="f">Nome completo<input class="in" id="c-nome" name="nome" autocomplete="name"></label>
+    <label class="f">Celular (WhatsApp)<input class="in" id="c-tel" name="telefone" inputmode="tel" placeholder="(11) 90000-0000"></label>
+    <label class="f">CPF <small>(para receber seus pagamentos via Pix)</small><input class="in mono" id="c-cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off"></label>
+    <label class="f">Região onde você atua<input class="in" id="c-regiao" name="regiao" placeholder="Ex.: Osasco e Zona Oeste de SP"></label>
+    <label class="f">Instagram ou portfólio <small>(opcional, ajuda na aprovação)</small><input class="in" id="c-port" name="portfolio" placeholder="Ex.: @seuperfil ou link do site" autocomplete="off"></label>
+    <label class="f">Código de convite <small>(opcional)</small><input class="in mono" id="c-conv" name="convite" value="${esc(S.convite)}" placeholder="Ex.: JOA-8F72"></label>
+    <label class="check"><input type="checkbox" id="c-termos" name="termos"><span>Li e aceito os termos do programa e a política de privacidade. Sei que apenas indico oportunidades e que não faço intermediação imobiliária.</span></label>
+    <div id="c-err" class="err" hidden></div>
+    <button class="btn big gold" type="submit">Concluir cadastro</button>
+   </form>
+   <button class="link" data-a="logout">Sair e usar outro e-mail</button></div>`;
+}
+function vFotoAnalise(){
+  const rec = S.perfil.fotografo_status === 'recusado', nome = esc(String(S.perfil.nome || '').split(' ')[0]);
+  return `<div class="narrow cards" style="gap:16px;margin-top:8px">
+   <div class="card fotoan ${rec ? 'rec' : ''}"><div class="fotoan-ic">${ic(rec ? 'alert' : 'clock', 34)}</div>
+    <p class="eyebrow">Fotógrafo parceiro</p>
+    <h1>${rec ? 'Cadastro não aprovado' : `${nome}, seu cadastro está em análise`}</h1>
+    <p class="note">${rec ? 'Seu cadastro de fotógrafo parceiro não foi aprovado. Fale com a equipe para entender o motivo ou enviar mais informações.' : 'A equipe confere seus dados e libera seu acesso em até 1 dia útil. Você recebe um aviso aqui no app assim que for aprovado.'}</p>
+    ${rec ? '' : `<ol class="fotosteps"><li class="ok">${ic('check',16)}Cadastro enviado</li><li class="ok">${ic('check',16)}Tutorial assistido</li><li class="now">${ic('clock',16)}Aprovação da equipe</li><li>${ic('plus',16)}Primeira indicação</li></ol>`}
+    <div class="btns" style="justify-content:center"><button class="btn" data-a="go" data-v="chat">${ic('chat2',18)}Falar com a equipe</button><button class="btn ghost" data-a="reload">${ic('refresh',18)}Atualizar</button></div>
+    <button class="link" data-a="tutRever">Rever o tutorial</button></div>
   </div>`;
 }
 function vCadastroGestor(){
@@ -272,6 +322,7 @@ function vCadastroConvite(){
 function vCadastro(){
   if (S.convAcesso && S.convInfo?.valido) return vCadastroConvite();
   if (S.podeGestor) return vCadastroGestor();
+  if (S.foto) return vCadastroFoto();
   const aviso = S.bancoDesatualizado ? `<div class="alert"><b>Banco de dados desatualizado</b><p class="note">A tela do gestor depende de uma atualização no Supabase que ainda não foi aplicada. Rode o SQL de atualização no SQL Editor e recarregue esta página.</p></div>` : '';
   const ch = (name, opts, def) => `<div class="chips" role="radiogroup">${opts.map(o=>`<label><input type="radio" name="${name}" value="${o}" ${o===def?'checked':''}><span>${o}</span></label>`).join('')}</div>`;
   return `<div class="narrow cards" style="gap:16px;margin-top:12px">
@@ -372,7 +423,7 @@ function vBell(){
   </div>`;
 }
 function vNav(){
-  if (S.screen !== 'app' || papel() !== 'indicador' || tutorialPendente()) return '';
+  if (S.screen !== 'app' || papel() !== 'indicador' || tutorialPendente() || fotoPendente()) return '';
   const grp = {home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab] || 'mais', nc = chatNaoLidas();
   const b = (k,l,n,c='') => `<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
   return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais', nc ? `Mais<span class="navdot">${nc}</span>` : 'Mais','more')}</div></nav>`;
@@ -446,7 +497,7 @@ function vHome(){
   const n = { tot: mine.length, at: mine.filter(i => i.status<=2).length, q: mine.filter(i => i.status>=3 && i.status<=5).length, v: mine.filter(i => i.status===6 || i.status===7).length };
   const recent = [...mine].sort((a,b) => new Date(lastT(b)) - new Date(lastT(a))).slice(0,3);
   const tile = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l"><span class="dot" style="background:var(--s${s})"></span>${l}</div></div>`;
-  return `<div class="hgrid"><div class="col"><section class="hello"><button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button><p class="eyebrow">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || 'Condomínio')}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
+  return `<div class="hgrid"><div class="col"><section class="hello"><button class="btn sm ghost upd" data-a="reload">${ic('refresh',16)}Atualizar</button><p class="eyebrow">${ehFoto() ? `${ic('camera',14)} Fotógrafo parceiro${u.regiao ? ' · ' + esc(u.regiao) : ''}` : `${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || 'Condomínio')}`}</p><h1>Olá, ${esc(u.nome.split(' ')[0])}!</h1>
    <p class="sub">Você conhece. Você indica. A gente cuida do resto.</p></section>
    <button class="cta" data-a="go" data-v="nova">${ic('plus',24)}<span>Nova indicação</span><small>Leva menos de 2 minutos</small></button>
    ${chatNaoLidas() ? `<button class="chatnovo" data-a="go" data-v="chat">${ic('chat2',22)}<span><b>${chatNaoLidas() > 1 ? `${chatNaoLidas()} novas mensagens` : 'Nova mensagem'} da equipe</b><small>Toque para ler e responder</small></span></button>` : ''}
@@ -468,7 +519,7 @@ function vHome(){
 }
 /* ---------- Nova indicação (indicador) ---------- */
 const NV_PASSOS = [['aut','Autorização'],['imovel','Imóvel'],['prop','Proprietário'],['venda','Venda'],['rev','Revisar']];
-function nvOnde(){ const u = S.perfil; return u.condominio_id ? 'meu' : (u.condominio_texto ? 'novo' : (S.D.condos.length ? 'lista' : 'novo')); }
+function nvOnde(){ const u = S.perfil; if (ehFoto()) return 'novo'; return u.condominio_id ? 'meu' : (u.condominio_texto ? 'novo' : (S.D.condos.length ? 'lista' : 'novo')); }
 function vNova(){
   const u = S.perfil, meu = condo(u.condominio_id), varB = S.novaVar === 'b', passo = S.nvStep || 0;
   const ch = (name, opts, def, cls='') => `<div class="chips ${cls}" role="radiogroup">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<label><input type="radio" name="${name}" value="${esc(v)}" ${v===def?'checked':''}><span>${l}</span></label>`; }).join('')}</div>`;
@@ -719,18 +770,21 @@ const TERMOS_MUDANCAS = [
 function termosPendente(){ return S.screen === 'app' && S.perfil && S.perfil.termos_versao !== undefined && S.perfil.termos_versao !== TERMOS_VERSAO; }
 /* ---------- Tutorial obrigatório (vídeo de boas-vindas) ---------- */
 const TUTORIAL = { mob: 'videos/boas-vindas-vertical', desk: 'videos/boas-vindas-horizontal', dur: 397.6 };
+// vídeo próprio do fotógrafo: troque pronto para true quando os arquivos estiverem em videos/
+const TUTORIAL_FOTO = { mob: 'videos/fotografo-vertical', desk: 'videos/fotografo-horizontal', dur: 240, pronto: false };
+const tutCfg = () => ehFoto() && TUTORIAL_FOTO.pronto ? TUTORIAL_FOTO : TUTORIAL;
 function tutorialPendente(){ return S.screen === 'app' && papel() === 'indicador' && !!S.perfil && S.perfil.tutorial_visto_em === null && !termosPendente(); }
 const tutFmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function tutAviso(){ return `<div class="alert tut-aviso"><b>O app libera depois do tutorial.</b><p class="note">Tire sua dúvida com a equipe e volte para terminar o vídeo.</p><button class="btn sm" data-a="tutVoltar">${ic('play',16)}Voltar ao vídeo</button></div>`; }
 function tutorialModal(rever){
   if (document.getElementById('tutorial')) return;
-  const desk = S.device === 'desk', src = TUTORIAL[desk ? 'desk' : 'mob'], nome = esc(String(S.perfil?.nome || '').split(' ')[0]);
+  const T = tutCfg(), desk = S.device === 'desk', src = T[desk ? 'desk' : 'mob'], nome = esc(String(S.perfil?.nome || '').split(' ')[0]);
   const el = document.createElement('div'); el.id = 'tutorial'; el.className = 'tut' + (rever ? ' rever' : '');
   el.innerHTML = `<div class="tut-in" role="dialog" aria-label="Tutorial do Rendique">
     <div class="tut-top">${logo(26)}<span class="bn">Rendique</span>${rever ? `<button class="tut-x" data-a="tutFechar" aria-label="Fechar">${ic('x',20)}</button>` : ''}</div>
     <p class="eyebrow">${rever ? 'Tutorial' : 'Último passo do cadastro'}</p>
     <h2>${rever ? 'Tutorial do Rendique' : `${nome ? nome + ', assista' : 'Assista'} ao tutorial para liberar o app`}</h2>
-    <p class="note">${rever ? 'Reveja quando quiser como indicar, acompanhar e receber.' : 'São 6 minutos e meio mostrando como indicar, acompanhar cada etapa e receber pelo Pix. O app libera quando o vídeo terminar.'}</p>
+    <p class="note">${rever ? 'Reveja quando quiser como indicar, acompanhar e receber.' : `São ${T === TUTORIAL ? '6 minutos e meio' : Math.round(T.dur / 60) + ' minutos'} mostrando como indicar, acompanhar cada etapa e receber pelo Pix. O app libera quando o vídeo terminar.`}</p>
     <div class="tut-vid ${desk ? 'h' : 'v'}">
       <video id="tut-v" playsinline preload="metadata" poster="${src}.jpg" src="${src}.mp4" disablepictureinpicture controlslist="nodownload${rever ? '' : ' noplaybackrate'}"></video>
       <button class="tut-play" id="tut-play" data-a="tutPlay" aria-label="Assistir ao tutorial">${ic('play',34)}</button>
@@ -738,7 +792,7 @@ function tutorialModal(rever){
         <button data-a="tutPlay" id="tut-pp" aria-label="Assistir">${ic('play',18)}</button>
         <button data-a="tutVolta" aria-label="Voltar 10 segundos">${ic('undo',18)}${rever ? '' : '<span>10s</span>'}</button>
         ${rever ? `<button data-a="tutAvanca" aria-label="Avançar 10 segundos"><i class="tut-flip">${ic('undo',18)}</i></button>` : ''}
-        <span class="tut-time" id="tut-time">0:00 / ${tutFmt(TUTORIAL.dur)}</span>
+        <span class="tut-time" id="tut-time">0:00 / ${tutFmt(T.dur)}</span>
         ${rever ? `<button data-a="tutVel" id="tut-vel" class="tut-vel" aria-label="Velocidade">1×</button>` : ''}
         <button data-a="tutTela" aria-label="Tela cheia">${ic('expand',18)}</button>
       </div>
@@ -1266,7 +1320,7 @@ function vendaModal(id){
     <label class="f">Data da venda (escritura ou contrato)<input class="in" type="date" name="data" value="${b?.data_venda || hoje}"></label>
     <div class="vdgrid">
      <div class="vdbox"><span class="l">Bonificação Rendique</span><label class="f"><span class="sr">Percentual da Rendique</span><span class="insuf"><input class="in" name="rpct" inputmode="decimal" value="${receitaDe(id)?.percentual != null ? fmtN(receitaDe(id).percentual) : ''}" placeholder="Ex.: 6"><em>%</em></span></label><b id="vd-rend">—</b></div>
-     <div class="vdbox ind"><span class="l">Bonificação Indicador</span>${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value=""><p class="note">Valor fixo por venda</p>` : `<label class="f"><span class="sr">Percentual do indicador</span><span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${b?.percentual != null ? fmtN(b.percentual) : ''}" placeholder="Ex.: 0,3"><em>%</em></span></label>`}<b id="vd-bonus">—</b></div>
+     <div class="vdbox ind"><span class="l">Bonificação Indicador</span>${cfg.bonus_modo === 'fixo' ? `<input type="hidden" name="pct" value=""><p class="note">Valor fixo por venda</p>` : `<label class="f"><span class="sr">Percentual do indicador</span><span class="insuf"><input class="in" name="pct" inputmode="decimal" value="${b?.percentual != null ? fmtN(b.percentual) : perfil(i.indicador_id)?.programa === 'fotografo' && cfg.foto_bonus_percentual != null ? fmtN(cfg.foto_bonus_percentual) : ''}" placeholder="Ex.: 0,3"><em>%</em></span></label>${perfil(i.indicador_id)?.programa === 'fotografo' ? '<p class="note">Fotógrafo parceiro · percentual do plano</p>' : ''}`}<b id="vd-bonus">—</b></div>
     </div>
     <p class="note" id="vd-det">Informe o valor da venda e os percentuais.</p>
     <p class="note">A bonificação do indicador fica aguardando até você marcar que a comissão foi recebida. A da Rendique não aparece para o indicador.</p>
@@ -1407,17 +1461,22 @@ function aConvites(){
   const L = S.D.convites || [], now = Date.now();
   const st = c => c.usado_por ? `Usado por ${esc(perfil(c.usado_por)?.nome || '—')}` : new Date(c.expira_em) < now ? 'Vencido' : `Aguardando · vence ${fd(c.expira_em)}`;
   return `<div class="card"><div class="sec-h"><h2>Convidar corretor ou indicador</h2></div>
-    <p class="note"><b>Corretor:</b> link individual, vale para uma pessoa por 7 dias; ela já entra com acesso de corretor. <b>Indicador:</b> link fixo para porteiros, zeladores e síndicos; pode mandar para quantas pessoas quiser, e o cadastro fica registrado como convite seu.</p>
-    <div class="btns"><button class="btn" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button><button class="btn ghost" data-a="linkIndicador">${ic('building',18)}Link de indicador</button></div>
+    <p class="note"><b>Corretor:</b> link individual, vale para uma pessoa por 7 dias; ela já entra com acesso de corretor. <b>Indicador:</b> link fixo para porteiros, zeladores e síndicos; pode mandar para quantas pessoas quiser, e o cadastro fica registrado como convite seu. <b>Fotógrafo:</b> link de convite (entra aprovado) e página aberta (passa pela sua aprovação).</p>
+    <div class="btns"><button class="btn" data-a="novoConvite" data-v="corretor">${ic('users',18)}Gerar link de corretor</button><button class="btn ghost" data-a="linkIndicador">${ic('building',18)}Link de indicador</button><button class="btn ghost" data-a="linkFoto">${ic('camera',18)}Link de fotógrafo</button></div>
     ${L.length ? `<div class="hist">${L.slice(0,10).map(c => { const aberto = !c.usado_por && new Date(c.expira_em) > now; return `<div><div><b>${c.papel === 'admin' ? 'Gestor' : 'Corretor'}</b><div class="note">${st(c)}</div></div><div class="btns" style="justify-content:flex-end">${aberto ? `<button class="btn sm ghost" data-a="copy" data-v="${esc(SITE + '?g=' + c.token)}">${ic('copy',16)}Copiar link</button><button class="btn sm danger" data-a="cancelConvite" data-v="${esc(c.token)}">Cancelar</button>` : ''}</div></div>`; }).join('')}</div>` : ''}
    </div>`;
 }
 function aUsers(){
   const vivos = S.D.perfis.filter(p => !p.excluido_em), excl = S.D.perfis.length - vivos.length;
   const pend = vivos.filter(p => !p.condominio_id && p.condominio_texto);
-  return `${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
-   <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Tutorial</th><th>Acesso</th><th></th></tr></thead><tbody>
-   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span>${u.cpf ? `<br><span class="note mono">CPF ${fcpf(u.cpf)}</span>` : ''}</td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
+  const fpend = vivos.filter(p => p.programa === 'fotografo' && p.fotografo_status === 'pendente');
+  const portLink = v => { const t = String(v || '').trim(); if (!t) return ''; const url = /^https?:\/\//.test(t) ? t : t.startsWith('@') ? 'https://instagram.com/' + t.slice(1) : 'https://' + t; return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(t)}</a>`; };
+  const fotoBox = fpend.length ? `<div class="card fotopend"><div class="sec-h"><h2>${ic('camera',20)} ${fpend.length} fotógrafo${fpend.length>1?'s':''} aguardando aprovação</h2></div>
+    ${fpend.map(u => `<div class="fprow"><div><b>${esc(u.nome)}</b><div class="note">${esc(u.regiao || 'Região não informada')} · <span class="mono">${fph(u.telefone)}</span> · desde ${fd(u.criado_em)}</div>${u.portfolio ? `<div class="note">Portfólio: ${portLink(u.portfolio)}</div>` : ''}</div>
+      <div class="btns" style="flex-wrap:nowrap"><a class="btn sm ghost wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" style="text-decoration:none">${ic('chat',16)}WhatsApp</a><button class="btn sm ghost" data-a="aprovarFoto" data-v="${u.id}" data-s="0">Recusar</button><button class="btn sm green" data-a="aprovarFoto" data-v="${u.id}" data-s="1">${ic('check',16)}Aprovar</button></div></div>`).join('')}</div>` : '';
+  return `${fotoBox}${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
+   <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio / região</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Tutorial</th><th>Acesso</th><th></th></tr></thead><tbody>
+   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span>${u.cpf ? `<br><span class="note mono">CPF ${fcpf(u.cpf)}</span>` : ''}</td><td>${u.programa === 'fotografo' ? `<span class="tag foto">${ic('camera',12)}Fotógrafo</span>${u.fotografo_status === 'pendente' ? '<br><span class="tag gray">Em análise</span>' : u.fotografo_status === 'recusado' ? `<br><span class="tag gray">Recusado</span> <button class="link" data-a="aprovarFoto" data-v="${u.id}" data-s="1">Aprovar</button>` : ''}` : esc(u.funcao)}</td><td>${u.programa === 'fotografo' ? `${esc(u.regiao || '—')}${u.portfolio ? `<br><span class="note">${portLink(u.portfolio)}</span>` : ''}` : esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
     <td>${u.papel !== 'indicador' || u.tutorial_visto_em === undefined ? '<span class="note">—</span>' : u.tutorial_visto_em ? `<span class="tag disp">Assistido</span><br><span class="note">${fd(u.tutorial_visto_em)}</span>` : `<span class="tag gray">Pendente</span><br><button class="link" data-a="liberarTutorial" data-v="${u.id}" title="Liberar o app sem o vídeo">Liberar</button>`}</td>
     <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${eu?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td>
     <td>${eu ? '<span class="note">Você</span>' : `<div class="btns" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm ghost" data-a="ativoUser" data-v="${u.id}" data-s="${u.ativo ? 0 : 1}">${u.ativo ? 'Suspender' : 'Reativar'}</button><button class="btn sm danger" data-a="delUser" data-v="${u.id}" title="Excluir usuário" aria-label="Excluir ${esc(u.nome)}">${ic('trash',16)}</button></div>`}</td></tr>`; }).join('')}
@@ -1446,6 +1505,12 @@ function aProg(){
     <label class="f">Valor fixo<span class="insuf"><b class="pre">R$</b><input class="in num" id="g-valor" name="valor" inputmode="decimal" value="${fmtN(S.D.valor)}" data-brl autocomplete="off"></span></label>
     <p class="note">Vale para novas indicações qualificadas. Recompensas já geradas mantêm o valor original.</p>
     <button class="btn" type="submit">Salvar valor</button></form>
+   <form data-f="cfgFoto" class="card" novalidate><h2>${ic('camera',20)} Plano do fotógrafo</h2>
+    ${S.D.bonusCfg && S.D.bonusCfg.foto_valor_recompensa === undefined ? `<div class="alert"><b>Falta atualizar o banco</b><p class="note">Rode o schema.sql atualizado no Supabase para liberar o plano do fotógrafo.</p></div>` : ''}
+    <label class="f">Valor por indicação qualificada<span class="insuf"><b class="pre">R$</b><input class="in num" name="valor" inputmode="decimal" value="${fmtN(S.D.bonusCfg?.foto_valor_recompensa ?? S.D.valor)}" data-brl autocomplete="off"></span></label>
+    <label class="f">Bonificação na venda <small>(% do valor de venda, sugerido ao registrar a venda)</small><span class="insuf"><input class="in num" name="pct" inputmode="decimal" value="${fmtN(S.D.bonusCfg?.foto_bonus_percentual ?? 0.3)}" autocomplete="off"><em>%</em></span></label>
+    <p class="note">Valores a definir: ajuste quando decidir. Valem para as próximas indicações dos fotógrafos; o que já foi gerado mantém o valor original.</p>
+    <button class="btn" type="submit">Salvar plano do fotógrafo</button></form>
    <div class="card"><h2>Alertas para o gestor</h2>
     <p class="note">Toda nova indicação acende o sininho no topo na hora, com aviso na tela. Para receber também um alerta do navegador quando esta aba estiver em segundo plano, ative abaixo.</p>
     ${('Notification' in window) ? (Notification.permission === 'granted' ? '<p class="note"><b>Alertas do navegador ativados neste aparelho.</b></p>' : `<button class="btn ghost" data-a="askNotif">${ic('bell',18)}Ativar alertas do navegador</button>`) : '<p class="note">Este navegador não suporta alertas.</p>'}
@@ -1907,9 +1972,13 @@ function festaSelo(lista){
 }
 function festaBoasVindas(){
   const nome = esc(String(S.perfil?.nome || '').split(' ')[0]); S.festaAtual = { tipo: 'bv' };
+  if (fotoPendente()) { const el = festaAbre(`<div class="medal bv"><div class="ring"></div><div class="core">${logo(64, true)}</div></div>
+    <h2>Seja bem-vindo à Rendique${nome ? ', ' + nome : ''}!</h2>
+    <p>Tutorial concluído. Agora a equipe confere seu cadastro de fotógrafo parceiro e libera suas indicações em até 1 dia útil. Você recebe um aviso aqui no app.</p>
+    <button class="btn gold big" data-a="festaOk" data-v="home">Entendi</button>`, 'Boas-vindas'); somSelo(); festaConfete(el, 140); return; }
   const el = festaAbre(`<div class="medal bv"><div class="ring"></div><div class="core">${logo(64, true)}</div></div>
     <h2>Seja bem-vindo à Rendique${nome ? ', ' + nome : ''}!</h2>
-    <p>Agora você faz parte do time. Quando souber de alguém no condomínio que quer vender o imóvel, é só indicar aqui. A gente cuida do resto e você acompanha cada etapa pelo app.</p>
+    <p>Agora você faz parte do time. Quando souber de alguém ${ehFoto() ? '' : 'no condomínio '}que quer vender o imóvel, é só indicar aqui. A gente cuida do resto e você acompanha cada etapa pelo app.</p>
     <button class="btn gold big" data-a="festaOk" data-v="nova">Fazer minha 1ª indicação</button><button class="link festa-x" data-a="festaOk" data-v="home">Ver meu painel</button>`, 'Boas-vindas');
   somSelo(); festaConfete(el, 140);
 }
@@ -2046,6 +2115,7 @@ function render(){
       html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking,chat:vChatInd,selos:vSelos}[S.tab] || vHome)();
       if (['ok','dup','mais','qr','convite','privacidade','termos','ranking','selos'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
       if (S.tutAjuda && tutorialPendente()) html = tutAviso() + html;
+      else if (fotoPendente() && !tutorialPendente()) html = S.tab === 'chat' ? `<div class="alert tut-aviso"><b>Seu cadastro está em análise.</b><p class="note">Tire suas dúvidas com a equipe por aqui.</p><button class="btn sm" data-a="go" data-v="home">${ic('back',16)}Voltar</button></div>` + vChatInd() : vFotoAnalise();
     }
   } else {
     html = ({setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
@@ -2276,6 +2346,21 @@ const act = {
       <a class="btn" style="text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
       <button class="btn ghost" data-a="mclose">Fechar</button>`);
   }),
+  fotoModo: d => { S.foto = d.v === '1'; saveLS('rendique-foto', S.foto ? '1' : null); if (!S.foto) { saveLS('rendique-foto-token', null); S.fotoToken = null; } else if (S.authMode === 'entrar') S.authMode = 'criar'; render(); window.scrollTo(0, 0); },
+  linkFoto: () => {
+    const tk = S.D.fotoToken; if (!tk) return toast('Rode o schema.sql atualizado no Supabase para gerar o link de fotógrafo.');
+    const url = `${SITE}?fotografo=${tk}`, aberto = `${SITE}fotografo/`;
+    const txt = encodeURIComponent(`Oi! Você fotografa imóveis? No Rendique você indica proprietários que querem vender e recebe por indicação qualificada e na venda. Cadastre-se por este link: ${url}`);
+    openModal(`<p class="eyebrow">${ic('camera',14)} Plano do fotógrafo</p><h2>Links para fotógrafos</h2>
+      <p class="note"><b>Link de convite:</b> quem se cadastrar por ele já entra aprovado. Mande só para fotógrafos que você conhece.</p>
+      <div class="copyrow"><span>${esc(url)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(url)}">${ic('copy',16)}Copiar</button></div>
+      <a class="btn" style="text-decoration:none" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
+      <p class="note" style="margin-top:6px"><b>Página aberta:</b> para divulgar em redes sociais. O cadastro fica aguardando sua aprovação na aba Usuários.</p>
+      <div class="copyrow"><span>${esc(aberto)}</span><button class="btn sm ghost" data-a="copy" data-v="${esc(aberto)}">${ic('copy',16)}Copiar</button></div>
+      <div class="btns" style="justify-content:space-between"><button class="link" data-a="novoLinkFoto">Trocar link de convite</button><button class="btn ghost" data-a="mclose">Fechar</button></div>`);
+  },
+  novoLinkFoto: () => guard(async () => { if (!confirm('Trocar o link de convite? O link atual para de funcionar.')) return; S.D.fotoToken = await rpc('novo_link_fotografo', {}); closeModal(); act.linkFoto(); toast('Link novo gerado'); }),
+  aprovarFoto: d => guard(async () => { const u = perfil(d.v), ok = d.s === '1'; if (!ok && !confirm(`Recusar o cadastro de ${u?.nome || 'fotógrafo'}?`)) return; await rpc('aprovar_fotografo', { p_usuario: d.v, p_aprovar: ok }); await refresh(); toast(ok ? 'Fotógrafo aprovado. Ele já pode indicar.' : 'Cadastro recusado'); }),
   linkIndicador: () => {
     const url = `${SITE}?c=${S.perfil.codigo}`;
     const txt = encodeURIComponent(`Oi! Você trabalha em condomínio? Com o Rendique você indica quem quer vender o imóvel e ganha recompensa por indicação qualificada. Cadastre-se por este link: ${url}`);
@@ -2413,6 +2498,20 @@ const forms = {
       await onSession(S.session);
       return toast(papel() === 'admin' ? 'Pronto! Este é o seu painel de gestor.' : 'Cadastro concluído.');
     }
+    if (g('foto')) {
+      if (!cpfOk(g('cpf'))) return showErr('#c-err', 'Informe um CPF válido. Ele é usado para os pagamentos via Pix.');
+      if (!g('regiao')) return showErr('#c-err', 'Informe a região onde você atua.');
+      if (!fd.get('termos')) return showErr('#c-err', 'Para continuar, aceite os termos do programa.');
+      try { await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: 'Fotógrafo', p_condominio_id: null, p_condominio_texto: null, p_convite: g('convite') || null }); }
+      catch(e) { return showErr('#c-err', msg(e)); }
+      try { await rpc('salvar_cpf', { p_cpf: dig(g('cpf')) }); } catch(e) { toast(msg(e)); }
+      try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); } catch(e) {}
+      try { await rpc('cadastro_fotografo', { p_regiao: g('regiao'), p_portfolio: g('portfolio'), p_token: S.fotoToken || null }); }
+      catch(e) { toast(msg(e)); }
+      saveLS('rendique-convite', null); saveLS('rendique-foto', null); saveLS('rendique-foto-token', null); S.foto = false; S.fotoToken = null;
+      await onSession(S.session);
+      return toast('Cadastro concluído!');
+    }
     if (g('condominio') === 'outro' && !g('condominio_texto')) return showErr('#c-err', 'Informe o nome do condomínio onde trabalha.');
     if (!fd.get('termos')) return showErr('#c-err', 'Para continuar, aceite os termos do programa.');
     if (!cpfOk(g('cpf'))) return showErr('#c-err', 'Informe um CPF válido. Ele é usado para os pagamentos via Pix.');
@@ -2523,6 +2622,7 @@ const forms = {
     catch(e) { return showErr('#pg-err', msg(e)); }
     closeModal(); await refresh(); toast(fn === 'anexar_comprovante' ? 'Comprovante salvo' : fn === 'pagar_bonus' ? 'Bônus pago e registrado' : 'Pagamento registrado');
   }),
+  cfgFoto: fd => guard(async () => { await rpc('definir_plano_fotografo', { p_valor: Math.max(0, Math.round((Number(numBR(fd.get('valor'))) || 0) * 100) / 100), p_percentual: Number(numBR(fd.get('pct'))) || 0 }); await refresh(); toast('Plano do fotógrafo salvo'); }),
   cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round((Number(numBR(fd.get('valor'))) || 0) * 100) / 100) }); await refresh(); toast('Valor salvo'); })
 };
 document.addEventListener('submit', e => { e.preventDefault(); if (e.target.dataset.f === 'ficha') S.fichaLib = !!e.submitter?.dataset.lib; forms[e.target.dataset.f]?.(new FormData(e.target), e.target); });

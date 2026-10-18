@@ -1485,3 +1485,124 @@ begin
 end $$;
 revoke execute on function public.liberar_tutorial(uuid) from public, anon;
 grant execute on function public.liberar_tutorial(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Plano do fotógrafo parceiro: o fotógrafo indica proprietários como o
+-- indicador, com valores próprios (definidos pelo gestor na aba Programa).
+-- Entra pelo link do gestor (já aprovado) ou pela página aberta (aguarda aprovação).
+-- ---------------------------------------------------------------------
+alter table public.perfis add column if not exists programa text not null default 'condominio';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'perfis_programa_check') then
+    alter table public.perfis add constraint perfis_programa_check check (programa in ('condominio','fotografo'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'perfis_fotografo_status_check') then
+    alter table public.perfis add column if not exists fotografo_status text;
+    alter table public.perfis add constraint perfis_fotografo_status_check check (fotografo_status in ('pendente','aprovado','recusado'));
+  end if;
+end $$;
+alter table public.perfis add column if not exists regiao text;
+alter table public.perfis add column if not exists portfolio text;
+alter table public.configuracoes add column if not exists foto_valor_recompensa numeric(10,2) not null default 20;
+alter table public.configuracoes add column if not exists foto_bonus_percentual numeric not null default 0.3;
+
+-- link de convite do fotógrafo (só o gestor enxerga)
+create table if not exists public.fotografo_link (
+  id        int primary key default 1 check (id = 1),
+  token     text not null default replace(gen_random_uuid()::text, '-', ''),
+  criado_em timestamptz not null default now()
+);
+insert into public.fotografo_link (id) values (1) on conflict do nothing;
+alter table public.fotografo_link enable row level security;
+drop policy if exists fotografo_link_ler on public.fotografo_link;
+create policy fotografo_link_ler on public.fotografo_link for select to authenticated using (public.is_admin());
+revoke insert, update, delete on public.fotografo_link from anon, authenticated;
+
+create or replace function public.cadastro_fotografo(p_regiao text, p_portfolio text, p_token text) returns text
+language plpgsql security definer set search_path = public as $$
+declare v_p public.perfis; v_ok boolean; v_st text;
+begin
+  select * into v_p from public.perfis where id = auth.uid();
+  if not found then raise exception 'Complete seu cadastro primeiro.'; end if;
+  if v_p.papel <> 'indicador' then raise exception 'O plano do fotógrafo é só para indicadores.'; end if;
+  if v_p.programa = 'fotografo' then return v_p.fotografo_status; end if;
+  if exists (select 1 from public.indicacoes where indicador_id = auth.uid()) then
+    raise exception 'Seu cadastro já tem indicações. Fale com a equipe para mudar de plano.';
+  end if;
+  v_ok := coalesce(trim(p_token), '') <> '' and exists (select 1 from public.fotografo_link where token = trim(p_token));
+  v_st := case when v_ok then 'aprovado' else 'pendente' end;
+  update public.perfis set programa = 'fotografo', funcao = 'Fotógrafo', condominio_id = null, condominio_texto = null,
+         regiao = nullif(trim(p_regiao), ''), portfolio = nullif(trim(p_portfolio), ''), fotografo_status = v_st
+   where id = auth.uid();
+  perform public.registra('Cadastro de fotógrafo: ' || v_p.nome || ' (' || v_st || ')');
+  perform public.notifica_admins('cadastro', case when v_ok then 'Novo fotógrafo parceiro' else 'Fotógrafo aguardando aprovação' end,
+          v_p.nome || coalesce(' · ' || nullif(trim(p_regiao), ''), ''), null);
+  return v_st;
+end $$;
+revoke execute on function public.cadastro_fotografo(text,text,text) from public, anon;
+grant execute on function public.cadastro_fotografo(text,text,text) to authenticated;
+
+create or replace function public.aprovar_fotografo(p_usuario uuid, p_aprovar boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_p public.perfis;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select * into v_p from public.perfis where id = p_usuario and programa = 'fotografo';
+  if not found then raise exception 'Fotógrafo não encontrado.'; end if;
+  update public.perfis set fotografo_status = case when p_aprovar then 'aprovado' else 'recusado' end where id = p_usuario;
+  insert into public.notificacoes (destinatario_id, tipo, titulo, corpo)
+  values (p_usuario, 'status', case when p_aprovar then 'Cadastro aprovado!' else 'Cadastro não aprovado' end,
+          case when p_aprovar then 'Você já pode fazer suas indicações no Rendique.' else 'Fale com a equipe pelo Atendimento para saber mais.' end);
+  perform public.registra(case when p_aprovar then 'Fotógrafo aprovado: ' else 'Fotógrafo recusado: ' end || v_p.nome);
+end $$;
+revoke execute on function public.aprovar_fotografo(uuid,boolean) from public, anon;
+grant execute on function public.aprovar_fotografo(uuid,boolean) to authenticated;
+
+create or replace function public.definir_plano_fotografo(p_valor numeric, p_percentual numeric) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  if p_valor is null or p_valor < 0 then raise exception 'Valor inválido.'; end if;
+  if p_percentual is null or p_percentual < 0 or p_percentual > 10 then raise exception 'O percentual deve ficar entre 0 e 10%%.'; end if;
+  update public.configuracoes set foto_valor_recompensa = p_valor, foto_bonus_percentual = p_percentual where id = 1;
+  perform public.registra('Plano do fotógrafo: ' || public.brl(p_valor) || ' por indicação qualificada · ' || public.pct_br(p_percentual) || ' na venda');
+end $$;
+revoke execute on function public.definir_plano_fotografo(numeric,numeric) from public, anon;
+grant execute on function public.definir_plano_fotografo(numeric,numeric) to authenticated;
+
+create or replace function public.novo_link_fotografo() returns text
+language plpgsql security definer set search_path = public as $$
+declare v text := replace(gen_random_uuid()::text, '-', '');
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  update public.fotografo_link set token = v, criado_em = now() where id = 1;
+  perform public.registra('Link de fotógrafo trocado (o anterior parou de funcionar)');
+  return v;
+end $$;
+revoke execute on function public.novo_link_fotografo() from public, anon;
+grant execute on function public.novo_link_fotografo() to authenticated;
+
+-- recompensa do fotógrafo usa o valor do plano dele
+create or replace function public.recompensa_valor_plano() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from public.perfis where id = new.indicador_id and programa = 'fotografo') then
+    select foto_valor_recompensa into new.valor from public.configuracoes where id = 1;
+  end if;
+  return new;
+end $$;
+drop trigger if exists recompensa_valor_plano on public.recompensas;
+create trigger recompensa_valor_plano before insert on public.recompensas for each row execute function public.recompensa_valor_plano();
+
+-- fotógrafo só indica depois de aprovado
+create or replace function public.enviar_indicacao(p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_p public.perfis;
+begin
+  select * into v_p from public.perfis where id = auth.uid() and ativo;
+  if v_p.id is null then raise exception 'Complete seu cadastro antes de indicar.'; end if;
+  if v_p.programa = 'fotografo' and v_p.fotografo_status is distinct from 'aprovado' then
+    raise exception 'Seu cadastro de fotógrafo ainda está em análise. Assim que for aprovado, você pode indicar.';
+  end if;
+  return public._inserir_indicacao(p, auth.uid(), case when v_p.programa = 'fotografo' then 'App do fotógrafo' else 'App do indicador' end, v_p.nome);
+end $$;
