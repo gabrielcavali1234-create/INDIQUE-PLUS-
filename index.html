@@ -746,6 +746,29 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 .kpis .tile .v{font-size:clamp(15px,13cqi,30px);white-space:nowrap}
 .ftile .note,.ftile .l{overflow-wrap:anywhere}
 @media (min-width:900px){.ftile .l{min-height:2.6em}}
+
+/* plano do fotógrafo */
+.eyebrow svg,form[data-f=cfgFoto] h2 svg{display:inline-block;vertical-align:-2px;margin-right:6px}
+.fototag{display:inline-flex;align-items:center;gap:5px;margin-left:10px;padding:4px 10px;border-radius:999px;background:var(--gold-soft,#FDF1D6);color:#7A5208;font-size:13px;font-weight:700;align-self:center}
+.fotohero{display:flex;flex-direction:column;gap:12px}.fotohero h1{font-size:26px;line-height:1.2;margin:0;text-wrap:balance}
+.fotolist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.fotolist li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.45}
+.fotolist li .ic,.fotolist li svg{color:var(--brand);margin-top:2px}
+.fotolink{display:flex;align-items:center;gap:10px;width:100%;border:1px dashed var(--line);background:none;border-radius:14px;padding:12px 14px;color:var(--ink);font:inherit;font-size:14.5px;text-align:left;cursor:pointer}
+.fotolink svg{color:#B07A12;flex:none}
+.fotoan{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:28px 20px}
+.fotoan h1{font-size:24px;margin:0;text-wrap:balance}
+.fotoan-ic{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--gold-soft,#FDF1D6);color:#B07A12}
+.fotoan.rec .fotoan-ic{background:#FDECEC;color:var(--danger)}
+.fotosteps{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:8px;align-self:stretch;text-align:left}
+.fotosteps li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--muted);font-weight:600;font-size:14.5px}
+.fotosteps li.ok{color:var(--s6,#1E7A48)}.fotosteps li.now{background:var(--gold-soft,#FDF1D6);color:#7A5208}
+.fotopend{border-color:#F2D48A;background:#FFFBF0}.fotopend h2{display:flex;align-items:center;gap:8px}
+.fprow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.fprow:first-of-type{border-top:0}
+.tag.foto{display:inline-flex;align-items:center;gap:4px;background:#FDF1D6;color:#7A5208}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .fotopend{background:rgb(245 184 61/.08);border-color:rgb(245 184 61/.35)}:root:not([data-theme=light]) .fototag,:root:not([data-theme=light]) .tag.foto,:root:not([data-theme=light]) .fotoan-ic,:root:not([data-theme=light]) .fotosteps li.now{background:rgb(245 184 61/.16);color:#F5C96B}}
+:root[data-theme=dark] .fotopend{background:rgb(245 184 61/.08);border-color:rgb(245 184 61/.35)}:root[data-theme=dark] .fototag,:root[data-theme=dark] .tag.foto,:root[data-theme=dark] .fotoan-ic,:root[data-theme=dark] .fotosteps li.now{background:rgb(245 184 61/.16);color:#F5C96B}
 </style>
 </head>
 <body>
@@ -759,6 +782,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610181200"></script>
+<script src="app.js?v=202610181300"></script>
 </body>
 </html>
