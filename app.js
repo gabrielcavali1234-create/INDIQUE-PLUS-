@@ -83,7 +83,10 @@ const I = {
   chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
   pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
-  undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
+  undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  play:'<path d="M7.5 4.8v14.4a.6.6 0 0 0 .9.5l11.4-7.2a.6.6 0 0 0 0-1L8.4 4.3a.6.6 0 0 0-.9.5z"/>',
+  pause:'<path d="M8.5 5v14M15.5 5v14"/>',
+  expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
 };
 const ic = (n,s=20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 const logo = (n,dark) => `<svg class="logo" width="${n}" height="${n}" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="5" width="40" height="54" rx="5" fill="${dark?'#FFFFFF':'var(--brand)'}"/>${[[19,13],[19,28],[35,28]].map(([x,y])=>`<rect x="${x}" y="${y}" width="10" height="10" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/>`).join('')}<rect x="35" y="13" width="10" height="10" rx="2" fill="var(--lit)"/><rect x="27" y="44" width="10" height="15" rx="2" fill="${dark?'var(--brand-2)':'var(--bg)'}"/></svg>`;
@@ -369,7 +372,7 @@ function vBell(){
   </div>`;
 }
 function vNav(){
-  if (S.screen !== 'app' || papel() !== 'indicador') return '';
+  if (S.screen !== 'app' || papel() !== 'indicador' || tutorialPendente()) return '';
   const grp = {home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab] || 'mais', nc = chatNaoLidas();
   const b = (k,l,n,c='') => `<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
   return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais', nc ? `Mais<span class="navdot">${nc}</span>` : 'Mais','more')}</div></nav>`;
@@ -650,7 +653,7 @@ function cardPix(){
 function vMais(){
   const u = S.perfil, it = (v,i,t,d,a='go') => `<button class="qbtn" style="width:100%" data-a="${a}" data-v="${v}">${ic(i)}<span style="flex:1"><span style="display:block">${t}</span><span class="note" style="font-weight:400">${d}</span></span></button>`;
   return `<section class="hello"><p class="eyebrow">Código ${esc(u.codigo)}</p><h1 style="font-size:28px">${esc(u.nome)}</h1><p class="sub">${esc(u.funcao)} · ${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '')}</p></section>
-   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('selos','chart','Meus selos',`${Object.keys(conqGanhas()).length} de ${SELOS.length} conquistados`)}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('som','bell','Som das comemorações', somLigado() ? 'Ligado · toque para desligar' : 'Desligado · toque para ligar', 'somToggle')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
+   <div class="cards">${it('chat','chat2','Falar com a equipe' + (chatNaoLidas() ? ` <span class="cnt">${chatNaoLidas()}</span>` : ''),'Tire dúvidas pelo chat de atendimento')}${it('selos','chart','Meus selos',`${Object.keys(conqGanhas()).length} de ${SELOS.length} conquistados`)}${it('ranking','chart','Ranking','Sua posição entre os indicadores')}${it('som','bell','Som das comemorações', somLigado() ? 'Ligado · toque para desligar' : 'Desligado · toque para ligar', 'somToggle')}${it('tutorial','monitor','Rever o tutorial','Vídeo de 6 minutos sobre o app','tutRever')}${it('qr','qr','Meu QR Code','Para o proprietário se cadastrar direto')}${it('convite','users','Convidar profissional','Traga colegas de outros condomínios')}${it('privacidade','shield','Privacidade e dados','LGPD, correção e exclusão')}${it('termos','doc','Termos do programa','Regras de participação')}${it('','out','Sair','Encerrar sessão neste aparelho','logout')}</div>`;
 }
 function vQR(){ const u = S.perfil, url = `${SITE}?q=${u.codigo}`;
   return `${ph('Meu QR Code','mais')}
@@ -714,6 +717,63 @@ const TERMOS_MUDANCAS = [
   'Proibição de cobrar terceiros, regras de uso da marca e de exclusão por fraude'
 ];
 function termosPendente(){ return S.screen === 'app' && S.perfil && S.perfil.termos_versao !== undefined && S.perfil.termos_versao !== TERMOS_VERSAO; }
+/* ---------- Tutorial obrigatório (vídeo de boas-vindas) ---------- */
+const TUTORIAL = { mob: 'videos/boas-vindas-vertical', desk: 'videos/boas-vindas-horizontal', dur: 397.6 };
+function tutorialPendente(){ return S.screen === 'app' && papel() === 'indicador' && !!S.perfil && S.perfil.tutorial_visto_em === null && !termosPendente(); }
+const tutFmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function tutAviso(){ return `<div class="alert tut-aviso"><b>O app libera depois do tutorial.</b><p class="note">Tire sua dúvida com a equipe e volte para terminar o vídeo.</p><button class="btn sm" data-a="tutVoltar">${ic('play',16)}Voltar ao vídeo</button></div>`; }
+function tutorialModal(rever){
+  if (document.getElementById('tutorial')) return;
+  const desk = S.device === 'desk', src = TUTORIAL[desk ? 'desk' : 'mob'], nome = esc(String(S.perfil?.nome || '').split(' ')[0]);
+  const el = document.createElement('div'); el.id = 'tutorial'; el.className = 'tut' + (rever ? ' rever' : '');
+  el.innerHTML = `<div class="tut-in" role="dialog" aria-label="Tutorial do Rendique">
+    <div class="tut-top">${logo(26)}<span class="bn">Rendique</span>${rever ? `<button class="tut-x" data-a="tutFechar" aria-label="Fechar">${ic('x',20)}</button>` : ''}</div>
+    <p class="eyebrow">${rever ? 'Tutorial' : 'Último passo do cadastro'}</p>
+    <h2>${rever ? 'Tutorial do Rendique' : `${nome ? nome + ', assista' : 'Assista'} ao tutorial para liberar o app`}</h2>
+    <p class="note">${rever ? 'Reveja quando quiser como indicar, acompanhar e receber.' : 'São 6 minutos e meio mostrando como indicar, acompanhar cada etapa e receber pelo Pix. O app libera quando o vídeo terminar.'}</p>
+    <div class="tut-vid ${desk ? 'h' : 'v'}">
+      <video id="tut-v" playsinline preload="metadata" poster="${src}.jpg" src="${src}.mp4" disablepictureinpicture controlslist="nodownload noplaybackrate"></video>
+      <button class="tut-play" id="tut-play" data-a="tutPlay" aria-label="Assistir ao tutorial">${ic('play',34)}</button>
+      <div class="tut-ctl">
+        <button data-a="tutPlay" id="tut-pp" aria-label="Assistir">${ic('play',18)}</button>
+        <button data-a="tutVolta" aria-label="Voltar 10 segundos">${ic('undo',18)}<span>10s</span></button>
+        <span class="tut-time" id="tut-time">0:00 / ${tutFmt(TUTORIAL.dur)}</span>
+        <button data-a="tutTela" aria-label="Tela cheia">${ic('expand',18)}</button>
+      </div>
+      <div class="tut-bar" aria-hidden="true"><i id="tut-bar"></i></div>
+    </div>
+    <p class="tut-msg" id="tut-msg"></p>
+    <button class="btn big green" id="tut-ok" data-a="tutConcluir" disabled>Disponível ao fim do vídeo</button>
+    ${rever ? '' : `<button class="link" data-a="tutAjuda">Problemas para assistir? Fale com a equipe</button>`}
+  </div>`;
+  document.body.appendChild(el); document.documentElement.classList.add('tut-aberto'); tutorialLiga(el, rever);
+}
+function tutorialLiga(el, rever){
+  const v = el.querySelector('#tut-v'), key = 'rendique-tut-' + (S.perfil?.id || '');
+  let max = rever ? 1e9 : Number(loadLS(key) || 0), avisado = 0;
+  const ui = () => {
+    const d = v.duration || TUTORIAL.dur, w = Math.min(max, d), pct = Math.min(100, Math.round(w / d * 100)), ok = rever || w >= d - 1.5, cur = v.currentTime || 0;
+    el.querySelector('#tut-time').textContent = `${tutFmt(cur)} / ${tutFmt(d)}`;
+    el.querySelector('#tut-bar').style.width = (rever ? cur / d * 100 : pct) + '%';
+    el.querySelector('#tut-msg').innerHTML = rever ? '' : ok ? `${ic('check',18)}<b>Tutorial concluído!</b> Agora é só começar.` : `Você assistiu <b>${pct}%</b> · faltam ${tutFmt(d - w)}`;
+    const b = el.querySelector('#tut-ok'); b.disabled = !ok; b.textContent = ok ? (rever ? 'Fechar' : 'Começar a usar o Rendique') : 'Disponível ao fim do vídeo';
+    el.querySelector('#tut-pp').innerHTML = ic(v.paused ? 'play' : 'pause', 18);
+    el.querySelector('#tut-play').hidden = !v.paused; el.classList.toggle('ok', ok && !rever); el.classList.toggle('tocando', !v.paused);
+  };
+  v.addEventListener('loadedmetadata', () => { if (!rever && max > 2 && max < v.duration - 2) v.currentTime = max - 2; ui(); });
+  v.addEventListener('timeupdate', () => { if (!rever && !v.seeking && v.currentTime > max && v.currentTime - max < 2.5) { max = v.currentTime; saveLS(key, Math.floor(max)); } ui(); });
+  v.addEventListener('seeking', () => { if (!rever && v.currentTime > max + 1) { v.currentTime = max; if (Date.now() - avisado > 4000) { avisado = Date.now(); toast('Para liberar o app, assista sem pular trechos.'); } } });
+  v.addEventListener('ratechange', () => { if (!rever && v.playbackRate !== 1) v.playbackRate = 1; });
+  v.addEventListener('ended', () => { if (!rever && v.duration - max < 2.5) { max = v.duration; saveLS(key, Math.ceil(max)); } ui(); });
+  let esconde = null;
+  const mostra = () => { el.classList.add('ctl'); clearTimeout(esconde); if (!v.paused) esconde = setTimeout(() => el.classList.remove('ctl'), 2500); };
+  v.addEventListener('play', () => { ui(); mostra(); }); v.addEventListener('pause', () => { ui(); clearTimeout(esconde); el.classList.add('ctl'); });
+  v.addEventListener('click', () => { if (!v.paused && !el.classList.contains('ctl')) return mostra(); v.paused ? v.play().catch(() => {}) : v.pause(); });
+  el.querySelector('.tut-ctl').addEventListener('click', mostra);
+  v.addEventListener('error', () => { el.querySelector('#tut-msg').textContent = 'Não foi possível carregar o vídeo. Confira a internet e toque em assistir de novo.'; });
+  ui();
+}
+function tutorialFecha(){ const v = document.getElementById('tut-v'); if (v) v.pause(); document.getElementById('tutorial')?.remove(); document.documentElement.classList.remove('tut-aberto'); }
 function termosModal(){
   if (document.getElementById('termos-novo')) return;
   const el = document.createElement('div'); el.className = 'modal'; el.id = 'termos-novo';
@@ -1315,8 +1375,9 @@ function aUsers(){
   const vivos = S.D.perfis.filter(p => !p.excluido_em), excl = S.D.perfis.length - vivos.length;
   const pend = vivos.filter(p => !p.condominio_id && p.condominio_texto);
   return `${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
-   <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Acesso</th><th></th></tr></thead><tbody>
+   <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Tutorial</th><th>Acesso</th><th></th></tr></thead><tbody>
    ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span>${u.cpf ? `<br><span class="note mono">CPF ${fcpf(u.cpf)}</span>` : ''}</td><td>${esc(u.funcao)}</td><td>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
+    <td>${u.papel !== 'indicador' || u.tutorial_visto_em === undefined ? '<span class="note">—</span>' : u.tutorial_visto_em ? `<span class="tag disp">Assistido</span><br><span class="note">${fd(u.tutorial_visto_em)}</span>` : `<span class="tag gray">Pendente</span><br><button class="link" data-a="liberarTutorial" data-v="${u.id}" title="Liberar o app sem o vídeo">Liberar</button>`}</td>
     <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${eu?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td>
     <td>${eu ? '<span class="note">Você</span>' : `<div class="btns" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm ghost" data-a="ativoUser" data-v="${u.id}" data-s="${u.ativo ? 0 : 1}">${u.ativo ? 'Suspender' : 'Reativar'}</button><button class="btn sm danger" data-a="delUser" data-v="${u.id}" title="Excluir usuário" aria-label="Excluir ${esc(u.nome)}">${ic('trash',16)}</button></div>`}</td></tr>`; }).join('')}
    </tbody></table></div>
@@ -1935,6 +1996,7 @@ function render(){
     else {
       html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking,chat:vChatInd,selos:vSelos}[S.tab] || vHome)();
       if (['ok','dup','mais','qr','convite','privacidade','termos','ranking','selos'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
+      if (S.tutAjuda && tutorialPendente()) html = tutAviso() + html;
     }
   } else {
     html = ({setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
@@ -1951,7 +2013,9 @@ function render(){
   if (S.screen === 'app' && S.tab === 'nova' && papel() === 'indicador') nvRestaura();
   if (S.screen === 'publico') pubSync();
   if (termosPendente()) termosModal(); else document.getElementById('termos-novo')?.remove();
-  if (S.screen === 'app' && papel() === 'indicador' && !termosPendente() && !S.comemorando && !S.festaAtual && !S.festaAg && !document.getElementById('festa') && (comemoraPendente() || recPendente() || (S.selosNovos || []).length)) { S.festaAg = true; setTimeout(() => { S.festaAg = false; proximaFesta(); }, 300); }
+  const tutEl = document.getElementById('tutorial');
+  if (tutorialPendente() && !(S.tutAjuda && S.tab === 'chat')) tutorialModal(false); else if (tutEl && !tutEl.classList.contains('rever')) tutorialFecha();
+  if (S.screen === 'app' && papel() === 'indicador' && !termosPendente() && !tutorialPendente() && !S.comemorando && !S.festaAtual && !S.festaAg && !document.getElementById('festa') && (comemoraPendente() || recPendente() || (S.selosNovos || []).length)) { S.festaAg = true; setTimeout(() => { S.festaAg = false; proximaFesta(); }, 300); }
 }
 function drawQR(el){ el.innerHTML=''; if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 180, height: 180, colorDark: '#1D3A5F', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = el.dataset.qr; }
 function go(t){
@@ -2035,6 +2099,24 @@ const act = {
   closeX: () => closeModal(),
   festaVer: () => festaFim(true),
   festaOk: d => festaOk(d.v),
+  tutPlay: () => { const v = $('#tut-v'); if (!v) return; if (v.paused) v.play().catch(() => toast('Não foi possível tocar o vídeo. Confira a internet.')); else v.pause(); },
+  tutVolta: () => { const v = $('#tut-v'); if (v) v.currentTime = Math.max(0, v.currentTime - 10); },
+  tutTela: () => { const v = $('#tut-v'); if (!v) return; const f = v.requestFullscreen || v.webkitRequestFullscreen || v.webkitEnterFullscreen; if (f) f.call(v); },
+  tutConcluir: async () => {
+    const el = $('#tutorial'); if (!el) return;
+    if (el.classList.contains('rever')) return tutorialFecha();
+    const b = $('#tut-ok'); b.disabled = true;
+    try { await rpc('concluir_tutorial', {}); } catch(e) { b.disabled = false; return toast(msg(e)); }
+    S.perfil.tutorial_visto_em = new Date().toISOString(); S.tutAjuda = false; tutorialFecha(); go('home'); toast('Tutorial concluído. Boas indicações!');
+  },
+  tutAjuda: () => { S.tutAjuda = true; tutorialFecha(); go('chat'); },
+  tutVoltar: () => { S.tutAjuda = false; render(); },
+  tutFechar: () => tutorialFecha(),
+  tutRever: () => tutorialModal(true),
+  liberarTutorial: async d => {
+    if (!confirm('Liberar o app para este indicador sem assistir ao tutorial?')) return;
+    try { await rpc('liberar_tutorial', { p_usuario: d.v }); const u = perfil(d.v); if (u) u.tutorial_visto_em = new Date().toISOString(); render(); toast('App liberado para este indicador.'); } catch(e) { toast(msg(e)); }
+  },
   termosAceitar: async () => {
     if (!$('#t-aceite')?.checked) return showErr('#t-err', 'Marque a caixa para aceitar os termos.');
     try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); S.perfil.termos_versao = TERMOS_VERSAO; document.getElementById('termos-novo')?.remove(); render(); toast('Termos aceitos. Obrigado!'); }
