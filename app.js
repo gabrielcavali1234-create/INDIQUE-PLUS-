@@ -809,8 +809,8 @@ const TERMOS_MUDANCAS = [
 function termosPendente(){ return S.screen === 'app' && S.perfil && S.perfil.termos_versao !== undefined && S.perfil.termos_versao !== TERMOS_VERSAO; }
 /* ---------- Tutorial obrigatório (vídeo de boas-vindas) ---------- */
 const TUTORIAL = { mob: 'videos/boas-vindas-vertical', desk: 'videos/boas-vindas-horizontal', dur: 397.6 };
-// vídeo próprio do fotógrafo: troque pronto para true quando os arquivos estiverem em videos/
-const TUTORIAL_FOTO = { mob: 'videos/fotografo-vertical', desk: 'videos/fotografo-horizontal', dur: 240, pronto: false };
+// vídeo próprio do fotógrafo (3 min)
+const TUTORIAL_FOTO = { mob: 'videos/fotografo-vertical', desk: 'videos/fotografo-horizontal', dur: 199.1, pronto: true };
 const tutCfg = () => ehFoto() && TUTORIAL_FOTO.pronto ? TUTORIAL_FOTO : TUTORIAL;
 function tutorialPendente(){ return S.screen === 'app' && papel() === 'indicador' && !!S.perfil && S.perfil.tutorial_visto_em === null && !termosPendente(); }
 const tutFmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -847,7 +847,7 @@ function tutorialLiga(el, rever){
   const v = el.querySelector('#tut-v'), key = 'rendique-tut-' + (S.perfil?.id || '');
   let max = rever ? 1e9 : Number(loadLS(key) || 0), avisado = 0;
   const ui = () => {
-    const d = v.duration || TUTORIAL.dur, w = Math.min(max, d), pct = Math.min(100, Math.round(w / d * 100)), ok = rever || w >= d - 1.5, cur = v.currentTime || 0;
+    const d = v.duration || tutCfg().dur, w = Math.min(max, d), pct = Math.min(100, Math.round(w / d * 100)), ok = rever || w >= d - 1.5, cur = v.currentTime || 0;
     el.querySelector('#tut-time').textContent = `${tutFmt(cur)} / ${tutFmt(d)}`;
     el.querySelector('#tut-bar').style.width = (rever ? cur / d * 100 : pct) + '%';
     el.querySelector('#tut-msg').innerHTML = rever ? '' : ok ? `${ic('check',18)}<b>Tutorial concluído!</b> Agora é só começar.` : `Você assistiu <b>${pct}%</b> · faltam ${tutFmt(d - w)}`;
@@ -867,7 +867,7 @@ function tutorialLiga(el, rever){
   el.querySelector('.tut-ctl').addEventListener('click', mostra);
   const seek = el.querySelector('#tut-seek');
   if (rever && seek) {
-    const vai = e => { const r = seek.getBoundingClientRect(), d = v.duration || TUTORIAL.dur; v.currentTime = Math.max(0, Math.min(d - .1, (e.clientX - r.left) / r.width * d)); ui(); mostra(); };
+    const vai = e => { const r = seek.getBoundingClientRect(), d = v.duration || tutCfg().dur; v.currentTime = Math.max(0, Math.min(d - .1, (e.clientX - r.left) / r.width * d)); ui(); mostra(); };
     seek.addEventListener('pointerdown', e => { e.preventDefault(); seek.setPointerCapture(e.pointerId); vai(e); seek.onpointermove = vai; });
     seek.addEventListener('pointerup', () => { seek.onpointermove = null; });
     seek.addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); v.currentTime = Math.max(0, v.currentTime + (e.key === 'ArrowRight' ? 5 : -5)); } });
@@ -2260,7 +2260,7 @@ const act = {
   festaOk: d => festaOk(d.v),
   tutPlay: () => { const v = $('#tut-v'); if (!v) return; if (v.paused) v.play().catch(() => toast('Não foi possível tocar o vídeo. Confira a internet.')); else v.pause(); },
   tutVolta: () => { const v = $('#tut-v'); if (v) v.currentTime = Math.max(0, v.currentTime - 10); },
-  tutAvanca: () => { const v = $('#tut-v'); if (v && $('#tutorial.rever')) v.currentTime = Math.min((v.duration || TUTORIAL.dur) - .1, v.currentTime + 10); },
+  tutAvanca: () => { const v = $('#tut-v'); if (v && $('#tutorial.rever')) v.currentTime = Math.min((v.duration || tutCfg().dur) - .1, v.currentTime + 10); },
   tutVel: () => { const v = $('#tut-v'); if (!v || !$('#tutorial.rever')) return; const vs = [1, 1.25, 1.5, 2], i = vs.indexOf(v.playbackRate); v.playbackRate = vs[(i + 1) % vs.length]; },
   tutTela: () => {
     const v = $('#tut-v'), box = v?.closest('.tut-vid'); if (!v) return;
