@@ -1,0 +1,10 @@
+Assuntos dos e-mails (Supabase → Authentication → Emails → Templates)
+
+Confirm signup (confirmar cadastro):
+{{ .Token }} é o seu código Rendique
+
+Reset password (senha nova):
+{{ .Token }} é o código para criar sua senha nova
+
+O código aparece já na notificação do celular, sem precisar abrir o e-mail.
+Corpo de cada e-mail: copie o arquivo inteiro (confirmar-cadastro.html e redefinir-senha.html).

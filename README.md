@@ -74,9 +74,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - [ ] **Rodar o `supabase/schema.sql` atualizado** no SQL Editor (cria a ficha do imóvel, os campos de localização do mapa e atualiza os nomes das etapas). Depois: Implantar na Hostinger + Ctrl+F5.
 - [ ] Conferir no site real: mapa dos condomínios (ajustar o pino do Condomínio Art Home), nova indicação em passos e ficha do imóvel.
 
-- [ ] **Religar a confirmação de e-mail** (Supabase → Authentication → Sign In / Providers → Email → Confirm email). Foi desligada para facilitar o início.
-- [ ] **Configurar SMTP próprio** (ex.: Resend) em Authentication → SMTP Settings, para não esbarrar no limite de e-mails do Supabase. Necessário antes de religar a confirmação.
-- [ ] Trocar os modelos de e-mail para português com código (guia em `supabase/README.md`, item 3).
+- [ ] **Ligar a confirmação de e-mail com código**: passo a passo em `supabase/README.md`, item 3 (servidor de e-mail da Hostinger, modelos em `supabase/emails/`, limite de envio e Confirm email).
 - [ ] Ligar a implantação automática na Hostinger (webhook do GitHub).
 - [x] **Domínio `rendique.com.br` → Hostinger** (concluído em 10/10/2026: nameservers orbit/horizon.dns-parking.com no Registro.br). Supabase URL Configuration atualizada (Site URL e 3 Redirect URLs). Conferir SSL ativo.
 - [ ] ~~Transferência antiga~~ (não precisou):

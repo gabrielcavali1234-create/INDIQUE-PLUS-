@@ -2458,6 +2458,7 @@ function authErr(e){
   if (/invalid login credentials/i.test(t)) return 'E-mail ou senha incorretos.';
   if (/already registered|already exists/i.test(t)) return 'Este e-mail já tem conta. Use a aba Entrar.';
   if (/password.*(at least|characters|weak)/i.test(t)) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (/error sending|sending .*email|smtp|unexpected_failure/i.test(t)) return 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos ou fale com a equipe.';
   if (/rate|limit|seconds|too many/i.test(t)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
   if (/expired|invalid.*(otp|token)|otp/i.test(t)) return 'Código inválido ou vencido. Peça um novo código.';
   return msg(e);

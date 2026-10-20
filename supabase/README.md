@@ -17,49 +17,26 @@ Em **Authentication → URL Configuration**:
 - **Site URL:** `https://darkslategrey-eland-869418.hostingersite.com/` (quando o domínio estiver pronto: `https://rendique.com.br/`)
 - **Redirect URLs:** clique em **Add URL** e adicione o mesmo endereço.
 
-## 3. E-mails em português, com código (recomendado)
+## 3. Confirmação de e-mail com código (servidor próprio + modelos + ligar)
 
-O login é com **e-mail e senha**. O Supabase só manda e-mail em dois momentos: para **confirmar a conta** no cadastro e quando a pessoa clica em **Esqueci minha senha**. Os modelos de fábrica vêm em inglês e só com um link; trocando, eles passam a vir em português e com um código de 6 dígitos que a pessoa digita no site.
+O login é com **e-mail e senha**. O Supabase manda e-mail em dois momentos: para **confirmar a conta** no cadastro e quando a pessoa toca em **Esqueci minha senha**. O app já tem as duas telas de código (6 dígitos).
 
-Em **Authentication → Emails** (ou **Email Templates**):
+**1. Servidor de e-mail próprio (obrigatório).** O envio padrão do Supabase só entrega para os membros da equipe do projeto; sem isso, quem se cadastra não recebe o código. Em **Authentication → Emails → SMTP Settings**, ligue *Enable custom SMTP*:
 
-**Modelo "Confirm signup"**
+- Remetente: `nao-responda@rendique.com.br` · Nome: `Rendique`
+- Host: `smtp.hostinger.com` · Porta: `465`
+- Usuário: o e-mail completo · Senha: a senha dessa caixa de e-mail (criada no painel da Hostinger, em E-mails)
 
-Assunto:
+**2. Modelos em português.** Em **Authentication → Emails → Templates**:
 
-```
-Confirme seu cadastro no Rendique
-```
+- *Confirm signup* — Assunto: `{{ .Token }} é o seu código Rendique` · Corpo: arquivo `supabase/emails/confirmar-cadastro.html` inteiro
+- *Reset password* — Assunto: `{{ .Token }} é o código para criar sua senha nova` · Corpo: arquivo `supabase/emails/redefinir-senha.html` inteiro
 
-Corpo:
+**3. Limite de envio.** Em **Authentication → Rate Limits**, aumente *Rate limit for sending emails* (com servidor próprio começa em 30 por hora) para 100 ou mais.
 
-```html
-<h2>Bem-vindo ao Rendique!</h2>
-<p>Digite este código no site para ativar sua conta:</p>
-<p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
-<p>Ou toque no link: <a href="{{ .ConfirmationURL }}">ativar minha conta</a></p>
-<p>Se você não se cadastrou, ignore este e-mail.</p>
-```
+**4. Ligar a confirmação.** Em **Authentication → Sign In / Providers → Email**, ligue **Confirm email** e salve. Quem já tinha conta continua entrando normalmente.
 
-**Modelo "Reset Password"**
-
-Assunto:
-
-```
-Crie uma senha nova no Rendique
-```
-
-Corpo:
-
-```html
-<h2>Senha nova</h2>
-<p>Digite este código no Rendique para criar uma senha nova:</p>
-<p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
-<p>Ou toque no link: <a href="{{ .ConfirmationURL }}">criar senha nova</a></p>
-<p>Se você não pediu isso, ignore este e-mail. Sua senha continua a mesma.</p>
-```
-
-> O envio de e-mails padrão do Supabase permite poucos e-mails por hora. Serve para começar. Com muitos cadastros por dia, configure um SMTP próprio (por exemplo Resend) em **Authentication → SMTP Settings**.
+**Teste:** numa aba anônima, faça um cadastro com um e-mail seu. O código chega em menos de 1 minuto (confira o spam). Teste também *Esqueci minha senha*.
 
 ## 4. Primeiro acesso e convites
 

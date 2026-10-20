@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Crie uma senha nova</title>
+</head>
+<body style="margin:0;padding:0;background:#F3F5F8;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F5F8;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:#FFFFFF;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#15233A;">
+  <tr><td style="background:#1D3A5F;padding:20px 28px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:middle;"><img src="https://rendique.com.br/icon-192.png" width="40" height="40" alt="" style="display:block;border:0;border-radius:10px;"></td>
+      <td style="vertical-align:middle;padding-left:12px;font-size:22px;font-weight:bold;color:#FFFFFF;">Rendique</td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:30px 28px 6px;">
+    <p style="margin:0 0 8px;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#B07A12;">Senha nova</p>
+    <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;color:#15233A;">Seu código para criar uma senha nova</h1>
+    <p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#3A4A63;">Digite este código no app da Rendique, na tela <b>Crie uma senha nova</b>:</p>
+  </td></tr>
+  <tr><td align="center" style="padding:0 28px;">
+    <div style="background:#FDF1D6;border:2px solid #F5B83D;border-radius:14px;padding:18px 10px;font-size:36px;font-weight:bold;letter-spacing:10px;color:#1D3A5F;font-family:'Courier New',Courier,monospace;">{{ .Token }}</div>
+    <p style="margin:10px 0 0;font-size:13px;line-height:1.4;color:#6B7A90;">O código vale por pouco tempo. Se vencer, peça outro no app.</p>
+  </td></tr>
+  <tr><td style="padding:24px 28px 6px;">
+    <p style="margin:0 0 14px;font-size:15px;line-height:1.5;color:#3A4A63;">Se preferir, toque no botão:</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#1D3A5F;border-radius:12px;">
+      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 26px;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;">Criar senha nova</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="padding:24px 28px 26px;">
+    <p style="margin:0;font-size:13px;line-height:1.5;color:#6B7A90;">Se você não pediu uma senha nova, ignore este e-mail: sua senha continua a mesma. A equipe da Rendique nunca pede este código por telefone ou WhatsApp.</p>
+  </td></tr>
+  <tr><td style="background:#F7F8FA;padding:16px 28px;border-top:1px solid #E6E9EF;">
+    <p style="margin:0;font-size:12px;line-height:1.5;color:#8A96A8;">Rendique · N. R. Cordeiro · CRECI/SP 053574-J<br><a href="https://rendique.com.br" style="color:#8A96A8;">rendique.com.br</a></p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
