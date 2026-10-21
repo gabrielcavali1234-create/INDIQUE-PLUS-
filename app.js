@@ -61,6 +61,11 @@ const perfil = id => S.D.perfis.find(p => p.id === id);
 const papel = () => S.perfil?.papel;
 const ehFoto = () => S.perfil?.programa === 'fotografo';
 const fotoPendente = () => S.screen === 'app' && papel() === 'indicador' && ehFoto() && S.perfil.fotografo_status !== 'aprovado';
+const CAD_PEND = ['documento', 'pendente', 'reenviar', 'recusado'];
+const cadPendente = () => S.screen === 'app' && papel() === 'indicador' && !ehFoto() && CAD_PEND.includes(S.perfil?.cadastro_status);
+const aprovacaoPendente = () => fotoPendente() || cadPendente();
+const DOC_TIPOS = [['RG', 'RG (carteira de identidade)'], ['CNH', 'CNH (carteira de motorista)'], ['RNE', 'RNE / CRNM (estrangeiro)'], ['Passaporte', 'Passaporte'], ['Outro', 'Outro documento oficial com foto']];
+const docVersoObrig = t => t === 'RG' || t === 'RNE';
 const DAY = 864e5;
 const msg = e => (e && (e.message || e.error_description)) ? String(e.message || e.error_description).replace(/^.*?:\s(?=[A-ZÉ])/, '') : 'Algo deu errado. Tente de novo.';
 
@@ -103,6 +108,7 @@ const I = {
   share:'<path d="M12 15V3.5M8 7.5l4-4 4 4"/><path d="M7 10H5.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H17"/>',
   addsq:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8.5v7M8.5 12h7"/>',
   dots:'<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>',
+  idcard:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.6-1.6 1.8-2.4 3.2-2.4s2.6.8 3.2 2.4M14 10h4M14 13.5h3"/>',
   play:'<path d="M7.5 4.8v14.4a.6.6 0 0 0 .9.5l11.4-7.2a.6.6 0 0 0 0-1L8.4 4.3a.6.6 0 0 0-.9.5z"/>',
   pause:'<path d="M8.5 5v14M15.5 5v14"/>',
   expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
@@ -157,7 +163,7 @@ function subscribe(){
       S.D.notifs.unshift(n);
       toast(`${n.titulo}${n.corpo ? ' · ' + n.corpo : ''}`);
       browserAlert(n);
-      try { await loadData(); } catch(e) {}
+      try { await loadPerfil(); await loadData(); } catch(e) {}
       const ci = n.indicacao_id && S.D.inds.find(i => i.id === n.indicacao_id)?.condominio_id; if (ci) M.flash = { id: ci, t: Date.now() };
       render();
     })
@@ -331,6 +337,68 @@ function vFotoAnalise(){
     <button class="link" data-a="tutRever">Rever o tutorial</button></div>
   </div>`;
 }
+/* ---------- Documento com foto (cadastro do indicador) ---------- */
+function docCampos(tipo){
+  const t = tipo || 'RG', tile = (lado, txt, sub) => `<label class="docfoto" data-lado="${lado}"><input type="file" name="doc_${lado}" accept="image/*,application/pdf" data-docfile="${lado}">
+      <span class="dph">${ic('camera',26)}<b>${txt}</b><small>${sub}</small></span><span class="dpv" hidden><img alt=""><em></em><small>Toque para trocar</small></span></label>`;
+  return `<div class="docbox">
+    <div class="docbox-h">${ic('idcard',22)}<span><b>Documento com foto</b><small>Usamos só para confirmar sua identidade. Só a equipe gestora vê.</small></span></div>
+    <label class="f">Tipo de documento<select class="in" name="doc_tipo" id="c-doctipo">${DOC_TIPOS.map(([v, l]) => `<option value="${v}" ${v === t ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <div class="docfotos">${tile('frente', 'Frente', 'Toque para tirar a foto')}${tile('verso', 'Verso', `<span class="vobrig">${docVersoObrig(t) ? 'Obrigatório' : 'Opcional'}</span>`)}</div>
+    <p class="note">Dicas: o documento inteiro na foto, sem reflexo e com boa luz. A CNH digital pode ir em PDF.</p>
+  </div>`;
+}
+function docSync(){ const sel = $('#c-doctipo'); if (!sel) return; document.querySelectorAll('.vobrig').forEach(e => e.textContent = docVersoObrig(sel.value) ? 'Obrigatório' : 'Opcional'); }
+function docPreview(inp){
+  const tile = inp.closest('.docfoto'), f = inp.files && inp.files[0], ph = tile.querySelector('.dph'), pv = tile.querySelector('.dpv'), img = pv.querySelector('img'), em = pv.querySelector('em');
+  if (!f) { ph.hidden = false; pv.hidden = true; tile.classList.remove('ok'); return; }
+  ph.hidden = true; pv.hidden = false; tile.classList.add('ok');
+  if (/^image\//.test(f.type)) { img.hidden = false; em.textContent = ''; img.src = URL.createObjectURL(f); } else { img.hidden = true; em.textContent = 'PDF anexado'; }
+}
+async function docReduz(file){ // fotos de celular ficam leves para enviar no 4G (até ~1.800 px)
+  if (!/^image\/(jpeg|png|webp)/.test(file.type) || file.size < 900 * 1024) return file;
+  try {
+    const bmp = await createImageBitmap(file), k = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .85)); return blob && blob.size < file.size ? new File([blob], 'doc.jpg', { type: 'image/jpeg' }) : file;
+  } catch(e) { return file; }
+}
+async function docEnviaArquivos(fd){
+  const tipo = String(fd.get('doc_tipo') || ''), fr = fd.get('doc_frente'), vs = fd.get('doc_verso');
+  if (!tipo) throw new Error('Escolha o tipo de documento.');
+  if (!(fr && fr.size)) throw new Error('Tire ou escolha a foto da frente do documento.');
+  if (docVersoObrig(tipo) && !(vs && vs.size)) throw new Error('Para RG e RNE, envie também a foto do verso.');
+  const uid = S.session?.user?.id, up = async (f, lado) => {
+    if (f.size > 10 * 1024 * 1024 && !/^image\//.test(f.type)) throw new Error('O arquivo passa de 10 MB. Envie uma foto.');
+    const g = await docReduz(f), ext = g.type === 'application/pdf' ? 'pdf' : g.type === 'image/png' ? 'png' : g.type === 'image/webp' ? 'webp' : /hei[cf]/.test(g.type) ? 'heic' : 'jpg';
+    const caminho = `${uid}/${lado}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from('documentos').upload(caminho, g, { upsert: false, contentType: g.type || 'image/jpeg' });
+    if (error) throw new Error('Não foi possível enviar a foto do documento. Confira a internet e tente de novo.');
+    return caminho; };
+  const frente = await up(fr, 'frente'), verso = vs && vs.size ? await up(vs, 'verso') : null;
+  return { tipo, frente, verso };
+}
+function vCadAnalise(){
+  const u = S.perfil, st = u.cadastro_status, nome = esc(String(u.nome || '').split(' ')[0]), mot = u.cadastro_motivo ? `<div class="alert"><b>Mensagem da equipe</b><p>${esc(u.cadastro_motivo)}</p></div>` : '';
+  const passos = `<ol class="fotosteps"><li class="ok">${ic('check',16)}Cadastro enviado</li><li class="ok">${ic('check',16)}Documento enviado</li><li class="ok">${ic('check',16)}Tutorial assistido</li><li class="now">${ic('clock',16)}Aprovação da equipe</li><li>${ic('plus',16)}Primeira indicação</li></ol>`;
+  const botoes = `<div class="btns" style="justify-content:center"><button class="btn ${st === 'pendente' ? '' : 'ghost'}" data-a="go" data-v="chat">${ic('chat2',18)}Falar com a equipe</button><button class="btn ghost" data-a="reload">${ic('refresh',18)}Atualizar</button></div>`;
+  if (st === 'documento' || st === 'reenviar') return `<div class="narrow cards" style="gap:16px;margin-top:8px">
+   <div class="card fotoan"><div class="fotoan-ic">${ic('idcard',34)}</div><p class="eyebrow">Último passo</p>
+    <h1>${st === 'reenviar' ? 'Precisamos de outro documento' : `${nome}, envie seu documento com foto`}</h1>
+    <p class="note">${st === 'reenviar' ? 'Tire uma foto nova e envie de novo. Assim que chegar, a equipe confere e libera suas indicações.' : 'Para liberar suas indicações, a equipe precisa conferir um documento oficial com foto.'}</p></div>
+   ${mot}
+   <form data-f="docEnviar" class="card" novalidate>${docCampos(u.doc_tipo)}<div id="d-err" class="err" hidden></div><button class="btn big gold" type="submit">Enviar documento</button></form>
+   ${botoes}</div>`;
+  const rec = st === 'recusado';
+  return `<div class="narrow cards" style="gap:16px;margin-top:8px">
+   <div class="card fotoan ${rec ? 'rec' : ''}"><div class="fotoan-ic">${ic(rec ? 'alert' : 'clock', 34)}</div>
+    <p class="eyebrow">Cadastro do indicador</p>
+    <h1>${rec ? 'Cadastro não aprovado' : `${nome}, seu cadastro está em análise`}</h1>
+    <p class="note">${rec ? 'Seu cadastro não foi aprovado. Fale com a equipe para entender o motivo.' : 'A equipe confere seus dados e o documento e libera suas indicações em até 1 dia útil. Você recebe um aviso aqui no app assim que for aprovado.'}</p>
+    ${rec ? '' : passos}${rec ? mot : ''}${botoes}
+    <button class="link" data-a="tutRever">Rever o tutorial</button></div>
+  </div>`;
+}
 function vCadastroGestor(){
   return `<div class="narrow cards" style="gap:16px;margin-top:12px">
    <div><p class="eyebrow">Configuração inicial</p><h1 style="font-size:28px">Bem-vindo, gestor</h1><p class="muted">${esc(S.session?.user?.email||'')}</p></div>
@@ -375,7 +443,9 @@ function vCadastro(){
     <label class="f">Condomínio onde trabalha<select class="in" id="c-condo" name="condominio">${S.D.condos.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('')}<option value="outro" ${S.D.condos.length?'':'selected'}>Meu condomínio não está na lista</option></select></label>
     <label class="f" id="c-outro-wrap" ${S.D.condos.length?'hidden':''}>Nome e endereço do condomínio<input class="in" id="c-outro" name="condominio_texto" placeholder="Ex.: Ed. Solar, Rua das Flores, 120"></label>
     <label class="f">Código de convite <small>(opcional)</small><input class="in mono" id="c-conv" name="convite" value="${esc(S.convite)}" placeholder="Ex.: JOA-8F72"></label>
+    ${docCampos()}
     <label class="check"><input type="checkbox" id="c-termos" name="termos"><span>Li e aceito os termos do programa e a política de privacidade. Sei que apenas indico oportunidades e que não faço intermediação imobiliária.</span></label>
+    <p class="note">Depois de enviar, a equipe confere seus dados e o documento e libera suas indicações em até 1 dia útil.</p>
     <div id="c-err" class="err" hidden></div>
     <button class="btn big gold" type="submit">Concluir cadastro</button>
    </form>
@@ -462,7 +532,7 @@ function vBell(){
   </div>`;
 }
 function vNav(){
-  if (S.screen !== 'app' || papel() !== 'indicador' || tutorialPendente() || fotoPendente()) return '';
+  if (S.screen !== 'app' || papel() !== 'indicador' || tutorialPendente() || aprovacaoPendente()) return '';
   const grp = {home:'home',nova:'nova',ok:'nova',dup:'nova',lista:'lista',det:'lista',carteira:'carteira'}[S.tab] || 'mais', nc = chatNaoLidas();
   const b = (k,l,n,c='') => `<button class="${grp===k?'on':''} ${c}" data-a="go" data-v="${k}" ${grp===k?'aria-current="page"':''}>${ic(n,22)}${l}</button>`;
   return `<nav class="bottom" aria-label="Navegação"><div class="nav-in">${b('home','Início','home')}${b('lista','Indicações','list')}${b('nova','Indicar','plus','mid')}${b('carteira','Carteira','wallet')}${b('mais', nc ? `Mais<span class="navdot">${nc}</span>` : 'Mais','more')}</div></nav>`;
@@ -785,11 +855,11 @@ const TERMOS = () => [
 ];
 const PRIVACIDADE = [
   ['Quem cuida dos seus dados', [`N. R. Cordeiro (Rendique), CNPJ nº 52.235.808/0001-51, com sede em Osasco/SP.`]],
-  ['Quais dados usamos', [`Do seu cadastro: nome, e-mail, celular, CPF, função, condomínio e chave Pix.`, `Das indicações: nome e telefone do proprietário e dados do imóvel, enviados com a autorização dele.`, `Do uso do app: mensagens do chat de atendimento, histórico das indicações, pagamentos e selos.`]],
-  ['Para que usamos', [`Identificar suas indicações, acompanhar cada etapa, calcular e pagar recompensas e bonificações, emitir recibos, cumprir obrigações fiscais, falar com você e prevenir fraudes.`]],
+  ['Quais dados usamos', [`Do seu cadastro: nome, e-mail, celular, CPF, função, condomínio e chave Pix.`, `Para confirmar sua identidade: fotos de um documento oficial com foto (frente e verso), vistas apenas pela equipe gestora.`, `Das indicações: nome e telefone do proprietário e dados do imóvel, enviados com a autorização dele.`, `Do uso do app: mensagens do chat de atendimento, histórico das indicações, pagamentos e selos.`]],
+  ['Para que usamos', [`Confirmar sua identidade, identificar suas indicações, acompanhar cada etapa, calcular e pagar recompensas e bonificações, emitir recibos, cumprir obrigações fiscais, falar com você e prevenir fraudes.`]],
   ['Com quem compartilhamos', [`Os dados do proprietário e do imóvel são compartilhados apenas com o corretor responsável pelo atendimento.`, `Usamos prestadores de tecnologia para hospedar o app e o banco de dados. Não vendemos dados.`]],
   ['Base legal', [`Consentimento (art. 7º, I, da LGPD), execução do programa do qual você participa (art. 7º, V) e cumprimento de obrigações legais e fiscais (art. 7º, II).`]],
-  ['Por quanto tempo guardamos', [`Enquanto você participar do programa e, depois, pelo prazo necessário para cumprir obrigações legais e manter o histórico de pagamentos.`]],
+  ['Por quanto tempo guardamos', [`Enquanto você participar do programa e, depois, pelo prazo necessário para cumprir obrigações legais e manter o histórico de pagamentos.`, `As fotos do documento são apagadas quando a conta é excluída.`]],
   ['Seus direitos', [`Você pode pedir acesso, correção, portabilidade ou exclusão dos seus dados a qualquer momento, pelos botões desta página.`]],
   ['Encarregados pelo tratamento de dados', [`Pedidos sobre dados pessoais também podem ser enviados diretamente aos encarregados: Gabriel Cavali (gabrielcavali1234@gmail.com) e Neemias Rodrigues (neyrodriguesc@gmail.com).`]]
 ];
@@ -908,7 +978,7 @@ const kpi = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l
 function vAdm(){
   const open = S.D.ocorr.filter(o => o.estado === 'aberta').length;
   const novas = S.D.inds.filter(i => i.status === 0).length;
-  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['users','Usuários'],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
+  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['users','Usuários',S.D.perfis.filter(p => !p.excluido_em && p.papel === 'indicador' && (p.programa === 'fotografo' ? p.fotografo_status === 'pendente' : p.cadastro_status === 'pendente')).length],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
   const body = ({ geral:aGeral, inds:aInds, chat:aChat, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
    <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
@@ -1505,17 +1575,45 @@ function aConvites(){
     ${L.length ? `<div class="hist">${L.slice(0,10).map(c => { const aberto = !c.usado_por && new Date(c.expira_em) > now; return `<div><div><b>${c.papel === 'admin' ? 'Gestor' : 'Corretor'}</b><div class="note">${st(c)}</div></div><div class="btns" style="justify-content:flex-end">${aberto ? `<button class="btn sm ghost" data-a="copy" data-v="${esc(SITE + '?g=' + c.token)}">${ic('copy',16)}Copiar link</button><button class="btn sm danger" data-a="cancelConvite" data-v="${esc(c.token)}">Cancelar</button>` : ''}</div></div>`; }).join('')}</div>` : ''}
    </div>`;
 }
+function cadTag(u){
+  if (u.papel !== 'indicador' || u.programa === 'fotografo' || !u.cadastro_status) return '';
+  const t = { documento: ['gray', 'Sem documento'], pendente: ['proc', 'Em análise'], reenviar: ['gray', 'Novo documento pedido'], recusado: ['gray', 'Recusado'], aprovado: ['disp', 'Aprovado'] }[u.cadastro_status];
+  return `<br><span class="tag ${t[0]}">${t[1]}</span>${u.doc_frente ? ` <button class="link" data-a="verDoc" data-v="${u.id}">Ver documento</button>` : ''}`;
+}
+async function docModal(id){
+  const u = perfil(id); if (!u) return;
+  const url = async p => { if (!p) return null; const { data, error } = await sb.storage.from('documentos').createSignedUrl(p, 600); return error ? null : data?.signedUrl; };
+  const [fr, vs] = await Promise.all([url(u.doc_frente), url(u.doc_verso)]);
+  const pdf = p => /\.pdf$/i.test(p || ''), img = (p, link, rot) => !p ? `<div class="docimg vazio">${rot}: não enviado</div>` : !link ? `<div class="docimg vazio">${rot}: não foi possível abrir</div>`
+    : pdf(p) ? `<a class="docimg pdf" href="${esc(link)}" target="_blank" rel="noopener">${ic('doc',28)}<b>${rot} em PDF</b><small>Abrir em outra aba</small></a>`
+    : `<a class="docimg" href="${esc(link)}" target="_blank" rel="noopener" title="Abrir em tamanho real"><img src="${esc(link)}" alt="${rot} do documento"><small>${rot}</small></a>`;
+  const decide = u.cadastro_status !== 'aprovado';
+  openModal(`<div class="docmodal" style="text-align:left"><p class="eyebrow">Análise do cadastro</p><h2>${esc(u.nome)}</h2>
+    <dl class="kv"><dt>Função</dt><dd>${esc(u.funcao)}</dd><dt>Condomínio</dt><dd>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</dd><dt>Celular</dt><dd class="mono">${fph(u.telefone)}</dd><dt>CPF</dt><dd class="mono">${u.cpf ? fcpf(u.cpf) : '—'}</dd><dt>Documento</dt><dd>${esc(u.doc_tipo || '—')}${u.doc_enviado_em ? ` · enviado em ${fdt(u.doc_enviado_em)}` : ''}</dd></dl>
+    <p class="note">Confira se o nome e o CPF batem com o documento e se a foto está legível.</p>
+    <div class="docimgs">${img(u.doc_frente, fr, 'Frente')}${img(u.doc_verso, vs, 'Verso')}</div>
+    ${decide ? `<label class="f">Mensagem para o indicador <small>(obrigatória para pedir outro documento ou recusar)</small><textarea class="in" id="doc-mot" rows="2" maxlength="300" placeholder="Ex.: a foto ficou tremida, tire outra com boa luz"></textarea></label>
+    <div id="doc-err" class="err" hidden></div>
+    <div class="btns docdec"><button class="btn green" data-a="cadDecide" data-v="${u.id}" data-s="aprovado">${ic('check',18)}Aprovar cadastro</button><button class="btn ghost" data-a="cadDecide" data-v="${u.id}" data-s="reenviar">Pedir outro documento</button><button class="btn danger" data-a="cadDecide" data-v="${u.id}" data-s="recusado">Recusar</button></div>`
+    : `<p class="note"><b>Cadastro aprovado</b>${u.cadastro_analisado_em ? ` em ${fdt(u.cadastro_analisado_em)}` : ''}.</p><button class="btn ghost" data-a="mclose">Fechar</button>`}</div>`);
+}
 function aUsers(){
   const vivos = S.D.perfis.filter(p => !p.excluido_em), excl = S.D.perfis.length - vivos.length;
   const pend = vivos.filter(p => !p.condominio_id && p.condominio_texto);
   const fpend = vivos.filter(p => p.programa === 'fotografo' && p.fotografo_status === 'pendente');
   const portLink = v => { const t = String(v || '').trim(); if (!t) return ''; const url = /^https?:\/\//.test(t) ? t : t.startsWith('@') ? 'https://instagram.com/' + t.slice(1) : 'https://' + t; return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(t)}</a>`; };
-  const fotoBox = fpend.length ? `<div class="card fotopend"><div class="sec-h"><h2>${ic('camera',20)} ${fpend.length} fotógrafo${fpend.length>1?'s':''} aguardando aprovação</h2></div>
-    ${fpend.map(u => `<div class="fprow"><div><b>${esc(u.nome)}</b><div class="note">${esc(u.regiao || 'Região não informada')} · <span class="mono">${fph(u.telefone)}</span> · desde ${fd(u.criado_em)}</div>${u.portfolio ? `<div class="note">Portfólio: ${portLink(u.portfolio)}</div>` : ''}</div>
-      <div class="btns" style="flex-wrap:nowrap"><a class="btn sm ghost wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" style="text-decoration:none">${ic('chat',16)}WhatsApp</a><button class="btn sm ghost" data-a="aprovarFoto" data-v="${u.id}" data-s="0">Recusar</button><button class="btn sm green" data-a="aprovarFoto" data-v="${u.id}" data-s="1">${ic('check',16)}Aprovar</button></div></div>`).join('')}</div>` : '';
+  const cpend = vivos.filter(p => p.papel === 'indicador' && p.programa !== 'fotografo' && p.cadastro_status === 'pendente').sort((a, b) => new Date(a.doc_enviado_em || a.criado_em) - new Date(b.doc_enviado_em || b.criado_em));
+  const semDoc = vivos.filter(p => p.papel === 'indicador' && p.programa !== 'fotografo' && ['documento', 'reenviar'].includes(p.cadastro_status));
+  const nFila = cpend.length + fpend.length;
+  const fotoBox = nFila ? `<div class="card fotopend"><div class="sec-h"><h2>${ic('users',20)} ${nFila} cadastro${nFila>1?'s':''} aguardando aprovação</h2></div>
+    ${cpend.map(u => `<div class="fprow"><div><b>${esc(u.nome)}</b> <span class="tag gray">${esc(u.funcao)}</span><div class="note">${esc(condo(u.condominio_id)?.nome || u.condominio_texto || 'Condomínio não informado')} · <span class="mono">${fph(u.telefone)}</span>${u.cpf ? ` · CPF <span class="mono">${fcpf(u.cpf)}</span>` : ''}</div><div class="note">${ic('idcard',14)} ${esc(u.doc_tipo || 'Documento')} enviado ${ago(u.doc_enviado_em || u.criado_em)}</div></div>
+      <div class="btns" style="flex-wrap:nowrap"><a class="btn sm ghost wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" style="text-decoration:none">${ic('chat',16)}WhatsApp</a><button class="btn sm" data-a="verDoc" data-v="${u.id}">${ic('idcard',16)}Analisar documento</button></div></div>`).join('')}
+    ${fpend.map(u => `<div class="fprow"><div><b>${esc(u.nome)}</b> <span class="tag foto">${ic('camera',12)}Fotógrafo</span><div class="note">${esc(u.regiao || 'Região não informada')} · <span class="mono">${fph(u.telefone)}</span> · desde ${fd(u.criado_em)}</div>${u.portfolio ? `<div class="note">Portfólio: ${portLink(u.portfolio)}</div>` : ''}</div>
+      <div class="btns" style="flex-wrap:nowrap"><a class="btn sm ghost wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" style="text-decoration:none">${ic('chat',16)}WhatsApp</a><button class="btn sm ghost" data-a="aprovarFoto" data-v="${u.id}" data-s="0">Recusar</button><button class="btn sm green" data-a="aprovarFoto" data-v="${u.id}" data-s="1">${ic('check',16)}Aprovar</button></div></div>`).join('')}
+    ${semDoc.length ? `<p class="note" style="margin-top:6px">${semDoc.length} cadastro${semDoc.length>1?'s':''} ainda sem documento: ${semDoc.map(u => esc(u.nome) + (u.cadastro_status === 'reenviar' ? ' (novo documento pedido)' : '')).join(', ')}.</p>` : ''}</div>` : (semDoc.length ? `<div class="alert"><b>${semDoc.length} cadastro${semDoc.length>1?'s':''} aguardando o documento</b><p class="note">${semDoc.map(u => esc(u.nome) + (u.cadastro_status === 'reenviar' ? ' (novo documento pedido)' : '')).join(', ')}. Assim que enviarem, aparecem aqui para aprovação.</p></div>` : '');
   return `${fotoBox}${aConvites()}${pend.length ? `<div class="alert"><b>${pend.length} cadastro${pend.length>1?'s':''} com condomínio fora da lista</b><p class="note">Cadastre o condomínio na aba Condomínios para organizar os relatórios: ${pend.map(p => `${esc(p.nome)} (${esc(p.condominio_texto)})`).join(', ')}.</p></div>` : ''}
    <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>Condomínio / região</th><th>Código</th><th>Convidado por</th><th>Desde</th><th>Tutorial</th><th>Acesso</th><th></th></tr></thead><tbody>
-   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span>${u.cpf ? `<br><span class="note mono">CPF ${fcpf(u.cpf)}</span>` : ''}</td><td>${u.programa === 'fotografo' ? `<span class="tag foto">${ic('camera',12)}Fotógrafo</span>${u.fotografo_status === 'pendente' ? '<br><span class="tag gray">Em análise</span>' : u.fotografo_status === 'recusado' ? `<br><span class="tag gray">Recusado</span> <button class="link" data-a="aprovarFoto" data-v="${u.id}" data-s="1">Aprovar</button>` : ''}` : esc(u.funcao)}</td><td>${u.programa === 'fotografo' ? `${esc(u.regiao || '—')}${u.portfolio ? `<br><span class="note">${portLink(u.portfolio)}</span>` : ''}` : esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
+   ${vivos.map(u => { const eu = u.id === S.perfil.id; return `<tr${u.ativo ? '' : ' class="susp"'}><td><b>${esc(u.nome)}</b>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}<br><span class="note mono">${fph(u.telefone)}</span>${u.cpf ? `<br><span class="note mono">CPF ${fcpf(u.cpf)}</span>` : ''}</td><td>${u.programa === 'fotografo' ? `<span class="tag foto">${ic('camera',12)}Fotógrafo</span>${u.fotografo_status === 'pendente' ? '<br><span class="tag gray">Em análise</span>' : u.fotografo_status === 'recusado' ? `<br><span class="tag gray">Recusado</span> <button class="link" data-a="aprovarFoto" data-v="${u.id}" data-s="1">Aprovar</button>` : ''}` : `${esc(u.funcao)}${cadTag(u)}`}</td><td>${u.programa === 'fotografo' ? `${esc(u.regiao || '—')}${u.portfolio ? `<br><span class="note">${portLink(u.portfolio)}</span>` : ''}` : esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</td><td class="mono">${esc(u.codigo)}</td><td>${esc(perfil(u.convidado_por)?.nome || '—')}</td><td class="num">${fd(u.criado_em)}</td>
     <td>${u.papel !== 'indicador' || u.tutorial_visto_em === undefined ? '<span class="note">—</span>' : u.tutorial_visto_em ? `<span class="tag disp">Assistido</span><br><span class="note">${fd(u.tutorial_visto_em)}</span>` : `<span class="tag gray">Pendente</span><br><button class="link" data-a="liberarTutorial" data-v="${u.id}" title="Liberar o app sem o vídeo">Liberar</button>`}</td>
     <td><select class="in" data-papel="${u.id}" style="min-height:36px;width:auto" ${eu?'disabled':''}>${[['indicador','Indicador'],['corretor','Corretor'],['admin','Gestor']].map(([k,l]) => `<option value="${k}" ${u.papel===k?'selected':''}>${l}</option>`).join('')}</select></td>
     <td>${eu ? '<span class="note">Você</span>' : `<div class="btns" style="flex-wrap:nowrap;justify-content:flex-end"><button class="btn sm ghost" data-a="ativoUser" data-v="${u.id}" data-s="${u.ativo ? 0 : 1}">${u.ativo ? 'Suspender' : 'Reativar'}</button><button class="btn sm danger" data-a="delUser" data-v="${u.id}" title="Excluir usuário" aria-label="Excluir ${esc(u.nome)}">${ic('trash',16)}</button></div>`}</td></tr>`; }).join('')}
@@ -2011,9 +2109,9 @@ function festaSelo(lista){
 }
 function festaBoasVindas(){
   const nome = esc(String(S.perfil?.nome || '').split(' ')[0]); S.festaAtual = { tipo: 'bv' };
-  if (fotoPendente()) { const el = festaAbre(`<div class="medal bv"><div class="ring"></div><div class="core">${logo(64, true)}</div></div>
+  if (aprovacaoPendente()) { const el = festaAbre(`<div class="medal bv"><div class="ring"></div><div class="core">${logo(64, true)}</div></div>
     <h2>Seja bem-vindo à Rendique${nome ? ', ' + nome : ''}!</h2>
-    <p>Tutorial concluído. Agora a equipe confere seu cadastro de fotógrafo parceiro e libera suas indicações em até 1 dia útil. Você recebe um aviso aqui no app.</p>
+    <p>${cadPendente() && ['documento', 'reenviar'].includes(S.perfil.cadastro_status) ? 'Tutorial concluído. Falta só enviar seu documento com foto para a equipe liberar suas indicações.' : `Tutorial concluído. Agora a equipe confere seu cadastro${ehFoto() ? ' de fotógrafo parceiro' : ''} e libera suas indicações em até 1 dia útil. Você recebe um aviso aqui no app.`}</p>
     <button class="btn gold big" data-a="festaOk" data-v="home">Entendi</button>`, 'Boas-vindas'); somSelo(); festaConfete(el, 140); return; }
   const el = festaAbre(`<div class="medal bv"><div class="ring"></div><div class="core">${logo(64, true)}</div></div>
     <h2>Seja bem-vindo à Rendique${nome ? ', ' + nome : ''}!</h2>
@@ -2154,7 +2252,7 @@ function render(){
       html = ({home:vHome,nova:vNova,ok:vOk,dup:vDup,lista:vLista,det:vDet,carteira:vCarteira,mais:vMais,qr:vQR,convite:vConvite,privacidade:vPriv,termos:vTermos,ranking:vRanking,chat:vChatInd,selos:vSelos}[S.tab] || vHome)();
       if (['ok','dup','mais','qr','convite','privacidade','termos','ranking','selos'].includes(S.tab)) html = `<div class="narrow">${html}</div>`;
       if (S.tutAjuda && tutorialPendente()) html = tutAviso() + html;
-      else if (fotoPendente() && !tutorialPendente()) html = S.tab === 'chat' ? `<div class="alert tut-aviso"><b>Seu cadastro está em análise.</b><p class="note">Tire suas dúvidas com a equipe por aqui.</p><button class="btn sm" data-a="go" data-v="home">${ic('back',16)}Voltar</button></div>` + vChatInd() : vFotoAnalise();
+      else if (aprovacaoPendente() && !tutorialPendente()) html = S.tab === 'chat' ? `<div class="alert tut-aviso"><b>Seu cadastro ainda não foi liberado.</b><p class="note">Tire suas dúvidas com a equipe por aqui.</p><button class="btn sm" data-a="go" data-v="home">${ic('back',16)}Voltar</button></div>` + vChatInd() : (ehFoto() ? vFotoAnalise() : vCadAnalise());
     }
   } else {
     html = ({instalar:vInstalar, setup:vSetup, loading:vLoading, login:vLogin, cadastro:vCadastro, publico:vPublico, erro:vErro, inativo:vInativo}[S.screen] || vLoading)();
@@ -2195,7 +2293,7 @@ const act = {
   filter: d => { S.filter = d.v; render(); },
   atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); },
   retry: () => onSession(S.session),
-  reload: () => guard(async () => { await refresh(); toast('Dados atualizados'); }),
+  reload: () => guard(async () => { await loadPerfil(); await refresh(); toast('Dados atualizados'); }),
   logout: () => guard(async () => { S.drawer = null; S.bell = false; closeModal(); await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
   authMode: d => { const e = $('#l-email')?.value; if (e) S.email = e.trim().toLowerCase(); S.authMode = d.v; render(); },
   eye: (d, el) => { const i = document.getElementById(d.v); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.textContent = show ? 'ocultar' : 'mostrar'; },
@@ -2300,7 +2398,7 @@ const act = {
   verAtras: () => { S.admTab = 'inds'; S.admGrupo = 'atras'; render(); },
   ativoUser: d => guard(async () => { closeModal(); const on = d.s === '1'; await rpc('definir_ativo', { p_usuario: d.v, p_ativo: on }); await refresh(); toast(on ? 'Acesso reativado' : 'Acesso suspenso'); }),
   delUser: d => delUserModal(d.v),
-  delUserOk: d => guard(async () => { const n = perfil(d.v)?.nome || 'Usuário'; closeModal(); await rpc('excluir_usuario', { p_usuario: d.v }); await refresh(); toast(`${n} excluído`); }),
+  delUserOk: d => guard(async () => { const u = perfil(d.v), n = u?.nome || 'Usuário'; closeModal(); const docs = [u?.doc_frente, u?.doc_verso].filter(Boolean); if (docs.length) { try { await sb.storage.from('documentos').remove(docs); } catch(e) {} } await rpc('excluir_usuario', { p_usuario: d.v }); await refresh(); toast(`${n} excluído`); }),
   adv: d => { const i = S.D.inds.find(x => x.id === d.v); if (Number(d.s) === 4 && i && i.status === 3 && fichaFalta(ficha(d.v)).length) return fichaModal(d.v, true); if (Number(d.s) === 6 && i && i.status === 5 && i.indicador_id && papel() === 'admin') return vendaModal(d.v); act.advOk(d); },
   bonPer: d => { S.bonPer = d.v; render(); },
   bonEst: d => { S.bonEst = d.v; render(); },
@@ -2401,6 +2499,14 @@ const act = {
       <div class="btns" style="justify-content:space-between"><button class="link" data-a="novoLinkFoto">Trocar link de convite</button><button class="btn ghost" data-a="mclose">Fechar</button></div>`);
   },
   novoLinkFoto: () => guard(async () => { if (!confirm('Trocar o link de convite? O link atual para de funcionar.')) return; S.D.fotoToken = await rpc('novo_link_fotografo', {}); closeModal(); act.linkFoto(); toast('Link novo gerado'); }),
+  verDoc: d => guard(async () => { await docModal(d.v); }),
+  cadDecide: d => guard(async () => {
+    const mot = String($('#doc-mot')?.value || '').trim(), u = perfil(d.v);
+    if (d.s !== 'aprovado' && !mot) return showErr('#doc-err', d.s === 'reenviar' ? 'Escreva o que precisa mudar no documento.' : 'Escreva o motivo da recusa.');
+    if (d.s === 'recusado' && !confirm(`Recusar o cadastro de ${u?.nome || 'indicador'}? Ele não poderá fazer indicações.`)) return;
+    await rpc('analisar_cadastro', { p_usuario: d.v, p_decisao: d.s, p_motivo: mot || null });
+    closeModal(); await refresh(); toast(d.s === 'aprovado' ? 'Cadastro aprovado. O indicador já pode indicar.' : d.s === 'reenviar' ? 'Pedido de novo documento enviado' : 'Cadastro recusado');
+  }),
   aprovarFoto: d => guard(async () => { const u = perfil(d.v), ok = d.s === '1'; if (!ok && !confirm(`Recusar o cadastro de ${u?.nome || 'fotógrafo'}?`)) return; await rpc('aprovar_fotografo', { p_usuario: d.v, p_aprovar: ok }); await refresh(); toast(ok ? 'Fotógrafo aprovado. Ele já pode indicar.' : 'Cadastro recusado'); }),
   linkIndicador: () => {
     const url = `${SITE}?c=${S.perfil.codigo}`;
@@ -2432,6 +2538,8 @@ document.addEventListener('change', e => {
   if (t.form?.dataset.f === 'publico') pubSync();
   if (t.form?.dataset.f === 'ficha') fichaCalc();
   if (t.id === 'c-condo') $('#c-outro-wrap').hidden = t.value !== 'outro';
+  if (t.id === 'c-doctipo') docSync();
+  if (t.dataset && t.dataset.docfile) docPreview(t);
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
   if (t.id === 'bon-mes') { S.bonMes = t.value; render(); }
   if (['af-mes','af-condo','af-ind','af-ord'].includes(t.id)) { S[{ 'af-mes':'admMes', 'af-condo':'admCondo', 'af-ind':'admInd', 'af-ord':'admOrd' }[t.id]] = t.value; render(); }
@@ -2555,14 +2663,20 @@ const forms = {
       return toast('Cadastro concluído!');
     }
     if (g('condominio') === 'outro' && !g('condominio_texto')) return showErr('#c-err', 'Informe o nome do condomínio onde trabalha.');
-    if (!fd.get('termos')) return showErr('#c-err', 'Para continuar, aceite os termos do programa.');
     if (!cpfOk(g('cpf'))) return showErr('#c-err', 'Informe um CPF válido. Ele é usado para os pagamentos via Pix.');
+    const fr0 = fd.get('doc_frente'), vs0 = fd.get('doc_verso');
+    if (!(fr0 && fr0.size)) return showErr('#c-err', 'Tire ou escolha a foto da frente do seu documento.');
+    if (docVersoObrig(g('doc_tipo')) && !(vs0 && vs0.size)) return showErr('#c-err', 'Para RG e RNE, envie também a foto do verso.');
+    if (!fd.get('termos')) return showErr('#c-err', 'Para continuar, aceite os termos do programa.');
+    let doc;
+    try { doc = await docEnviaArquivos(fd); } catch(e) { return showErr('#c-err', msg(e)); }
     try {
       await rpc('completar_cadastro', { p_nome: g('nome'), p_telefone: dig(g('telefone')), p_funcao: g('funcao'),
         p_condominio_id: g('condominio') === 'outro' ? null : g('condominio'), p_condominio_texto: g('condominio') === 'outro' ? g('condominio_texto') : null, p_convite: g('convite') || null });
     } catch(e) { return showErr('#c-err', msg(e)); }
     try { await rpc('salvar_cpf', { p_cpf: dig(g('cpf')) }); } catch(e) { toast(msg(e)); }
     try { await rpc('aceitar_termos', { p_versao: TERMOS_VERSAO }); } catch(e) {}
+    try { await rpc('enviar_documento', { p_tipo: doc.tipo, p_frente: doc.frente, p_verso: doc.verso }); } catch(e) { setTimeout(() => toast('O documento não foi registrado. Envie de novo na próxima tela.'), 600); }
     saveLS('rendique-convite', null);
     await onSession(S.session);
     toast(papel() === 'admin' ? 'Bem-vindo! Você é o gestor do Rendique.' : 'Cadastro concluído!');
@@ -2663,6 +2777,11 @@ const forms = {
     try { if (modo === 'bonus') await rpc(fn, { p_id: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); else await rpc(fn, { p_indicacao: ind, p_data: String(fd.get('data')||'') || null, p_codigo: codigo || null, p_arquivo: caminho }); }
     catch(e) { return showErr('#pg-err', msg(e)); }
     closeModal(); await refresh(); toast(fn === 'anexar_comprovante' ? 'Comprovante salvo' : fn === 'pagar_bonus' ? 'Bônus pago e registrado' : 'Pagamento registrado');
+  }),
+  docEnviar: fd => guard(async () => {
+    let doc; try { doc = await docEnviaArquivos(fd); } catch(e) { return showErr('#d-err', msg(e)); }
+    try { await rpc('enviar_documento', { p_tipo: doc.tipo, p_frente: doc.frente, p_verso: doc.verso }); } catch(e) { return showErr('#d-err', msg(e)); }
+    await loadPerfil(); render(); window.scrollTo(0, 0); toast('Documento enviado. Agora é só aguardar a análise.');
   }),
   cfgFoto: fd => guard(async () => { await rpc('definir_plano_fotografo', { p_valor: Math.max(0, Math.round((Number(numBR(fd.get('valor'))) || 0) * 100) / 100), p_percentual: Number(numBR(fd.get('pct'))) || 0 }); await refresh(); toast('Plano do fotógrafo salvo'); }),
   cfg: fd => guard(async () => { await rpc('definir_valor_recompensa', { p_valor: Math.max(0, Math.round((Number(numBR(fd.get('valor'))) || 0) * 100) / 100) }); await refresh(); toast('Valor salvo'); })

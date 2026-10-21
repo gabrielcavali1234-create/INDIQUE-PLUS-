@@ -271,17 +271,16 @@ begin
     exit when not exists (select 1 from public.perfis where codigo = v_codigo);
   end loop;
 
-  insert into public.perfis (id, nome, telefone, funcao, papel, condominio_id, condominio_texto, codigo, convidado_por)
+  insert into public.perfis (id, nome, telefone, funcao, papel, condominio_id, condominio_texto, codigo, convidado_por, cadastro_status)
   values (auth.uid(), trim(p_nome), p_telefone,
           case when v_papel = 'admin' then 'Gestor' else coalesce(p_funcao,'Porteiro') end, v_papel,
           case when v_papel = 'admin' then null else p_condominio_id end,
-          case when v_papel = 'admin' then null else nullif(trim(p_condominio_texto),'') end, v_codigo, v_convidador)
+          case when v_papel = 'admin' then null else nullif(trim(p_condominio_texto),'') end, v_codigo, v_convidador,
+          case when v_papel = 'indicador' then 'documento' end)  -- indicador novo: aguarda documento e aprovação do gestor
   returning * into v_perfil;
 
   perform public.registra('Novo cadastro: ' || v_perfil.nome || ' (' || v_perfil.papel || ')');
-  if v_papel <> 'admin' then
-    perform public.notifica_admins('cadastro', 'Novo indicador cadastrado', v_perfil.nome || ' · ' || v_perfil.funcao, null);
-  end if;
+  -- o gestor é avisado quando o documento chega (enviar_documento) ou, no fotógrafo, em cadastro_fotografo
   return v_perfil;
 end $$;
 
@@ -361,6 +360,10 @@ begin
   if coalesce(p_codigo,'') <> '' then
     select * into v_ind from public.perfis where codigo = upper(p_codigo) and ativo;
     if v_ind.id is null then raise exception 'QR Code inválido.'; end if;
+    if (v_ind.programa = 'fotografo' and v_ind.fotografo_status is distinct from 'aprovado')
+       or v_ind.cadastro_status in ('documento','pendente','reenviar','recusado') then
+      raise exception 'Este QR Code ainda não está ativo.';
+    end if;
     v_condo := coalesce(v_condo, v_ind.condominio_id);
     v_origem := 'QR Code pessoal ' || v_ind.codigo;
   else
@@ -1531,7 +1534,7 @@ begin
   end if;
   v_ok := coalesce(trim(p_token), '') <> '' and exists (select 1 from public.fotografo_link where token = trim(p_token));
   v_st := case when v_ok then 'aprovado' else 'pendente' end;
-  update public.perfis set programa = 'fotografo', funcao = 'Fotógrafo', condominio_id = null, condominio_texto = null,
+  update public.perfis set programa = 'fotografo', funcao = 'Fotógrafo', condominio_id = null, condominio_texto = null, cadastro_status = null,
          regiao = nullif(trim(p_regiao), ''), portfolio = nullif(trim(p_portfolio), ''), fotografo_status = v_st
    where id = auth.uid();
   perform public.registra('Cadastro de fotógrafo: ' || v_p.nome || ' (' || v_st || ')');
@@ -1604,5 +1607,97 @@ begin
   if v_p.programa = 'fotografo' and v_p.fotografo_status is distinct from 'aprovado' then
     raise exception 'Seu cadastro de fotógrafo ainda está em análise. Assim que for aprovado, você pode indicar.';
   end if;
+  if v_p.programa <> 'fotografo' and v_p.cadastro_status in ('documento','pendente','reenviar','recusado') then
+    raise exception '%', case v_p.cadastro_status
+      when 'documento' then 'Envie seu documento com foto para liberar as indicações.'
+      when 'recusado' then 'Seu cadastro não foi aprovado. Fale com a equipe pelo Atendimento.'
+      else 'Seu cadastro ainda está em análise. Assim que for aprovado, você pode indicar.' end;
+  end if;
   return public._inserir_indicacao(p, auth.uid(), case when v_p.programa = 'fotografo' then 'App do fotógrafo' else 'App do indicador' end, v_p.nome);
 end $$;
+
+-- ---------------------------------------------------------------------
+-- Cadastro do indicador com documento com foto e aprovação do gestor
+-- (porteiros, zeladores, síndicos e afins; o fotógrafo tem fluxo próprio)
+-- cadastro_status: documento → pendente → aprovado | reenviar | recusado
+-- (nulo = cadastro anterior a esta regra, segue liberado)
+-- ---------------------------------------------------------------------
+alter table public.perfis add column if not exists cadastro_status text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'perfis_cadastro_status_check') then
+    alter table public.perfis add constraint perfis_cadastro_status_check
+      check (cadastro_status in ('documento','pendente','aprovado','reenviar','recusado'));
+  end if;
+end $$;
+alter table public.perfis add column if not exists cadastro_motivo text;
+alter table public.perfis add column if not exists doc_tipo text;
+alter table public.perfis add column if not exists doc_frente text;
+alter table public.perfis add column if not exists doc_verso text;
+alter table public.perfis add column if not exists doc_enviado_em timestamptz;
+alter table public.perfis add column if not exists cadastro_analisado_em timestamptz;
+alter table public.perfis add column if not exists cadastro_analisado_por uuid references public.perfis(id) on delete set null;
+
+-- pasta privada dos documentos: cada indicador envia só para a própria pasta; só o gestor vê e apaga
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('documentos', 'documentos', false, 10485760, array['image/jpeg','image/png','image/webp','image/heic','image/heif','application/pdf'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists documentos_enviar on storage.objects;
+create policy documentos_enviar on storage.objects for insert to authenticated
+  with check (bucket_id = 'documentos' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists documentos_ver on storage.objects;
+create policy documentos_ver on storage.objects for select to authenticated
+  using (bucket_id = 'documentos' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+drop policy if exists documentos_apagar on storage.objects;
+create policy documentos_apagar on storage.objects for delete to authenticated
+  using (bucket_id = 'documentos' and public.is_admin());
+
+create or replace function public.enviar_documento(p_tipo text, p_frente text, p_verso text) returns text
+language plpgsql security definer set search_path = public as $$
+declare v_p public.perfis; v_pre text := auth.uid()::text || '/'; v_local text;
+begin
+  select * into v_p from public.perfis where id = auth.uid();
+  if not found then raise exception 'Complete seu cadastro primeiro.'; end if;
+  if v_p.papel <> 'indicador' or v_p.programa = 'fotografo' then raise exception 'O envio de documento é só para indicadores.'; end if;
+  if v_p.cadastro_status is null or v_p.cadastro_status = 'aprovado' then raise exception 'Seu cadastro já está liberado.'; end if;
+  if v_p.cadastro_status = 'recusado' then raise exception 'Seu cadastro não foi aprovado. Fale com a equipe pelo Atendimento.'; end if;
+  if coalesce(trim(p_tipo), '') = '' then raise exception 'Escolha o tipo de documento.'; end if;
+  if coalesce(p_frente, '') not like v_pre || '%'
+     or not exists (select 1 from storage.objects where bucket_id = 'documentos' and name = p_frente) then
+    raise exception 'Envie a foto da frente do documento.';
+  end if;
+  if coalesce(p_verso, '') <> '' and (p_verso not like v_pre || '%'
+     or not exists (select 1 from storage.objects where bucket_id = 'documentos' and name = p_verso)) then
+    raise exception 'Envie de novo a foto do verso do documento.';
+  end if;
+  update public.perfis set doc_tipo = trim(p_tipo), doc_frente = p_frente, doc_verso = nullif(p_verso, ''), doc_enviado_em = now(),
+         cadastro_status = 'pendente', cadastro_motivo = null
+   where id = auth.uid();
+  select coalesce((select nome from public.condominios where id = v_p.condominio_id), v_p.condominio_texto) into v_local;
+  perform public.registra('Documento enviado para análise: ' || v_p.nome);
+  perform public.notifica_admins('cadastro', 'Cadastro aguardando aprovação', v_p.nome || ' · ' || v_p.funcao || coalesce(' · ' || v_local, ''), null);
+  return 'pendente';
+end $$;
+revoke execute on function public.enviar_documento(text,text,text) from public, anon;
+grant execute on function public.enviar_documento(text,text,text) to authenticated;
+
+create or replace function public.analisar_cadastro(p_usuario uuid, p_decisao text, p_motivo text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_p public.perfis;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  if p_decisao not in ('aprovado','reenviar','recusado') then raise exception 'Decisão inválida.'; end if;
+  select * into v_p from public.perfis where id = p_usuario;
+  if not found or v_p.papel <> 'indicador' or v_p.programa = 'fotografo' then raise exception 'Cadastro não encontrado.'; end if;
+  if p_decisao <> 'aprovado' and coalesce(trim(p_motivo), '') = '' then raise exception 'Escreva o motivo para o indicador.'; end if;
+  update public.perfis set cadastro_status = p_decisao,
+         cadastro_motivo = case when p_decisao = 'aprovado' then null else trim(p_motivo) end,
+         cadastro_analisado_em = now(), cadastro_analisado_por = auth.uid()
+   where id = p_usuario;
+  insert into public.notificacoes (destinatario_id, tipo, titulo, corpo)
+  values (p_usuario, 'status',
+          case p_decisao when 'aprovado' then 'Cadastro aprovado!' when 'reenviar' then 'Precisamos de outro documento' else 'Cadastro não aprovado' end,
+          case p_decisao when 'aprovado' then 'Você já pode fazer suas indicações no Rendique.' else trim(p_motivo) end);
+  perform public.registra(case p_decisao when 'aprovado' then 'Cadastro aprovado: ' when 'reenviar' then 'Novo documento pedido: ' else 'Cadastro recusado: ' end || v_p.nome);
+end $$;
+revoke execute on function public.analisar_cadastro(uuid,text,text) from public, anon;
+grant execute on function public.analisar_cadastro(uuid,text,text) to authenticated;

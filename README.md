@@ -65,6 +65,7 @@ Tipos de acesso (definidos no banco; o primeiro cadastro vira gestor):
 - **Nova indicação em passos** (indicador): autorização → imóvel (condomínio ou CEP com preenchimento automático, apto e bloco) → proprietário → venda → revisão.
 - **Bônus de venda** (aba própria do gestor): registro da venda com valor e % informados na hora, bônus aguardando comissão → a pagar → pago com comprovante Pix; painel com VGV, gráfico, filas, ranking e extrato. ⚠️ Validar o percentual com o jurídico (CRECI).
 - **Ficha do imóvel** (gestor e corretor): metragem, cômodos, valores com R$/m², situação, documentação, diferenciais. O anúncio só é liberado com a ficha completa (trava no banco).
+- **Cadastro com documento e aprovação** (porteiro, zelador, síndico e afins): na ficha, foto de documento oficial com foto (frente e verso) numa pasta privada; o indicador fica em análise (só tutorial e atendimento) até o gestor aprovar, pedir outro documento ou recusar na aba Usuários. Indicação e QR Code pessoal travados no banco até a aprovação.
 - **Tutorial obrigatório** (indicador novo): logo após o cadastro, assiste ao vídeo de boas-vindas (6 min, sem pular trechos, continua de onde parou) para liberar o app. O gestor vê quem assistiu e pode liberar sem o vídeo na aba Usuários. Vídeos em `videos/`.
 
 **Como atualizar o banco**: rodar `supabase/schema.sql` inteiro no SQL Editor (não apaga dados).
