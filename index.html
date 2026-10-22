@@ -821,6 +821,28 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 .docdec{flex-wrap:wrap}
 .fprow .note svg{display:inline-block;vertical-align:-2px}
 @media (max-width:560px){.docimgs{grid-template-columns:1fr}}
+
+/* indicadores: ficha completa */
+.stats.indstats{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:760px){.stats.indstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+button.indtile{text-align:left;cursor:pointer;font:inherit;color:inherit}
+button.indtile.on{outline:2px solid var(--gold);outline-offset:-2px}
+.indtbl tr.rowlink{cursor:pointer}.indtbl tr.rowlink:hover td{background:var(--surface-2)}
+.modal .box.ficha{width:min(960px,100%);max-height:92vh;overflow:auto;text-align:left;padding:0;gap:0}
+.ficha-in{display:flex;flex-direction:column}
+.fih{display:flex;align-items:center;gap:16px;padding:20px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:2}
+.fiav{flex:none;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--brand);color:#fff;font-family:var(--display);font-weight:800;font-size:20px}
+.fit{flex:1;min-width:0}.fit h2{margin:2px 0 6px;font-size:24px}
+.fitags{display:flex;gap:6px;flex-wrap:wrap}
+.fib{padding:18px 22px 22px;display:flex;flex-direction:column;gap:14px}
+.fiacts{display:flex;gap:8px;flex-wrap:wrap}
+.figrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.figrid .card h3,.fib .card h3{margin:0 0 8px;font-size:16px}
+.filist{display:flex;flex-direction:column;gap:6px}
+.fili{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.fili:hover{background:var(--surface-2)}
+.fiaud{display:flex;align-items:center;gap:6px;margin:0}
+@media (max-width:760px){.figrid{grid-template-columns:1fr}.fili{grid-template-columns:1fr auto}.fili .mono,.fili .note{display:none}}
 </style>
 </head>
 <body>
@@ -834,6 +856,6 @@ button.card.selos{display:block;width:100%;text-align:left;cursor:pointer;font:i
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610202330"></script>
+<script src="app.js?v=202610212345"></script>
 </body>
 </html>

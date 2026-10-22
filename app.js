@@ -139,7 +139,8 @@ async function loadData(){
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('mensagens').select('*').order('criado_em',{ascending:false}).limit(p === 'admin' ? 2000 : 300)).then(r => S.D.msgs = r.reverse()).catch(() => S.D.msgs = null));
   if (p === 'indicador') jobs.push(q(sb.from('bonus_venda').select('*').order('data_venda',{ascending:false})).then(r => S.D.bonus = r).catch(() => S.D.bonus = []));
   if (p === 'indicador' || p === 'admin') jobs.push(q(sb.from('recompensas').select('*').order('criado_em',{ascending:false})).then(r => S.D.rewards = r));
-  if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
+  if (p === 'admin') jobs.push(q(sb.from('perfis').select('*').order('criado_em',{ascending:false})).then(r => S.D.perfis = r));
+  if (p === 'corretor') jobs.push(rpc('perfis_equipe', {}).then(r => S.D.perfis = r || []).catch(() => q(sb.from('perfis').select('id,nome,funcao,codigo,papel,programa,condominio_id,criado_em')).then(r => S.D.perfis = r)));
   if (p === 'admin' || p === 'corretor') jobs.push(q(sb.from('fichas_imovel').select('*')).then(r => { S.D.fichas = Object.fromEntries(r.map(x => [x.indicacao_id, x])); }).catch(() => { S.D.fichas = {}; }));
   if (p === 'admin') {
     jobs.push(q(sb.from('ocorrencias').select('*').order('criado_em',{ascending:false}).limit(200)).then(r => S.D.ocorr = r));
@@ -978,8 +979,8 @@ const kpi = (v,l,s) => `<div class="tile"><div class="v">${v}</div><div class="l
 function vAdm(){
   const open = S.D.ocorr.filter(o => o.estado === 'aberta').length;
   const novas = S.D.inds.filter(i => i.status === 0).length;
-  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['users','Usuários',S.D.perfis.filter(p => !p.excluido_em && p.papel === 'indicador' && (p.programa === 'fotografo' ? p.fotografo_status === 'pendente' : p.cadastro_status === 'pendente')).length],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
-  const body = ({ geral:aGeral, inds:aInds, chat:aChat, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
+  const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['indic','Indicadores'],['users','Usuários',S.D.perfis.filter(p => !p.excluido_em && p.papel === 'indicador' && (p.programa === 'fotografo' ? p.fotografo_status === 'pendente' : p.cadastro_status === 'pendente')).length],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
+  const body = ({ geral:aGeral, inds:aInds, chat:aChat, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, indic:aIndicadores, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
    <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
 }
@@ -1587,6 +1588,7 @@ async function docModal(id){
   const pdf = p => /\.pdf$/i.test(p || ''), img = (p, link, rot) => !p ? `<div class="docimg vazio">${rot}: não enviado</div>` : !link ? `<div class="docimg vazio">${rot}: não foi possível abrir</div>`
     : pdf(p) ? `<a class="docimg pdf" href="${esc(link)}" target="_blank" rel="noopener">${ic('doc',28)}<b>${rot} em PDF</b><small>Abrir em outra aba</small></a>`
     : `<a class="docimg" href="${esc(link)}" target="_blank" rel="noopener" title="Abrir em tamanho real"><img src="${esc(link)}" alt="${rot} do documento"><small>${rot}</small></a>`;
+  rpc('registrar_acesso', { p_usuario: id, p_tipo: 'documento' }).catch(() => {});
   const decide = u.cadastro_status !== 'aprovado';
   openModal(`<div class="docmodal" style="text-align:left"><p class="eyebrow">Análise do cadastro</p><h2>${esc(u.nome)}</h2>
     <dl class="kv"><dt>Função</dt><dd>${esc(u.funcao)}</dd><dt>Condomínio</dt><dd>${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</dd><dt>Celular</dt><dd class="mono">${fph(u.telefone)}</dd><dt>CPF</dt><dd class="mono">${u.cpf ? fcpf(u.cpf) : '—'}</dd><dt>Documento</dt><dd>${esc(u.doc_tipo || '—')}${u.doc_enviado_em ? ` · enviado em ${fdt(u.doc_enviado_em)}` : ''}</dd></dl>
@@ -1596,6 +1598,67 @@ async function docModal(id){
     <div id="doc-err" class="err" hidden></div>
     <div class="btns docdec"><button class="btn green" data-a="cadDecide" data-v="${u.id}" data-s="aprovado">${ic('check',18)}Aprovar cadastro</button><button class="btn ghost" data-a="cadDecide" data-v="${u.id}" data-s="reenviar">Pedir outro documento</button><button class="btn danger" data-a="cadDecide" data-v="${u.id}" data-s="recusado">Recusar</button></div>`
     : `<p class="note"><b>Cadastro aprovado</b>${u.cadastro_analisado_em ? ` em ${fdt(u.cadastro_analisado_em)}` : ''}.</p><button class="btn ghost" data-a="mclose">Fechar</button>`}</div>`);
+}
+/* ---------- Indicadores: ficha completa (só gestor) ---------- */
+const indSt = u => u.programa === 'fotografo'
+  ? ({ pendente: ['proc', 'Em análise'], recusado: ['gray', 'Recusado'] }[u.fotografo_status] || ['disp', 'Aprovado'])
+  : ({ documento: ['gray', 'Sem documento'], pendente: ['proc', 'Em análise'], reenviar: ['gray', 'Novo documento pedido'], recusado: ['gray', 'Recusado'], aprovado: ['disp', 'Aprovado'] }[u.cadastro_status] || ['disp', 'Liberado']);
+const indGrupo = u => !u.ativo ? 'susp' : ['proc'].includes(indSt(u)[0]) ? 'analise' : ['Sem documento', 'Novo documento pedido'].includes(indSt(u)[1]) ? 'semdoc' : indSt(u)[1] === 'Recusado' ? 'recusado' : 'ok';
+function indNums(id){
+  const I = S.D.inds.filter(i => i.indicador_id === id), R = (S.D.rewards || []).filter(r => r.indicador_id === id && r.estado !== 'cancelada'), B = (S.D.bonus || []).filter(b => b.indicador_id === id && b.estado !== 'cancelado');
+  const sum = L => L.reduce((a, x) => a + Number(x.valor || 0), 0);
+  return { I, tot: I.length, qual: I.filter(i => i.status >= 3 && i.status !== 8).length, vend: I.filter(i => i.status === 6 || i.status === 7).length,
+    recG: sum(R), recP: sum(R.filter(r => r.estado === 'pago')), recA: sum(R.filter(r => ['disponivel', 'resgate'].includes(r.estado))), bonT: sum(B), bonP: sum(B.filter(b => b.estado === 'pago')),
+    conv: S.D.perfis.filter(p => p.convidado_por === id && !p.excluido_em).length };
+}
+function aIndicadores(){
+  const all = S.D.perfis.filter(p => p.papel === 'indicador' && !p.excluido_em);
+  const qv = (S.indQ || '').trim().toLowerCase(), qd = dig(qv), fg = S.indG || '', fp = S.indP || '', fc = S.indC || '';
+  const L = all.filter(u => (!qv || [u.nome, u.codigo, u.funcao, u.regiao, condo(u.condominio_id)?.nome, u.condominio_texto].some(v => String(v || '').toLowerCase().includes(qv)) || (qd.length >= 4 && (dig(u.cpf).includes(qd) || dig(u.telefone).includes(qd))))
+    && (!fg || indGrupo(u) === fg) && (!fp || (fp === 'foto' ? u.programa === 'fotografo' : u.programa !== 'fotografo')) && (!fc || u.condominio_id === fc));
+  const cnt = g => all.filter(u => indGrupo(u) === g).length;
+  const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
+  const condos = [...new Set(all.map(u => u.condominio_id).filter(Boolean))].map(id => [id, condoNome(id)]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  const tile = (v, l, g) => `<button class="tile indtile ${fg === g ? 'on' : ''}" data-a="indG" data-v="${g}"><div class="v">${v}</div><div class="l">${l}</div></button>`;
+  return `<p class="note" style="margin:0 0 12px">Ficha completa de cada indicador: dados pessoais, documento, Pix e desempenho. Só o gestor vê esta aba, e cada ficha aberta fica registrada na Auditoria.</p>
+   <div class="stats indstats">${tile(all.length, 'Indicadores', '')}${tile(cnt('analise'), 'Em análise', 'analise')}${tile(cnt('semdoc'), 'Sem documento', 'semdoc')}${tile(cnt('ok'), 'Aprovados', 'ok')}${tile(cnt('susp'), 'Suspensos', 'susp')}</div>
+   <div class="ind-bar" style="margin-top:12px"><label class="search">${ic('search',18)}<input class="in" id="ind-busca" placeholder="Buscar por nome, CPF, celular, código ou condomínio" value="${esc(S.indQ || '')}" autocomplete="off"></label></div>
+   <div class="ind-filt"><label><span>Tipo</span><select class="in" id="if-prog">${opt('', 'Todos', fp)}${opt('cond', 'Profissionais de condomínio', fp)}${opt('foto', 'Fotógrafos parceiros', fp)}</select></label>
+    <label><span>Condomínio</span><select class="in" id="if-condo">${opt('', 'Todos', fc)}${condos.map(([id, n]) => opt(id, n, fc)).join('')}</select></label>
+    ${fg || fp || fc || qv ? `<button class="link" data-a="indLimpa">Limpar filtros</button>` : ''}</div>
+   <div class="tbl-wrap" style="margin-top:14px"><table class="indtbl"><thead><tr><th>Indicador</th><th>Tipo e local</th><th>Status</th><th class="num">Indicações</th><th class="num">Recebido</th><th>Desde</th><th></th></tr></thead><tbody>
+   ${L.map(u => { const n = indNums(u.id), st = indSt(u); return `<tr data-a="fichaInd" data-v="${u.id}" class="rowlink${u.ativo ? '' : ' susp'}">
+     <td><b>${esc(u.nome)}</b><br><span class="note mono">${u.cpf ? 'CPF ' + fcpf(u.cpf) : 'CPF não informado'}</span></td>
+     <td>${u.programa === 'fotografo' ? `<span class="tag foto">${ic('camera',12)}Fotógrafo</span><br><span class="note">${esc(u.regiao || '—')}</span>` : `${esc(u.funcao)}<br><span class="note">${esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')}</span>`}</td>
+     <td><span class="tag ${st[0]}">${st[1]}</span>${u.ativo ? '' : ' <span class="tag gray">Suspenso</span>'}</td>
+     <td class="num"><b>${n.tot}</b><br><span class="note">${n.qual} qualif. · ${n.vend} venda${n.vend === 1 ? '' : 's'}</span></td>
+     <td class="num">${money(n.recP + n.bonP)}</td><td class="num">${fd(u.criado_em)}</td><td><button class="btn sm ghost" data-a="fichaInd" data-v="${u.id}">Abrir ficha</button></td></tr>`; }).join('') || `<tr><td colspan="7" class="note">Nenhum indicador com esses filtros.</td></tr>`}
+   </tbody></table></div>`;
+}
+async function fichaModal(id){
+  const u = perfil(id); if (!u) return;
+  rpc('registrar_acesso', { p_usuario: id, p_tipo: 'ficha' }).catch(() => {});
+  const n = indNums(id), st = indSt(u), inic = String(u.nome || '?').split(' ').filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
+  const kv = rows => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  const quem = uid => esc(perfil(uid)?.nome || '—');
+  const ultimas = [...n.I].sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em)).slice(0, 8);
+  openModal(`<div class="ficha-in">
+   <header class="fih"><div class="fiav">${esc(inic)}</div><div class="fit"><p class="eyebrow">Ficha do indicador · ${esc(u.codigo)}</p><h2>${esc(u.nome)}</h2>
+     <div class="fitags"><span class="tag ${st[0]}">${st[1]}</span>${u.ativo ? '' : '<span class="tag gray">Suspenso</span>'}${u.programa === 'fotografo' ? `<span class="tag foto">${ic('camera',12)}Fotógrafo parceiro</span>` : `<span class="tag gray">${esc(u.funcao)}</span>`}</div></div>
+     <button class="back" data-a="mclose" aria-label="Fechar">${ic('x',20)}</button></header>
+   <div class="fib">
+    <div class="fiacts"><a class="btn sm wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" style="text-decoration:none">${ic('chat',16)}WhatsApp</a>${u.doc_frente ? `<button class="btn sm ghost" data-a="verDoc" data-v="${u.id}">${ic('idcard',16)}Ver documento</button>` : ''}<button class="btn sm ghost" data-a="admTabGo" data-v="users">Acesso e suspensão</button></div>
+    <div class="figrid">
+     <section class="card"><h3>Dados pessoais</h3>${kv([['Nome', esc(u.nome)], ['CPF', u.cpf ? `<span class="mono">${fcpf(u.cpf)}</span>` : '—'], ['Celular', u.telefone ? `<span class="mono">${fph(u.telefone)}</span>` : '—'], ['E-mail', '<span id="fi-email" class="note">carregando…</span>'], ['Cadastro', fdt(u.criado_em)], ['Termos', u.termos_versao ? `versão ${esc(u.termos_versao)}${u.termos_aceito_em ? ' · aceitos em ' + fdt(u.termos_aceito_em) : ''}` : 'não aceitos']])}</section>
+     <section class="card"><h3>Programa</h3>${kv([['Tipo', u.programa === 'fotografo' ? 'Fotógrafo parceiro' : 'Profissional de condomínio'], ['Função', esc(u.funcao)], u.programa === 'fotografo' ? ['Região', esc(u.regiao || '—')] : ['Condomínio', esc(condo(u.condominio_id)?.nome || u.condominio_texto || '—')], u.portfolio ? ['Portfólio', esc(u.portfolio)] : null, ['Convidado por', quem(u.convidado_por)], ['Convidou', `${n.conv} pessoa${n.conv === 1 ? '' : 's'}`], ['Tutorial', u.tutorial_visto_em ? 'assistido em ' + fdt(u.tutorial_visto_em) : u.tutorial_visto_em === null ? 'pendente' : '—']])}</section>
+     <section class="card"><h3>Verificação</h3>${u.programa === 'fotografo' ? kv([['Situação', st[1]]]) : kv([['Situação', st[1]], ['Documento', esc(u.doc_tipo || '—')], ['Enviado', u.doc_enviado_em ? fdt(u.doc_enviado_em) : '—'], ['Analisado', u.cadastro_analisado_em ? `${fdt(u.cadastro_analisado_em)} por ${quem(u.cadastro_analisado_por)}` : '—'], u.cadastro_motivo ? ['Mensagem', esc(u.cadastro_motivo)] : null])}</section>
+     <section class="card"><h3>Pagamentos</h3>${kv([['Chave Pix', u.pix_chave ? `${esc(u.pix_tipo || '')} · <span class="mono">${esc(u.pix_chave)}</span>` : 'não cadastrada'], ['Recompensas', `${money(n.recG)} geradas · ${money(n.recP)} pagas`], ['A pagar', money(n.recA)], ['Bônus de venda', `${money(n.bonT)} · ${money(n.bonP)} pagos`]])}</section>
+    </div>
+    <section class="card"><div class="sec-h"><h3>Indicações</h3><span class="note">${n.tot} no total · ${n.qual} qualificadas · ${n.vend} vendas</span></div>
+     ${ultimas.length ? `<div class="filist">${ultimas.map(i => `<button class="fili" data-a="fichaVerInd" data-v="${i.id}"><span class="mono">${i.id}</span><span>${esc(i.proprietario_nome)}</span>${pill(i.status)}<span class="note">${fd(i.criado_em)}</span></button>`).join('')}</div>` : '<p class="note">Ainda não fez indicações.</p>'}</section>
+    <p class="note fiaud">${ic('shield',14)} Dados protegidos pela LGPD. Esta consulta fica registrada na Auditoria.</p>
+   </div></div>`, 'ficha');
+  try { const e = await rpc('email_usuario', { p_usuario: id }); const el = $('#fi-email'); if (el) { el.textContent = e || '—'; el.classList.remove('note'); } } catch(e) { const el = $('#fi-email'); if (el) el.textContent = 'atualize o banco para ver'; }
 }
 function aUsers(){
   const vivos = S.D.perfis.filter(p => !p.excluido_em), excl = S.D.perfis.length - vivos.length;
@@ -2500,6 +2563,11 @@ const act = {
   },
   novoLinkFoto: () => guard(async () => { if (!confirm('Trocar o link de convite? O link atual para de funcionar.')) return; S.D.fotoToken = await rpc('novo_link_fotografo', {}); closeModal(); act.linkFoto(); toast('Link novo gerado'); }),
   verDoc: d => guard(async () => { await docModal(d.v); }),
+  fichaInd: (d, el, e) => { if (e.target.closest('a,button') && e.target.closest('[data-a]') !== el) return; fichaModal(d.v); },
+  fichaVerInd: d => { closeModal(); S.admTab = 'inds'; S.admGrupo = 'todas'; render(); act.openInd({ v: d.v }); },
+  admTabGo: d => { closeModal(); S.admTab = d.v; render(); window.scrollTo(0, 0); },
+  indG: d => { S.indG = S.indG === d.v ? '' : d.v; render(); },
+  indLimpa: () => { S.indG = S.indP = S.indC = S.indQ = ''; render(); },
   cadDecide: d => guard(async () => {
     const mot = String($('#doc-mot')?.value || '').trim(), u = perfil(d.v);
     if (d.s !== 'aprovado' && !mot) return showErr('#doc-err', d.s === 'reenviar' ? 'Escreva o que precisa mudar no documento.' : 'Escreva o motivo da recusa.');
@@ -2542,6 +2610,8 @@ document.addEventListener('change', e => {
   if (t.dataset && t.dataset.docfile) docPreview(t);
   if (t.id === 'a-filter') { S.admFilter = t.value; render(); }
   if (t.id === 'bon-mes') { S.bonMes = t.value; render(); }
+  if (t.id === 'if-prog') { S.indP = t.value; render(); }
+  if (t.id === 'if-condo') { S.indC = t.value; render(); }
   if (['af-mes','af-condo','af-ind','af-ord'].includes(t.id)) { S[{ 'af-mes':'admMes', 'af-condo':'admCondo', 'af-ind':'admInd', 'af-ord':'admOrd' }[t.id]] = t.value; render(); }
   if (t.id === 'r-de' || t.id === 'r-ate') { S[t.id === 'r-de' ? 'relDe' : 'relAte'] = t.value; render(); }
   if (t.id === 'r-pess') S.relPess = t.checked;
@@ -2558,6 +2628,7 @@ document.addEventListener('input', e => {
   if (e.target.form?.dataset.f === 'publico') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } pubSync(); }
   if (e.target.form?.dataset.f === 'nova') { if (e.target.id === 'f-cep') { const c = dig(e.target.value).slice(0,8); e.target.value = c.length > 5 ? c.slice(0,5) + '-' + c.slice(5) : c; nvCep(c); } nvSync(); }
   if (e.target.id === 'f-busca') { S.finQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#f-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
+  if (e.target.id === 'ind-busca') { S.indQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#ind-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; }
   if (e.target.id === 'a-busca') { S.admQ = e.target.value; const pos = e.target.selectionStart; render(); const el = $('#a-busca'); if (el) { el.focus(); el.setSelectionRange(pos, pos); } return; } if (['f-phone','f-wa','p-phone','c-tel'].includes(e.target.id)) { const d = dig(e.target.value).slice(0,11); e.target.value = d.length > 2 ? fph(d) || d : d; } });
 
 const okEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
