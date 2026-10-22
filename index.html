@@ -881,6 +881,34 @@ button.indtile.on{outline:2px solid var(--gold);outline-offset:-2px}
 .gvhb{display:grid;grid-template-columns:minmax(0,1.2fr) 2fr auto;gap:10px;align-items:center;padding:6px 0}.gvhb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gvhb div{height:10px;border-radius:6px;background:var(--surface-2)}.gvhb i{display:block;height:100%;border-radius:6px;background:var(--gold)}
 @media (max-width:900px){.gvacts,.gvpipe{grid-template-columns:repeat(2,minmax(0,1fr))}.gvexec{grid-template-columns:1fr 1fr}.gvst .arr{display:none}}
+
+/* navegação do painel: variações */
+.navA{overflow:visible;align-items:stretch;flex-wrap:nowrap}
+.navA>button,.ngrp>button{display:inline-flex;align-items:center;gap:6px}
+.ngrp{position:relative}
+.ngrp>button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer;font:inherit;font-weight:600}
+.ngrp.on>button{color:var(--ink);border-color:var(--gold)}.ngrp em{font-style:normal;color:var(--gold);font-weight:700}
+.ngrp .car{font-size:11px;opacity:.7}
+.nmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgb(0 0 0/.35);padding:6px;display:flex;flex-direction:column}
+.nmenu.r{left:auto;right:0}
+.nmenu button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:10px 12px;border-radius:10px;font:inherit;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
+.nmenu button .t{flex:1}.nmenu button:hover{background:var(--surface-2)}.nmenu button.on{background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.nmenu button svg{color:var(--muted)}
+.navB{display:grid;grid-template-columns:230px minmax(0,1fr);gap:24px;align-items:start;width:100%}
+.navB-side{position:sticky;top:84px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:10px}
+.navB-side .nsec{margin:12px 10px 4px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.navB-side button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:9px 10px;border-radius:10px;font:inherit;font-weight:600;color:var(--muted);text-align:left;cursor:pointer}
+.navB-side button .t{flex:1}.navB-side button:hover{background:var(--surface-2);color:var(--ink)}
+.navB-side button.on{background:color-mix(in srgb,var(--gold) 14%,transparent);color:var(--ink)}.navB-side button.on svg{color:#C98E1E}
+.navB-main{min-width:0;display:flex;flex-direction:column;gap:16px}
+.navC{display:flex;gap:8px;padding:6px;border:1px solid var(--line);border-radius:18px;background:var(--surface);align-items:stretch}
+.navC>button,.nmais>button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:none;padding:10px 8px;border-radius:12px;font:inherit;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer;min-width:96px}
+.navC>button:hover,.nmais>button:hover{background:var(--surface-2);color:var(--ink)}
+.navC>button.on,.nmais>button.on{background:color-mix(in srgb,var(--gold) 15%,transparent);color:var(--ink)}.navC button.on svg{color:#C98E1E}
+.navC>button .cnt,.nmais>button .cnt{position:absolute;top:6px;right:calc(50% - 26px);margin:0}
+.nmais{position:relative;flex:1;display:flex}.nmais>button{width:100%}
+.ngrp .cnt,.navB-side .cnt,.nmenu .cnt,.navC .cnt{font-size:11px;background:var(--danger);color:#fff;border-radius:999px;padding:1px 6px}
+@media (max-width:900px){.navB{grid-template-columns:1fr}.navB-side{position:static;flex-direction:row;overflow-x:auto}.navB-side .nsec{display:none}.navC{overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -894,6 +922,6 @@ button.indtile.on{outline:2px solid var(--gold);outline-offset:-2px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="config.js?v=202610062113"></script>
-<script src="app.js?v=202610220010"></script>
+<script src="app.js?v=202610220100"></script>
 </body>
 </html>
