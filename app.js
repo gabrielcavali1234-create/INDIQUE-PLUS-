@@ -982,30 +982,15 @@ function vAdm(){
   const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['indic','Indicadores'],['users','Usuários',S.D.perfis.filter(p => !p.excluido_em && p.papel === 'indicador' && (p.programa === 'fotografo' ? p.fotografo_status === 'pendente' : p.cadastro_status === 'pendente')).length],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
   const body = ({ geral:aGeral, inds:aInds, chat:aChat, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, indic:aIndicadores, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
-   ${S.navVar === 'b' ? `<div class="navB">${admNav(tabs)}<div class="navB-main">${body}</div></div>` : admNav(tabs) + body}`;
+   <div class="navB">${admNav(tabs)}<div class="navB-main">${body}</div></div>`;
 }
-/* ---------- navegação do painel: variações ---------- */
+/* ---------- navegação do painel: menu lateral por grupos ---------- */
 const NAV_IC = { geral:'chart', inds:'list', chat:'chat2', ocorr:'alert', rec:'wallet', bonus:'wallet', condos:'building', indic:'idcard', users:'users', prog:'doc', aud:'shield', rel:'doc' };
 const NAV_GRUPOS = [['Operação', ['inds','chat','ocorr']], ['Dinheiro', ['rec','bonus']], ['Rede', ['indic','users','condos']], ['Gestão', ['prog','aud','rel']]];
 function admNav(tabs){
   const T = Object.fromEntries(tabs.map(([k, l, c]) => [k, { l, c }])), cnt = c => c ? `<span class="cnt">${c}</span>` : '', on = k => S.admTab === k ? 'on' : '';
-  const v = S.navVar || '';
-  if (v === 'a') { // grupos com menu
-    const g = NAV_GRUPOS.map(([nome, ks]) => { const tot = ks.reduce((a, k) => a + (T[k].c || 0), 0), ativo = ks.includes(S.admTab), aberto = S.navAberto === nome;
-      return `<div class="ngrp ${ativo ? 'on' : ''} ${aberto ? 'open' : ''}"><button data-a="navGrupo" data-v="${nome}">${nome}${ativo ? `<em>· ${T[S.admTab].l}</em>` : ''}${cnt(tot)}<span class="car">▾</span></button>
-        ${aberto ? `<div class="nmenu">${ks.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k], 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}</div>` : ''}</div>`; }).join('');
-    return `<div class="atabs navA"><button class="${on('geral')}" data-a="atab" data-v="geral">${ic('chart', 16)}Visão geral</button>${g}</div>`;
-  }
-  if (v === 'b') { // menu lateral fixo
-    return `<div class="navB-side">${[['', ['geral']], ...NAV_GRUPOS].map(([nome, ks]) => `${nome ? `<p class="nsec">${nome}</p>` : ''}${ks.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k], 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}`).join('')}</div>`;
-  }
-  if (v === 'c') { // atalhos com ícone + mais
-    const fixos = ['geral','inds','chat','rec','indic'], resto = tabs.map(t => t[0]).filter(k => !fixos.includes(k)), totR = resto.reduce((a, k) => a + (T[k].c || 0), 0), restoOn = resto.includes(S.admTab);
-    return `<div class="navC">${fixos.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k], 22)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}
-      <div class="nmais ${S.navAberto === 'mais' ? 'open' : ''}"><button class="${restoOn ? 'on' : ''}" data-a="navGrupo" data-v="mais">${ic('more', 22)}<span class="t">${restoOn ? T[S.admTab].l : 'Mais'}</span>${cnt(totR)}</button>
-       ${S.navAberto === 'mais' ? `<div class="nmenu r">${resto.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k], 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}</div>` : ''}</div></div>`;
-  }
-  return `<div class="atabs">${tabs.map(([k,l,c]) => `<button class="${on(k)}" data-a="atab" data-v="${k}">${l}${cnt(c)}</button>`).join('')}</div>`;
+  const grupos = [['', ['geral']], ...NAV_GRUPOS].map(([nome, ks]) => [nome, ks.filter(k => T[k])]).filter(([, ks]) => ks.length);
+  return `<nav class="navB-side">${grupos.map(([nome, ks]) => `${nome ? `<p class="nsec">${nome}</p>` : ''}${ks.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k] || 'doc', 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}`).join('')}</nav>`;
 }
 /* ---------- Visão geral: variações A / B / C ---------- */
 function geralDados(){
@@ -2464,8 +2449,7 @@ const act = {
   go: d => go(d.v),
   det: async d => { S.det = d.v; go('det'); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) { toast(msg(e)); } } },
   filter: d => { S.filter = d.v; render(); },
-  navGrupo: d => { S.navAberto = S.navAberto === d.v ? null : d.v; render(); },
-  atab: d => { S.admTab = d.v; S.flash = null; S.navAberto = null; render(); if (d.v === 'chat') chatLer(); },
+  atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); if (innerWidth <= 900 || document.documentElement.dataset.device === 'mob') { const b = $('.navB-side .on'); if (b) b.parentElement.scrollLeft = b.offsetLeft - 40; } },
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await loadPerfil(); await refresh(); toast('Dados atualizados'); }),
   logout: () => guard(async () => { S.drawer = null; S.bell = false; closeModal(); await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
