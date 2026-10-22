@@ -26,6 +26,7 @@ const S = {
 };
 if (params.get('c')) saveLS('rendique-convite', params.get('c'));
 S.instalar = params.get('instalar');
+S.aovivo = params.get('aovivo') === '1';
 const UA = navigator.userAgent || '', ehIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), ehAndroid = /Android/i.test(UA);
 const noApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 let pedidoInstalar = null;
@@ -122,6 +123,11 @@ function busy(on){ document.body.classList.toggle('busy', !!on); }
 async function q(p){ const { data, error } = await p; if (error) throw error; return data; }
 async function rpc(fn, args){ return q(sb.rpc(fn, args)); }
 
+// presença: avisa o banco que a pessoa está usando o app (1 vez ao abrir e a cada 5 min com a tela aberta)
+function presenca(){
+  const marca = () => { if (S.perfil && !document.hidden) sb.rpc('marcar_presenca').then(() => {}, () => {}); };
+  marca(); if (!S.presencaT) { S.presencaT = setInterval(marca, 5 * 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) marca(); }); }
+}
 async function loadPerfil(){
   const uid = S.session?.user?.id; if (!uid) { S.perfil = null; return; }
   const rows = await q(sb.from('perfis').select('*').eq('id', uid).limit(1));
@@ -214,7 +220,8 @@ async function onSession(session){
     if (!S.perfil.ativo) { S.screen = 'inativo'; render(); return; }
     await loadData();
     S.screen = 'app'; S.tab = 'home'; subscribe();
-    if (location.hash || location.search) history.replaceState(null, '', location.pathname);
+    if (location.hash || location.search) history.replaceState(null, '', location.pathname + (S.aovivo ? '?aovivo=1' : ''));
+    presenca();
   } catch(e) { S.screen = 'erro'; S.erro = msg(e); }
   render();
 }
@@ -990,7 +997,92 @@ const NAV_GRUPOS = [['Operação', ['inds','chat','ocorr']], ['Dinheiro', ['rec'
 function admNav(tabs){
   const T = Object.fromEntries(tabs.map(([k, l, c]) => [k, { l, c }])), cnt = c => c ? `<span class="cnt">${c}</span>` : '', on = k => S.admTab === k ? 'on' : '';
   const grupos = [['', ['geral']], ...NAV_GRUPOS].map(([nome, ks]) => [nome, ks.filter(k => T[k])]).filter(([, ks]) => ks.length);
-  return `<nav class="navB-side">${grupos.map(([nome, ks]) => `${nome ? `<p class="nsec">${nome}</p>` : ''}${ks.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k] || 'doc', 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}`).join('')}</nav>`;
+  return `<nav class="navB-side">${grupos.map(([nome, ks]) => `${nome ? `<p class="nsec">${nome}</p>` : ''}${ks.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k] || 'doc', 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}`).join('')}<a class="navtv" href="./?aovivo=1" target="_blank" rel="noopener">${ic('monitor', 18)}<span class="t">Tela ao vivo</span><span class="tvdot"></span></a></nav>`;
+}
+/* ---------- Tela ao vivo (KPIs para TV, atualiza a cada minuto) ---------- */
+const TV_SEG = 60;
+function tvLigar(){
+  if (S.tvLigada) return; S.tvLigada = true; S.tvProx = 0;
+  setInterval(tvTick, 1000); tvTick();
+  tvWake(); document.addEventListener('visibilitychange', () => { if (!document.hidden) { tvWake(); S.tvProx = 0; } });
+  let t; document.addEventListener('mousemove', () => { document.body.classList.remove('tv-quieto'); clearTimeout(t); t = setTimeout(() => document.body.classList.add('tv-quieto'), 4000); });
+}
+async function tvWake(){ try { if ('wakeLock' in navigator && !document.hidden) S.tvLock = await navigator.wakeLock.request('screen'); } catch(e) {} }
+async function tvTick(){
+  if (!S.aovivo || S.screen !== 'app' || papel() !== 'admin') return;
+  const now = new Date(), r = $('#tv-hora'); if (r) r.textContent = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const d = $('#tv-data'); if (d) { const t = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }); d.textContent = t[0].toUpperCase() + t.slice(1); }
+  const falta = Math.max(0, Math.ceil((S.tvProx - Date.now()) / 1000)), cd = $('#tv-cd');
+  if (cd) { cd.style.setProperty('--p', (1 - falta / TV_SEG).toFixed(3)); cd.querySelector('b').textContent = falta; }
+  if (Date.now() < S.tvProx || S.tvBusy) return;
+  S.tvBusy = true; S.tvProx = Date.now() + TV_SEG * 1000;
+  try { S.tvAnt = S.tv; S.tv = await rpc('kpi_ao_vivo', {}); S.tvErro = null; S.tvEm = new Date(); }
+  catch(e) { S.tvErro = msg(e); S.tvProx = Date.now() + 15000; }
+  S.tvBusy = false; render();
+}
+const tvN = v => Number(v || 0).toLocaleString('pt-BR');
+function tvNum(k, v, cls = ''){ // número que sobe animado quando muda
+  const ant = S.tvAnt ? k.split('.').reduce((o, x) => o?.[x], S.tvAnt) : null;
+  return `<b class="tvn ${cls} ${ant != null && v > ant ? 'sobe' : ''}" data-de="${ant != null && v !== ant ? ant : v}" data-ate="${v}">${tvN(v)}</b>`;
+}
+function tvConta(){
+  const ul = $('.tvfeed ul'); if (ul) { const lim = ul.getBoundingClientRect().bottom + 1; ul.querySelectorAll('li').forEach(li => { li.style.visibility = li.getBoundingClientRect().bottom > lim ? 'hidden' : ''; }); }
+  document.querySelectorAll('.tvn').forEach(el => { const de = +el.dataset.de, ate = +el.dataset.ate; if (de === ate) return; const t0 = performance.now();
+    const passo = t => { const k = Math.min(1, (t - t0) / 1200), e = 1 - Math.pow(1 - k, 3); el.textContent = tvN(Math.round(de + (ate - de) * e)); if (k < 1) requestAnimationFrame(passo); };
+    requestAnimationFrame(passo); });
+}
+function tvGrafico(serie){ // em cima: pessoas no app; embaixo: indicações (barras) e cadastros (tracejado). Cada faixa com a sua escala.
+  const W = 1000, n = serie.length, bw = W / n, x = i => (i * bw + bw / 2).toFixed(1);
+  const ma = Math.max(3, ...serie.map(d => d.ace)), mb = Math.max(3, ...serie.map(d => Math.max(d.ind, d.cad)));
+  const ya = v => 112 - v / ma * 100, yb = v => 268 - v / mb * 112;
+  const la = serie.map((d, i) => `${x(i)},${ya(d.ace).toFixed(1)}`).join(' '), lc = serie.map((d, i) => `${x(i)},${yb(d.cad).toFixed(1)}`).join(' ');
+  const barras = serie.map((d, i) => d.ind ? `<rect x="${(i * bw + bw * .2).toFixed(1)}" y="${yb(d.ind).toFixed(1)}" width="${(bw * .6).toFixed(1)}" height="${(268 - yb(d.ind)).toFixed(1)}" rx="2" class="${i === n - 1 ? 'hj' : ''}"/>` : '').join('');
+  const h = serie[n - 1] || { ace: 0, ind: 0, cad: 0 };
+  return `<div class="tvch"><div class="tvch-l"><span class="la">Pessoas no app<b>pico ${tvN(ma)}</b></span><span class="bi">Indicações<b>pico ${tvN(Math.max(...serie.map(d => d.ind)))}</b></span></div>
+   <svg class="tvchart" viewBox="0 0 ${W} 270" preserveAspectRatio="none" role="img" aria-label="Últimos 30 dias">
+    <defs><linearGradient id="tvga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6CA8FF" stop-opacity=".28"/><stop offset="1" stop-color="#6CA8FF" stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" x2="${W}" y1="112" y2="112" class="g"/><line x1="0" x2="${W}" y1="268" y2="268" class="g"/>
+    <polygon fill="url(#tvga)" points="${x(0)},112 ${la} ${x(n - 1)},112"/><polyline class="la" points="${la}"/>
+    <g class="bi">${barras}</g><polyline class="lc" points="${lc}"/></svg>
+   <div class="tvch-x" style="grid-template-columns:repeat(${n},1fr)">${serie.map((d, i) => `<span>${i === n - 1 ? 'hoje' : i % 5 === 4 ? new Date(d.d + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''}</span>`).join('')}</div></div>`;
+}
+const TV_FEED = { indicacao: ['Nova indicação', 'list', 'g'], cadastro: ['Novo indicador', 'users', 'b'], fotografo: ['Novo fotógrafo', 'camera', 'b'], corretor: ['Novo corretor', 'idcard', 'b'], venda: ['Venda registrada', 'check', 'v'] };
+function vAoVivo(){
+  const K = S.tv;
+  const topo = `<header class="tvtop"><div class="tvbrand">${logo(40)}<span>Rendique</span><em class="tvlive"><i></i>AO VIVO</em></div>
+    <div class="tvclock"><b id="tv-hora"></b><span id="tv-data"></span></div>
+    <div class="tvctl"><div class="tvcd" id="tv-cd" title="Próxima atualização"><b>${TV_SEG}</b><span>s</span></div>
+     <button class="tvbtn" data-a="tvTela" title="Tela cheia">${ic('expand', 20)}</button><a class="tvbtn" href="./" title="Sair da tela ao vivo">${ic('x', 20)}</a></div></header>`;
+  if (!K) return `<div class="tv">${topo}<div class="tvload">${S.tvErro ? `<p>Não foi possível carregar os números.</p><small>${esc(S.tvErro)}</small>` : '<p>Carregando os números…</p>'}</div></div>`;
+  const bloco = (k, t, icn, sub, extra = '') => { const o = K[k]; return `<section class="tvk tvk-${k}"><header>${ic(icn, 22)}<h2>${t}</h2>${extra}</header>
+    <div class="tvhms"><div><span>Hoje</span>${tvNum(k + '.hoje', o.hoje)}</div><div><span>Semana</span>${tvNum(k + '.semana', o.semana)}</div><div class="m"><span>Mês</span>${tvNum(k + '.mes', o.mes, 'big')}</div></div>
+    <footer>${sub}</footer></section>`; };
+  const varr = (a, b) => { if (!b) return a ? '<span class="tvd up">primeiro mês</span>' : ''; const p = Math.round((a - b) / b * 100); return `<span class="tvd ${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}% vs mês passado</span>`; };
+  const c = K.cadastros, i = K.indicacoes, desde = K.acessos.desde && K.acessos.desde > new Date(Date.now() - 31 * 864e5).toISOString().slice(0, 10) ? `contando desde ${new Date(K.acessos.desde + 'T12:00').toLocaleDateString('pt-BR')}` : 'pessoas diferentes que abriram o app';
+  const fun = ['Indicações', 'Em validação', 'Contato feito', 'Qualificadas', 'Anúncio ativo', 'Negociação', 'Vendas'], fmx = Math.max(1, K.funil[0]);
+  const feed = (K.feed || []).map(e => { const [t, icn, k] = TV_FEED[e.tipo] || [e.tipo, 'bell', 'g'], novo = Date.now() - new Date(e.em) < 15 * 60000;
+    return `<li class="${k} ${novo ? 'novo' : ''}"><span class="fi">${ic(icn, 18)}</span><span class="ft"><b>${t}</b><small>${esc(e.quem || '')}${e.onde ? ' · ' + esc(e.onde) : ''}</small></span><time>${ago(e.em)}</time></li>`; }).join('') || '<li class="vazio">Ainda não há movimento.</li>';
+  const condos = K.condos.length ? K.condos.map((x, k) => `<span><i>${k + 1}</i>${esc(x.nome)} <b>${x.n}</b></span>`).join('') : '<span class="vz">Nenhuma indicação de condomínio neste mês</span>';
+  return `<div class="tv ${S.tvErro ? 'off' : ''}">${topo}
+   <div class="tvgrid">
+    ${bloco('acessos', 'Pessoas no app', 'users', desde, `<span class="tvon"><i></i>${tvNum('online', K.online)} online agora</span>`)}
+    ${bloco('cadastros', 'Novos cadastros', 'addsq', `${varr(c.mes, c.mes_passado)}<span>${tvN(c.total)} no total</span>`)}
+    ${bloco('indicacoes', 'Indicações', 'list', `${varr(i.mes, i.mes_passado)}<span>${tvN(i.andamento)} em andamento</span>`)}
+    ${bloco('proprietarios', 'Proprietários', 'home', `<span>${tvN(K.proprietarios.total)} autorizaram contato desde o início</span>`)}
+    <section class="tvp tvserie"><header><h2>Últimos 30 dias</h2><div class="tvleg"><span class="la">Pessoas no app</span><span class="bi">Indicações</span><span class="lc">Cadastros</span></div></header>${tvGrafico(K.serie)}</section>
+    <section class="tvp tvfun"><header><h2>Funil</h2><span class="tvsm">todas as indicações</span></header>
+     ${fun.map((l, k) => `<div class="tvf"><span>${l}</span><div><i style="width:${Math.max(K.funil[k] ? 3 : 0, K.funil[k] / fmx * 100)}%;--h:${k}"></i></div><b>${tvN(K.funil[k])}</b></div>`).join('')}</section>
+    <section class="tvp tvfeed"><header><h2>Acontecendo agora</h2></header><ul>${feed}</ul></section>
+   </div>
+   <footer class="tvbar">
+    <div><span>Base</span><b>${tvN(c.indicadores)}</b> indicadores · <b>${tvN(c.fotografos)}</b> fotógrafos · <b>${tvN(c.corretores)}</b> corretores</div>
+    <div class="${c.em_analise ? 'al' : ''}"><span>Cadastros em análise</span><b>${tvN(c.em_analise)}</b></div>
+    <div><span>Qualificadas no mês</span><b>${tvN(i.qualificadas_mes)}</b></div>
+    <div><span>Vendas no mês</span><b>${tvN(K.vendas.mes)}</b>${K.vendas.vgv_mes ? ` · ${brlK(K.vendas.vgv_mes)}` : ''}</div>
+    <div class="tvcondos"><span>Top condomínios do mês</span>${condos}</div>
+   </footer>
+   <p class="tvst">${S.tvErro ? `${ic('alert', 14)} Sem conexão, tentando de novo. Mostrando os números das ${S.tvEm ? S.tvEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--'}.` : `Atualizado às ${S.tvEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}</p>
+  </div>`;
 }
 /* ---------- Visão geral: variações A / B / C ---------- */
 function geralDados(){
@@ -2339,8 +2431,12 @@ function chatRecebe(p){
 function render(){
   const root = document.documentElement, app = $('#app');
   root.dataset.device = S.device || 'mob';
-  if (!S.device && S.screen !== 'publico' && S.screen !== 'instalar') { $('#top').innerHTML=''; $('#nav').innerHTML=''; $('#bell').innerHTML=''; delete root.dataset.side; app.className='choose'; app.innerHTML = vDevice(); return; }
+  if (!S.device && !S.aovivo && S.screen !== 'publico' && S.screen !== 'instalar') { $('#top').innerHTML=''; $('#nav').innerHTML=''; $('#bell').innerHTML=''; delete root.dataset.side; app.className='choose'; app.innerHTML = vDevice(); return; }
   $('#top').innerHTML = S.screen === 'publico' || S.screen === 'instalar' ? `<header class="top"><div class="top-in"><div class="brand">${logo(30)}<span class="bn">Rendique</span></div></div></header>` : vTop();
+  if (S.aovivo && S.screen === 'app' && papel() === 'admin') { // tela ao vivo: sem topo nem menu
+    $('#top').innerHTML = ''; $('#nav').innerHTML = ''; $('#bell').innerHTML = ''; delete root.dataset.side;
+    app.className = 'tvapp'; app.innerHTML = vAoVivo(); document.title = 'Rendique · Ao vivo'; tvLigar(); tvTick(); tvConta(); S.tvAnt = S.tv; return;
+  }
   const desk = S.device === 'desk';
   let html = '', cls = '';
   if (S.screen === 'app') {
@@ -2390,6 +2486,7 @@ const act = {
   go: d => go(d.v),
   det: async d => { S.det = d.v; go('det'); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) { toast(msg(e)); } } },
   filter: d => { S.filter = d.v; render(); },
+  tvTela: () => { const el = document.documentElement; if (document.fullscreenElement) document.exitFullscreen?.(); else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); },
   atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); if (innerWidth <= 900 || document.documentElement.dataset.device === 'mob') { const b = $('.navB-side .on'); if (b) b.parentElement.scrollLeft = b.offsetLeft - 40; } },
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await loadPerfil(); await refresh(); toast('Dados atualizados'); }),

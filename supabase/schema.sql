@@ -1741,3 +1741,107 @@ begin
 end $$;
 revoke execute on function public.email_usuario(uuid) from public, anon;
 grant execute on function public.email_usuario(uuid) to authenticated;
+
+-- ============================================================
+-- Tela ao vivo (KPIs do sistema)
+-- Presença: uma linha por pessoa por dia, com o último sinal de vida (para "online agora").
+-- Só guarda quem e quando; nada de página, aparelho ou localização.
+-- ============================================================
+create table if not exists public.presenca (
+  usuario_id  uuid not null references public.perfis(id) on delete cascade,
+  dia         date not null default (now() at time zone 'America/Sao_Paulo')::date,
+  primeiro_em timestamptz not null default now(),
+  ultimo_em   timestamptz not null default now(),
+  primary key (usuario_id, dia)
+);
+create index if not exists presenca_dia_idx on public.presenca (dia);
+create index if not exists presenca_ultimo_idx on public.presenca (ultimo_em);
+alter table public.presenca enable row level security;
+revoke all on public.presenca from anon, authenticated;
+
+create or replace function public.marcar_presenca() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or not exists (select 1 from public.perfis where id = auth.uid()) then return; end if;
+  insert into public.presenca (usuario_id) values (auth.uid())
+  on conflict (usuario_id, dia) do update set ultimo_em = now();
+  -- presença de mais de 13 meses não serve para nada: apaga
+  delete from public.presenca where dia < (now() at time zone 'America/Sao_Paulo')::date - 400 and random() < 0.01;
+end $$;
+revoke execute on function public.marcar_presenca() from public, anon;
+grant execute on function public.marcar_presenca() to authenticated;
+
+-- Números da tela ao vivo: só contagens e nomes de condomínio; nunca nome ou telefone de proprietário.
+create or replace function public.kpi_ao_vivo() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  tz constant text := 'America/Sao_Paulo';
+  hoje date := (now() at time zone tz)::date;
+  sem  date := date_trunc('week', now() at time zone tz)::date;
+  mes  date := date_trunc('month', now() at time zone tz)::date;
+  mesp date := (date_trunc('month', now() at time zone tz) - interval '1 month')::date;
+  r jsonb;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  with
+  p as (select id, papel, programa, criado_em, (criado_em at time zone tz)::date d, cadastro_status, fotografo_status, nome, condominio_id from public.perfis where papel <> 'admin'),
+  i as (select id, status, condominio_id, indicador_id, telefone_norm, criado_em, atualizado_em, (criado_em at time zone tz)::date d from public.indicacoes),
+  pr as (select telefone_norm, min(d) d from i group by telefone_norm),
+  v as (select b.indicacao_id, b.valor_venda, b.data_venda, b.criado_em from public.bonus_venda b where b.estado <> 'cancelado'),
+  dias as (select generate_series(hoje - 29, hoje, interval '1 day')::date d),
+  pz as (select x.* from public.presenca x join public.perfis pf on pf.id = x.usuario_id and pf.papel <> 'admin')
+  select jsonb_build_object(
+    'agora', now(),
+    'online', (select count(*) from pz where ultimo_em > now() - interval '10 minutes'),
+    'acessos', jsonb_build_object(
+      'hoje',   (select count(distinct usuario_id) from pz where dia = hoje),
+      'semana', (select count(distinct usuario_id) from pz where dia >= sem),
+      'mes',    (select count(distinct usuario_id) from pz where dia >= mes),
+      'desde',  (select min(dia) from public.presenca)),
+    'cadastros', jsonb_build_object(
+      'hoje', (select count(*) from p where d = hoje), 'semana', (select count(*) from p where d >= sem),
+      'mes', (select count(*) from p where d >= mes), 'mes_passado', (select count(*) from p where d >= mesp and d < mes),
+      'total', (select count(*) from p),
+      'indicadores', (select count(*) from p where papel = 'indicador' and coalesce(programa,'condominio') = 'condominio'),
+      'fotografos', (select count(*) from p where papel = 'indicador' and programa = 'fotografo'),
+      'corretores', (select count(*) from p where papel = 'corretor'),
+      'em_analise', (select count(*) from p where cadastro_status = 'pendente' or fotografo_status = 'pendente')),
+    'indicacoes', jsonb_build_object(
+      'hoje', (select count(*) from i where d = hoje), 'semana', (select count(*) from i where d >= sem),
+      'mes', (select count(*) from i where d >= mes), 'mes_passado', (select count(*) from i where d >= mesp and d < mes),
+      'total', (select count(*) from i),
+      'andamento', (select count(*) from i where status between 0 and 5),
+      'qualificadas_mes', (select count(distinct h.indicacao_id) from public.historico h where h.status = 3 and (h.criado_em at time zone tz)::date >= mes)),
+    'proprietarios', jsonb_build_object(
+      'hoje', (select count(*) from pr where d = hoje), 'semana', (select count(*) from pr where d >= sem),
+      'mes', (select count(*) from pr where d >= mes), 'total', (select count(*) from pr)),
+    'vendas', jsonb_build_object(
+      'mes', (select count(*) from v where data_venda >= mes), 'total', (select count(*) from v),
+      'vgv_mes', (select coalesce(sum(valor_venda),0) from v where data_venda >= mes),
+      'vgv_total', (select coalesce(sum(valor_venda),0) from v)),
+    'funil', (select jsonb_agg(n order by s) from (select s, (select count(*) from i where status >= s and status <> 8) n from generate_series(0,6) s) f),
+    'serie', (select jsonb_agg(jsonb_build_object('d', dias.d,
+                 'ind', (select count(*) from i where i.d = dias.d),
+                 'cad', (select count(*) from p where p.d = dias.d),
+                 'ace', (select count(*) from pz x where x.dia = dias.d)) order by dias.d) from dias),
+    'condos', (select coalesce(jsonb_agg(c order by (c->>'n')::int desc), '[]') from (
+                 select jsonb_build_object('nome', co.nome, 'n', count(*)) c from i join public.condominios co on co.id = i.condominio_id
+                 where i.d >= mes group by co.nome order by count(*) desc limit 5) t),
+    'feed', (select coalesce(jsonb_agg(e order by (e->>'em')::timestamptz desc), '[]') from (select e from (
+               (select jsonb_build_object('tipo', 'indicacao', 'em', i.criado_em, 'quem', split_part(pe.nome, ' ', 1), 'onde', co.nome) e
+                  from i left join public.perfis pe on pe.id = i.indicador_id left join public.condominios co on co.id = i.condominio_id
+                  order by i.criado_em desc limit 8)
+               union all
+               (select jsonb_build_object('tipo', case when p.papel = 'corretor' then 'corretor' when p.programa = 'fotografo' then 'fotografo' else 'cadastro' end,
+                       'em', p.criado_em, 'quem', split_part(p.nome, ' ', 1), 'onde', co.nome) e
+                  from p left join public.condominios co on co.id = p.condominio_id order by p.criado_em desc limit 8)
+               union all
+               (select jsonb_build_object('tipo', 'venda', 'em', v.criado_em, 'quem', split_part(pe.nome, ' ', 1), 'onde', co.nome) e
+                  from v join i on i.id = v.indicacao_id left join public.perfis pe on pe.id = i.indicador_id left join public.condominios co on co.id = i.condominio_id
+                  order by v.criado_em desc limit 5)
+               ) u order by (e->>'em')::timestamptz desc limit 10) t)
+  ) into r;
+  return r;
+end $$;
+revoke execute on function public.kpi_ao_vivo() from public, anon;
+grant execute on function public.kpi_ao_vivo() to authenticated;
