@@ -982,33 +982,69 @@ function vAdm(){
   const tabs = [['geral','Visão geral'],['inds','Indicações',novas],['chat','Atendimento',chatNaoLidas()],['ocorr','Ocorrências',open],['rec','Financeiro',S.D.rewards.filter(r=>r.estado==='resgate').length],['bonus','Bônus de venda',(S.D.bonus||[]).filter(b=>b.estado==='disponivel').length],['condos','Condomínios'],['indic','Indicadores'],['users','Usuários',S.D.perfis.filter(p => !p.excluido_em && p.papel === 'indicador' && (p.programa === 'fotografo' ? p.fotografo_status === 'pendente' : p.cadastro_status === 'pendente')).length],['prog','Programa'],['aud','Auditoria'],['rel','Relatórios']];
   const body = ({ geral:aGeral, inds:aInds, chat:aChat, ocorr:aOcorr, rec:aRec, bonus:aBonus, condos:aCondos, indic:aIndicadores, users:aUsers, prog:aProg, aud:aAud, rel:aRel }[S.admTab] || aGeral)();
   return `<div class="sec-h"><h1 style="font-size:28px">Painel do gestor</h1><button class="btn sm ghost" data-a="reload">${ic('refresh',16)}Atualizar</button></div>
-   <div class="atabs">${tabs.map(([k,l,c]) => `<button class="${S.admTab===k?'on':''}" data-a="atab" data-v="${k}">${l}${c?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>${body}`;
+   <div class="navB">${admNav(tabs)}<div class="navB-main">${body}</div></div>`;
+}
+/* ---------- navegação do painel: menu lateral por grupos ---------- */
+const NAV_IC = { geral:'chart', inds:'list', chat:'chat2', ocorr:'alert', rec:'wallet', bonus:'wallet', condos:'building', indic:'idcard', users:'users', prog:'doc', aud:'shield', rel:'doc' };
+const NAV_GRUPOS = [['Operação', ['inds','chat','ocorr']], ['Dinheiro', ['rec','bonus']], ['Rede', ['indic','users','condos']], ['Gestão', ['prog','aud','rel']]];
+function admNav(tabs){
+  const T = Object.fromEntries(tabs.map(([k, l, c]) => [k, { l, c }])), cnt = c => c ? `<span class="cnt">${c}</span>` : '', on = k => S.admTab === k ? 'on' : '';
+  const grupos = [['', ['geral']], ...NAV_GRUPOS].map(([nome, ks]) => [nome, ks.filter(k => T[k])]).filter(([, ks]) => ks.length);
+  return `<nav class="navB-side">${grupos.map(([nome, ks]) => `${nome ? `<p class="nsec">${nome}</p>` : ''}${ks.map(k => `<button class="${on(k)}" data-a="atab" data-v="${k}">${ic(NAV_IC[k] || 'doc', 18)}<span class="t">${T[k].l}</span>${cnt(T[k].c)}</button>`).join('')}`).join('')}</nav>`;
+}
+/* ---------- Visão geral: variações A / B / C ---------- */
+function geralDados(){
+  const L = S.D.inds, now = Date.now(), dt = i => new Date(i.criado_em).getTime(), reached = (i, k) => i.status >= k && i.status !== 8;
+  const mIni = k => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - k, 1).getTime(); };
+  const noMes = (t, k) => t >= mIni(k) && t < (k === 0 ? Infinity : mIni(k - 1));
+  const vendaT = i => { const b = bonusDe(i.id); return b?.data_venda ? new Date(b.data_venda + 'T12:00').getTime() : new Date(i.etapa_em || i.atualizado_em || i.criado_em).getTime(); };
+  const vendas = L.filter(i => i.status === 6 || i.status === 7);
+  const meses = [5, 4, 3, 2, 1, 0].map(k => { const d = new Date(mIni(k)); return { rot: MESES[d.getMonth()].slice(0, 3), ind: L.filter(i => noMes(dt(i), k)).length, qual: L.filter(i => reached(i, 3) && noMes(dt(i), k)).length, vend: vendas.filter(i => noMes(vendaT(i), k)).length }; });
+  const dias = Array.from({ length: 30 }, (_, k) => { const a = now - (30 - k) * DAY, b = a + DAY; return L.filter(i => dt(i) >= a && dt(i) < b).length; });
+  const R = S.D.rewards.filter(r => r.estado !== 'cancelada'), B = (S.D.bonus || []).filter(b => b.estado !== 'cancelado'), sum = (X, f) => X.filter(f).reduce((a, b) => a + Number(b.valor || 0), 0);
+  const inds = S.D.perfis.filter(p => p.papel === 'indicador' && !p.excluido_em);
+  const ultima = u => Math.max(0, ...L.filter(i => i.indicador_id === u.id).map(dt));
+  const ativos = inds.filter(u => ultima(u) > now - 30 * DAY);
+  const inativos = inds.filter(u => u.ativo && ultima(u) && ultima(u) <= now - 30 * DAY);
+  const pendCad = inds.filter(u => u.programa === 'fotografo' ? u.fotografo_status === 'pendente' : u.cadastro_status === 'pendente').length;
+  const fun = [['Indicações', L.length, 0], ['Contato feito', L.filter(i => reached(i, 2)).length, 2], ['Qualificadas', L.filter(i => reached(i, 3)).length, 3], ['Anúncio ativo', L.filter(i => reached(i, 4)).length, 4], ['Negociação', L.filter(i => reached(i, 5)).length, 5], ['Vendas', vendas.length, 6]];
+  const top = inds.map(u => ({ u, n: L.filter(i => i.indicador_id === u.id).length, q: L.filter(i => i.indicador_id === u.id && reached(i, 3)).length })).filter(t => t.n).sort((a, b) => b.q - a.q || b.n - a.n).slice(0, 6);
+  const byC = S.D.condos.map(c => ({ c, n: L.filter(i => i.condominio_id === c.id).length, q: L.filter(i => i.condominio_id === c.id && reached(i, 3)).length })).filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 6);
+  const acoes = [
+    ['novas', 'Para validar', L.filter(i => i.status === 0).length, 'inds:novas', 'list'],
+    ['atras', 'Prazo estourado', L.filter(slaLate).length, 'inds:atras', 'clock'],
+    ['cad', 'Cadastros em análise', pendCad, 'users', 'users'],
+    ['pag', 'Pagamentos a fazer', R.filter(r => ['disponivel', 'resgate'].includes(r.estado)).length + B.filter(b => b.estado === 'disponivel').length, 'rec', 'wallet'],
+    ['msg', 'Mensagens sem resposta', chatNaoLidas(), 'chat', 'chat2'],
+    ['ocorr', 'Ocorrências abertas', S.D.ocorr.filter(o => o.estado === 'aberta').length, 'ocorr', 'alert']];
+  const vgv = B.reduce((a, b) => a + Number(b.valor_venda || 0), 0), receita = Object.values(S.D.receitas || {}).reduce((a, r) => a + Number(r.valor || 0), 0);
+  return { L, inds, ativos, inativos, meses, dias, fun, top, byC, acoes, vendas, vgv, receita,
+    recG: sum(R, () => true), recP: sum(R, r => r.estado === 'pago'), recA: sum(R, r => ['processamento', 'disponivel', 'resgate'].includes(r.estado)), bonP: sum(B, b => b.estado === 'pago'), bonA: sum(B, b => b.estado !== 'pago'),
+    novosInd: inds.filter(u => new Date(u.criado_em).getTime() > now - 30 * DAY).length };
+}
+const gvDelta = (a, b) => { if (!b) return a ? `<span class="gvd up">novo</span>` : ''; const p = Math.round((a - b) / b * 100); if (!p) return `<span class="gvd">= mês passado</span>`; return `<span class="gvd ${p >= 0 ? 'up' : 'down'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}%</span>`; };
+function gvSpark(v, w = 160, h = 40){ const mx = Math.max(1, ...v), st = w / (v.length - 1); const pts = v.map((x, k) => `${(k * st).toFixed(1)},${(h - 4 - x / mx * (h - 8)).toFixed(1)}`).join(' ');
+  return `<svg class="gvspark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,${h} ${pts} ${w},${h}" class="a"/><polyline points="${pts}" class="l"/></svg>`; }
+const gvAcao = ([k, l, n, ir, icn]) => `<button class="gvact ${n ? 'on' : ''} ${k}" data-a="geralIr" data-v="${ir}">${ic(icn, 20)}<b>${n}</b><span>${l}</span></button>`;
+const gvTop = D => D.top.map((t, k) => `<div><span class="p">${k + 1}</span><span><b>${esc(t.u.nome)}</b><span class="note"> · ${esc(t.u.funcao)}</span></span><span class="num note">${t.q} qualif. / ${t.n}</span></div>`).join('') || '<p class="muted">Ainda sem indicações.</p>';
+function geralA(){ // Comando do dia: o que precisa de você primeiro
+  const D = geralDados(), m = D.meses, mes = m[5], ant = m[4];
+  return `<div class="gvhead"><h2>Precisa de você agora</h2><span class="note">${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</span></div>
+   <div class="gvacts">${D.acoes.map(gvAcao).join('')}</div>
+   <div class="kpis gvk">
+    <div class="tile"><div class="v">${mes.ind}${gvDelta(mes.ind, ant.ind)}</div><div class="l">Indicações no mês</div>${gvSpark(D.dias)}</div>
+    <div class="tile"><div class="v">${mes.qual}${gvDelta(mes.qual, ant.qual)}</div><div class="l">Qualificadas no mês</div></div>
+    <div class="tile"><div class="v">${mes.vend}${gvDelta(mes.vend, ant.vend)}</div><div class="l">Vendas no mês</div></div>
+    <div class="tile"><div class="v">${D.ativos.length}<small>/${D.inds.length}</small></div><div class="l">Indicadores ativos (30 dias)</div></div></div>
+   <div class="grid2">
+    <div class="card"><h2>Funil</h2><div class="funnel">${D.fun.map(([l, v, st]) => `<div class="frow" style="${sc(st)}"><span>${l}</span><div class="fbar"><i style="width:${D.L.length ? Math.max(2, v / D.L.length * 100) : 0}%"></i></div><b>${v}</b></div>`).join('')}</div><p class="note">Conversão indicação → venda: ${D.L.length ? Math.round(D.vendas.length / D.L.length * 100) : 0}%</p></div>
+    <div class="card"><h2>Dinheiro do programa</h2><div class="kpis" style="grid-template-columns:1fr 1fr">${kpi(money(D.recA), 'Recompensas a pagar')}${kpi(money(D.recP), 'Recompensas pagas')}${kpi(money(D.bonA), 'Bônus de venda em aberto')}${kpi(money(D.bonP), 'Bônus pagos')}</div></div>
+    <div class="card"><h2>Top indicadores</h2><div class="rank">${gvTop(D)}</div></div>
+    <div class="card"><h2>Reativar</h2><p class="note">Indicadores que não indicam há mais de 30 dias. Um WhatsApp pode trazer de volta.</p><div class="gvre">${D.inativos.slice(0, 6).map(u => `<div><span><b>${esc(u.nome)}</b><small>${esc(condo(u.condominio_id)?.nome || u.regiao || '')}</small></span><a class="btn sm ghost wa" href="${waLink(u.telefone)}" target="_blank" rel="noopener" style="text-decoration:none">${ic('chat', 14)}Chamar</a></div>`).join('') || '<p class="muted">Todos indicaram nos últimos 30 dias.</p>'}</div></div>
+   </div>`;
 }
 function aGeral(){
-  const L = S.D.inds, n = L.length, now = Date.now(), since = d => L.filter(i => new Date(i.criado_em) > now - d*DAY).length;
-  const reached = (i,k) => i.status >= k && i.status !== 8;
-  const fun = [['Indicações',n,0],['Contatos',L.filter(i=>reached(i,2)).length,2],['Qualificadas',L.filter(i=>reached(i,3)).length,3],['Anúncios',L.filter(i=>reached(i,4)).length,4],['Negociações',L.filter(i=>reached(i,5)).length,5],['Vendas',L.filter(i=>reached(i,6)).length,6]];
-  const R = S.D.rewards.filter(r => r.estado !== 'cancelada'), sum = f => R.filter(f).reduce((a,b) => a + Number(b.valor), 0);
-  const inds = S.D.perfis.filter(p => p.papel === 'indicador' && !p.excluido_em);
-  const ativos = inds.filter(u => L.some(i => i.indicador_id === u.id && new Date(i.criado_em) > now - 30*DAY)).length;
-  const top = inds.map(u => ({ u, n: L.filter(i => i.indicador_id === u.id).length, q: L.filter(i => i.indicador_id === u.id && reached(i,3)).length })).sort((a,b) => b.q - a.q || b.n - a.n).slice(0,8);
-  const byC = S.D.condos.map(c => ({ c, n: L.filter(i => i.condominio_id === c.id).length })).filter(x => x.n).sort((a,b) => b.n - a.n).slice(0,8);
-  const byR = {}; L.forEach(i => { const r = condo(i.condominio_id)?.regiao || 'Sem região'; byR[r] = (byR[r]||0) + 1; });
-  const late = L.filter(slaLate).length;
-  return `${late ? `<div class="slaalert">${ic('clock',20)}<div><b>${late} indicaç${late>1?'ões':'ão'} com prazo de ${SLA_H}h estourado</b><p class="note">Passaram mais de ${SLA_H} horas sem trocar de fase.</p></div><button class="btn sm" data-a="verAtras">Ver agora</button></div>` : ''}<h2 style="font-size:17px">Indicadores (profissionais)</h2>
-   <div class="kpis">${kpi(inds.length,'Total de indicadores')}${kpi(inds.filter(u => new Date(u.criado_em) > now - 30*DAY).length,'Novos (30 dias)')}${kpi(ativos,'Ativos (30 dias)')}${kpi(S.D.ocorr.filter(o=>o.estado==='aberta').length,'Ocorrências abertas')}</div>
-   <h2 style="font-size:17px">Indicações</h2>
-   <div class="kpis">${kpi(n,'Total')}${kpi(since(1),'Hoje')}${kpi(since(7),'Semana')}${kpi(since(30),'Mês')}</div>
-   <div class="grid2">
-    <div class="card"><h2>Funil</h2><div class="funnel">${fun.map(([l,v,s]) => `<div class="frow" style="${sc(s)}"><span>${l}</span><div class="fbar"><i style="width:${n?Math.max(2,v/n*100):0}%"></i></div><b>${v}</b></div>`).join('')}</div>
-     <p class="note">Conversão indicação → venda: ${n?Math.round(fun[5][1]/n*100):0}%</p></div>
-    <div class="card"><h2>Financeiro do programa</h2><div class="kpis" style="grid-template-columns:1fr 1fr">
-     ${kpi(money(sum(()=>true)),'Recompensas geradas')}${kpi(money(sum(r=>['processamento','disponivel','resgate'].includes(r.estado))),'Pendentes')}${kpi(money(sum(r=>r.estado==='pago')),'Pagas')}${kpi(R.length,'Recompensas emitidas')}</div>
-     <p class="note">Valor fixo por indicação qualificada. Nenhuma remuneração percentual sobre a operação imobiliária.</p></div>
-    <div class="card"><h2>Top indicadores</h2><div class="rank">${top.map((t,k) => `<div><span class="p">${k+1}</span><span><b>${esc(t.u.nome)}</b><span class="note"> · ${esc(t.u.funcao)}</span></span><span class="num note">${t.q} qualif. / ${t.n}</span></div>`).join('') || '<p class="muted">Ainda sem indicadores.</p>'}</div></div>
-    <div class="card"><h2>Por condomínio</h2><div class="rank">${byC.map((t,k) => `<div><span class="p">${k+1}</span><span>${esc(t.c.nome)}<span class="note"> · ${esc(t.c.bairro||'')}</span></span><b class="num">${t.n}</b></div>`).join('') || '<p class="muted">Ainda sem indicações.</p>'}</div>
-     <h3>Por região</h3><div class="rank">${Object.entries(byR).sort((a,b)=>b[1]-a[1]).map(([r,v],k) => `<div><span class="p">${k+1}</span><span>${esc(r)}</span><b class="num">${v}</b></div>`).join('') || '<p class="muted">—</p>'}</div></div>
-   </div>`;
+  return geralA();
 }
 /* ---------- Ficha do imóvel (gestor e corretor) ---------- */
 const FICHA_OBRIG = [['area_util','Área útil'],['dormitorios','Dormitórios'],['banheiros','Banheiros'],['vagas','Vagas'],['valor_venda','Valor de venda'],['ocupacao','Ocupação'],['documentacao','Documentação']];
@@ -2354,7 +2390,7 @@ const act = {
   go: d => go(d.v),
   det: async d => { S.det = d.v; go('det'); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) { toast(msg(e)); } } },
   filter: d => { S.filter = d.v; render(); },
-  atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); },
+  atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); if (innerWidth <= 900 || document.documentElement.dataset.device === 'mob') { const b = $('.navB-side .on'); if (b) b.parentElement.scrollLeft = b.offsetLeft - 40; } },
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await loadPerfil(); await refresh(); toast('Dados atualizados'); }),
   logout: () => guard(async () => { S.drawer = null; S.bell = false; closeModal(); await sb.auth.signOut(); S.D = { inds:[], rewards:[], condos:[], perfis:[], ocorr:[], notifs:[], audit:[], hist:{}, convidados:null, valor:20 }; onSession(null); }),
@@ -2459,6 +2495,7 @@ const act = {
   chatTiraSobre: () => { S.chatSobre = null; render(); },
   chatNova: () => { const v = $('#chat-novo')?.value; if (v) { S.chatSel = v; render(); } },
   verAtras: () => { S.admTab = 'inds'; S.admGrupo = 'atras'; render(); },
+  geralIr: d => { const [t, g] = d.v.split(':'); S.admTab = t; if (g) { S.admGrupo = g; S.admOrd = ''; } render(); window.scrollTo(0, 0); },
   ativoUser: d => guard(async () => { closeModal(); const on = d.s === '1'; await rpc('definir_ativo', { p_usuario: d.v, p_ativo: on }); await refresh(); toast(on ? 'Acesso reativado' : 'Acesso suspenso'); }),
   delUser: d => delUserModal(d.v),
   delUserOk: d => guard(async () => { const u = perfil(d.v), n = u?.nome || 'Usuário'; closeModal(); const docs = [u?.doc_frente, u?.doc_verso].filter(Boolean); if (docs.length) { try { await sb.storage.from('documentos').remove(docs); } catch(e) {} } await rpc('excluir_usuario', { p_usuario: d.v }); await refresh(); toast(`${n} excluído`); }),
