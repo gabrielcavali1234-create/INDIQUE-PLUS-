@@ -1125,7 +1125,11 @@ begin
   end if;
   update public.recompensas set estado = 'cancelada' where indicador_id = p_usuario and estado = 'processamento';
   update public.bonus_venda set estado = 'cancelado' where indicador_id = p_usuario and estado = 'aguardando';
-  update public.perfis set ativo = false, excluido_em = now(), telefone = null, pix_tipo = null, pix_chave = null
+  update public.perfis set ativo = false, excluido_em = now(), telefone = null, pix_tipo = null, pix_chave = null,
+         -- CPF só fica guardado se houve pagamento (obrigação fiscal); documento e portfólio sempre saem
+         cpf = case when exists (select 1 from public.recompensas where indicador_id = p_usuario and estado = 'pago')
+                      or exists (select 1 from public.bonus_venda where indicador_id = p_usuario and estado = 'pago') then cpf end,
+         doc_tipo = null, doc_frente = null, doc_verso = null, portfolio = null
    where id = p_usuario;
   delete from public.notificacoes where destinatario_id = p_usuario;
   delete from auth.users where id = p_usuario;
@@ -1701,3 +1705,39 @@ begin
 end $$;
 revoke execute on function public.analisar_cadastro(uuid,text,text) from public, anon;
 grant execute on function public.analisar_cadastro(uuid,text,text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- LGPD: dados pessoais dos indicadores (CPF, Pix, celular, documento) só para o gestor.
+-- O corretor vê apenas o básico (nome, função, código) por esta função.
+-- ---------------------------------------------------------------------
+drop policy if exists perfis_ler on public.perfis;
+create policy perfis_ler on public.perfis for select to authenticated using (id = auth.uid() or public.is_admin());
+create or replace function public.perfis_equipe() returns table (id uuid, nome text, funcao text, codigo text, papel text, programa text, condominio_id uuid, criado_em timestamptz)
+language sql stable security definer set search_path = public as $$
+  select id, nome, funcao, codigo, papel, programa, condominio_id, criado_em from public.perfis where public.is_staff()
+$$;
+revoke execute on function public.perfis_equipe() from public, anon;
+grant execute on function public.perfis_equipe() to authenticated;
+
+-- registro de quem abriu a ficha ou o documento de alguém (prestação de contas da LGPD)
+create or replace function public.registrar_acesso(p_usuario uuid, p_tipo text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_nome text;
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  select nome into v_nome from public.perfis where id = p_usuario;
+  if v_nome is null then return; end if;
+  perform public.registra(case when p_tipo = 'documento' then 'Documento visto: ' else 'Ficha aberta: ' end || v_nome);
+end $$;
+revoke execute on function public.registrar_acesso(uuid,text) from public, anon;
+grant execute on function public.registrar_acesso(uuid,text) to authenticated;
+
+-- e-mail de login do indicador (fica no Auth, não na tabela de perfis)
+create or replace function public.email_usuario(p_usuario uuid) returns text
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Sem permissão.'; end if;
+  return (select email from auth.users where id = p_usuario);
+end $$;
+revoke execute on function public.email_usuario(uuid) from public, anon;
+grant execute on function public.email_usuario(uuid) to authenticated;
