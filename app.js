@@ -518,7 +518,7 @@ function vTop(){
   const inApp = S.screen === 'app';
   const rot = { admin:'Gestor', corretor:'Corretor', indicador:'Indicador' }[papel()] || '';
   return `<header class="top"><div class="top-in ${w}">
-   <div class="brand">${logo(30)}<span class="bn">Rendique</span></div>
+   ${inApp ? `<button class="brand" data-a="inicio" aria-label="Rendique: voltar à página inicial" title="Página inicial">${logo(30)}<span class="bn">Rendique</span></button>` : `<a class="brand" href="./" aria-label="Rendique: página inicial">${logo(30)}<span class="bn">Rendique</span></a>`}
    <div class="tools">
     <div class="devsw" role="group" aria-label="Formato da tela">
      <button class="${S.device==='mob'?'on':''}" data-a="device" data-v="mob" aria-pressed="${S.device==='mob'}" aria-label="Versão celular" title="Versão celular">${ic('phone2',18)}</button>
@@ -2432,7 +2432,7 @@ function render(){
   const root = document.documentElement, app = $('#app');
   root.dataset.device = S.device || 'mob';
   if (!S.device && !S.aovivo && S.screen !== 'publico' && S.screen !== 'instalar') { $('#top').innerHTML=''; $('#nav').innerHTML=''; $('#bell').innerHTML=''; delete root.dataset.side; app.className='choose'; app.innerHTML = vDevice(); return; }
-  $('#top').innerHTML = S.screen === 'publico' || S.screen === 'instalar' ? `<header class="top"><div class="top-in"><div class="brand">${logo(30)}<span class="bn">Rendique</span></div></div></header>` : vTop();
+  $('#top').innerHTML = S.screen === 'publico' || S.screen === 'instalar' ? `<header class="top"><div class="top-in"><a class="brand" href="./" aria-label="Rendique: página inicial">${logo(30)}<span class="bn">Rendique</span></a></div></header>` : vTop();
   if (S.aovivo && S.screen === 'app' && papel() === 'admin') { // tela ao vivo: sem topo nem menu
     $('#top').innerHTML = ''; $('#nav').innerHTML = ''; $('#bell').innerHTML = ''; delete root.dataset.side;
     app.className = 'tvapp'; app.innerHTML = vAoVivo(); document.title = 'Rendique · Ao vivo'; tvLigar(); tvTick(); tvConta(); S.tvAnt = S.tv; return;
@@ -2487,6 +2487,7 @@ const act = {
   det: async d => { S.det = d.v; go('det'); if (!S.D.hist[d.v]) { try { await loadHist(d.v); render(); } catch(e) { toast(msg(e)); } } },
   filter: d => { S.filter = d.v; render(); },
   tvTela: () => { const el = document.documentElement; if (document.fullscreenElement) document.exitFullscreen?.(); else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); },
+  inicio: () => { closeModal(); S.bell = false; S.flash = null; if (papel() === 'admin') S.admTab = 'geral'; else if (papel() !== 'corretor') S.tab = 'home'; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
   atab: d => { S.admTab = d.v; S.flash = null; render(); if (d.v === 'chat') chatLer(); if (innerWidth <= 900 || document.documentElement.dataset.device === 'mob') { const b = $('.navB-side .on'); if (b) b.parentElement.scrollLeft = b.offsetLeft - 40; } },
   retry: () => onSession(S.session),
   reload: () => guard(async () => { await loadPerfil(); await refresh(); toast('Dados atualizados'); }),
